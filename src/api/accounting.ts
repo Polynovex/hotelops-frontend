@@ -1,0 +1,33 @@
+import { accountingService } from '../services/api';
+
+export const accountingApi = {
+  getChartOfAccounts: accountingService.getChartOfAccounts,
+  createChartOfAccount: accountingService.createChartOfAccount,
+  deactivateChartOfAccount: accountingService.deactivateChartOfAccount,
+  getJournals: accountingService.getJournals,
+  createJournal: accountingService.createJournal,
+  postJournal: accountingService.postJournal,
+  getBankAccounts: accountingService.getBankAccounts,
+  createBankAccount: accountingService.createBankAccount,
+  getBankTransactions: accountingService.getBankTransactions,
+  importBankStatement: accountingService.importBankStatement,
+  reconcileBank: accountingService.reconcileBank,
+  getBudgets: accountingService.getBudgets,
+  createBudget: accountingService.createBudget,
+  getBudgetVariance: accountingService.getBudgetVariance,
+  getFixedAssets: accountingService.getFixedAssets,
+  createFixedAsset: accountingService.createFixedAsset,
+  depreciateFixedAsset: accountingService.depreciateFixedAsset,
+  disposeFixedAsset: accountingService.disposeFixedAsset,
+  getTrialBalanceReport: accountingService.getTrialBalanceReport,
+  getProfitLossReport: accountingService.getProfitLossReport,
+  getBalanceSheetReport: accountingService.getBalanceSheetReport,
+  getAgingArReport: accountingService.getAgingArReport,
+  getAgingApReport: accountingService.getAgingApReport,
+  getVatSummaryReport: accountingService.getVatSummaryReport,
+  getGeneralLedgerReport: accountingService.getGeneralLedgerReport,
+  getNightAuditStatus: accountingService.getNightAuditStatus,
+  validateNightAudit: accountingService.validateNightAudit,
+  runNightAudit: accountingService.runNightAudit,
+  getNightAuditHistory: accountingService.getNightAuditHistory
+};

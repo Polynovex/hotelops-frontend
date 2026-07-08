@@ -1,0 +1,497 @@
+import React, { useState } from 'react';
+import {
+  Box,
+  AppBar,
+  Toolbar,
+  Drawer,
+  List,
+  ListItemIcon,
+  ListItemText,
+  ListItemButton,
+  IconButton,
+  Menu,
+  MenuItem,
+  Avatar,
+  Typography,
+  useMediaQuery,
+  useTheme,
+  Badge,
+  Chip,
+  Divider,
+  Paper,
+  Stack,
+  Tooltip
+} from '@mui/material';
+import { alpha } from '@mui/material/styles';
+import {
+  DarkModeRounded,
+  LightModeRounded,
+  Menu as MenuIcon,
+  Close as CloseIcon,
+  Dashboard as DashboardIcon,
+  People as PeopleIcon,
+  Hotel as HotelIcon,
+  RestaurantMenu as MenuBookIcon,
+  CalendarToday as CalendarIcon,
+  Receipt as ReceiptIcon,
+  Assessment as AssessmentIcon,
+  Settings,
+  MeetingRoom as RoomIcon,
+  CleaningServices as CleaningIcon,
+  PointOfSale as PosIcon,
+  BusinessCenter as BusinessIcon,
+  PersonAdd as UserIcon,
+  History as AuditIcon,
+  History as HistoryIcon,
+  FactCheck as KdsIcon,
+  Logout as LogoutIcon,
+  Notifications,
+  WorkspacePremium,
+  NightShelterRounded,
+  AccountBalanceWalletRounded,
+  RestaurantRounded,
+  AutoAwesomeRounded,
+  TrendingUpRounded,
+} from '@mui/icons-material';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { useAuthStore } from '../store/authStore';
+import { useColorMode } from '../theme/colorMode';
+import { DemoModeBanner } from './DemoModeBanner';
+import DesktopUpdateBanner from './DesktopUpdateBanner';
+
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+type NavRole =
+  | 'SUPER_ADMIN'
+  | 'BUSINESS_ADMIN'
+  | 'RECEPTION'
+  | 'POS_STAFF'
+  | 'HOUSEKEEPING'
+  | 'ACCOUNTANT'
+  | 'MANAGER';
+
+interface NavItem {
+  label: string;
+  icon: React.ElementType;
+  path: string;
+  module?: 'pms' | 'pos' | 'finance';
+}
+
+const navigationConfig: Record<NavRole, NavItem[]> = {
+  SUPER_ADMIN: [
+    { label: 'Dashboard', icon: DashboardIcon, path: '/super-admin/dashboard' },
+    { label: 'Businesses', icon: BusinessIcon, path: '/super-admin/businesses' },
+    { label: 'System Stats', icon: AssessmentIcon, path: '/super-admin/stats' },
+    { label: 'Audit Log', icon: AuditIcon, path: '/super-admin/audit' }
+  ],
+  BUSINESS_ADMIN: [
+    { label: 'Dashboard', icon: DashboardIcon, path: '/business/dashboard' },
+    { label: 'Staff', icon: UserIcon, path: '/business/users' },
+    { label: 'Room Types', icon: HotelIcon, path: '/business/room-types', module: 'pms' },
+    { label: 'Rooms', icon: RoomIcon, path: '/business/rooms', module: 'pms' },
+    { label: 'Menu', icon: MenuBookIcon, path: '/business/menu', module: 'pos' },
+    { label: 'Menu Configuration', icon: RoomIcon, path: '/business/pos/tables', module: 'pos' },
+    { label: 'Menu Engineering', icon: AssessmentIcon, path: '/business/pos/menu-engineering', module: 'pos' },
+    { label: 'Promotions', icon: WorkspacePremium, path: '/business/promotions', module: 'pos' },
+    { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
+    { label: 'Profiles (View)', icon: PeopleIcon, path: '/business/profiles', module: 'pms' },
+    { label: 'Inventory', icon: ReceiptIcon, path: '/business/accounting/inventory', module: 'finance' },
+    { label: 'Forecasting', icon: TrendingUpRounded, path: '/business/accounting/forecasting', module: 'finance' },
+    { label: 'Reports', icon: AssessmentIcon, path: '/business/reports/revenue', module: 'finance' },
+    { label: 'Audit Trail', icon: AuditIcon, path: '/business/audit' },
+    { label: 'Settings', icon: Settings, path: '/business/settings' }
+  ],
+  RECEPTION: [
+    { label: 'Shift', icon: HistoryIcon, path: '/shift' },
+    { label: 'Dashboard', icon: DashboardIcon, path: '/reception/dashboard', module: 'pms' },
+    { label: 'Stay View', icon: CalendarIcon, path: '/reception/stay-view', module: 'pms' },
+    { label: 'Arrivals', icon: PeopleIcon, path: '/reception/arrivals', module: 'pms' },
+    { label: 'Departures', icon: PeopleIcon, path: '/reception/departures', module: 'pms' },
+    { label: 'In-House', icon: HotelIcon, path: '/reception/in-house', module: 'pms' },
+    { label: 'Waitlist', icon: ReceiptIcon, path: '/reception/waitlist', module: 'pms' },
+    { label: 'New Reservation', icon: CalendarIcon, path: '/reception/new-reservation', module: 'pms' },
+    { label: 'Guest Profiles', icon: PeopleIcon, path: '/business/profiles', module: 'pms' }
+  ],
+  POS_STAFF: [
+    { label: 'Shift', icon: HistoryIcon, path: '/shift' },
+    { label: 'Dashboard', icon: DashboardIcon, path: '/pos/dashboard', module: 'pos' },
+    { label: 'Take Orders', icon: PosIcon, path: '/pos/order', module: 'pos' },
+    { label: 'Tables', icon: RoomIcon, path: '/pos/tables', module: 'pos' },
+    { label: 'Kitchen Display', icon: KdsIcon, path: '/pos/orders', module: 'pos' }
+  ],
+  HOUSEKEEPING: [
+    { label: 'Dashboard', icon: DashboardIcon, path: '/housekeeping/dashboard', module: 'pms' },
+    { label: 'Room Status', icon: CleaningIcon, path: '/housekeeping/rooms', module: 'pms' },
+    { label: 'My Tasks', icon: AssessmentIcon, path: '/housekeeping/tasks', module: 'pms' }
+  ],
+  ACCOUNTANT: [
+    { label: 'Dashboard', icon: DashboardIcon, path: '/accountant/dashboard', module: 'finance' },
+    { label: 'Night Audit Status', icon: AssessmentIcon, path: '/accountant/night-audit/status', module: 'finance' },
+    { label: 'Validate Audit', icon: ReceiptIcon, path: '/accountant/night-audit/validate', module: 'finance' },
+    { label: 'Run Night Audit', icon: AuditIcon, path: '/accountant/night-audit/run', module: 'finance' },
+    { label: 'Audit History', icon: HistoryIcon, path: '/accountant/night-audit/history', module: 'finance' },
+    { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
+    { label: 'Revenue', icon: AssessmentIcon, path: '/accountant/revenue', module: 'finance' },
+    { label: 'Inventory', icon: ReceiptIcon, path: '/business/accounting/inventory', module: 'finance' },
+    { label: 'Forecasting', icon: TrendingUpRounded, path: '/business/accounting/forecasting', module: 'finance' },
+    { label: 'Aging', icon: ReceiptIcon, path: '/accountant/aging', module: 'finance' },
+    { label: 'VAT', icon: ReceiptIcon, path: '/accountant/vat', module: 'finance' },
+    { label: 'Trial Balance', icon: AssessmentIcon, path: '/accountant/trial-balance', module: 'finance' }
+  ],
+  MANAGER: [
+    { label: 'Dashboard', icon: DashboardIcon, path: '/business/dashboard' },
+    { label: 'Reservations', icon: CalendarIcon, path: '/business/reservations', module: 'pms' },
+    { label: 'Arrivals', icon: PeopleIcon, path: '/business/reservations/arrivals', module: 'pms' },
+    { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
+    { label: 'Revenue', icon: AssessmentIcon, path: '/business/accounting/reports/profit-loss', module: 'finance' },
+    { label: 'Trial Balance', icon: AssessmentIcon, path: '/business/accounting/reports/trial-balance', module: 'finance' },
+    { label: 'Audit Trail', icon: AuditIcon, path: '/business/audit-trail' }
+  ]
+};
+
+const drawerWidth = 304;
+
+const moduleMeta = {
+  pms: { label: 'PMS', icon: NightShelterRounded },
+  pos: { label: 'POS', icon: RestaurantRounded },
+  finance: { label: 'Finance', icon: AccountBalanceWalletRounded }
+} as const;
+
+const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, logout } = useAuthStore();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const theme = useTheme();
+  const { mode, toggleColorMode } = useColorMode();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isDark = mode === 'dark';
+
+  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleProfileMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const normalizedRole = String(user?.role || '').toUpperCase();
+  const roleMap: Record<string, NavRole> = {
+    SUPER_ADMIN: 'SUPER_ADMIN',
+    BUSINESS_ADMIN: 'BUSINESS_ADMIN',
+    RECEPTION: 'RECEPTION',
+    RECEPTIONIST: 'RECEPTION',
+    POS_STAFF: 'POS_STAFF',
+    HOUSEKEEPING: 'HOUSEKEEPING',
+    ACCOUNTANT: 'ACCOUNTANT',
+    MANAGER: 'MANAGER'
+  };
+  const role = roleMap[normalizedRole] || 'BUSINESS_ADMIN';
+  const isModuleEnabled = (module: 'pms' | 'pos' | 'finance') => {
+    if (normalizedRole === 'SUPER_ADMIN') {
+      return true;
+    }
+
+    if (module === 'pms') {
+      return user?.pmsEnabled !== false;
+    }
+    if (module === 'pos') {
+      return user?.posEnabled !== false;
+    }
+    return user?.financeEnabled !== false;
+  };
+
+  const displayRole = (r: string) => {
+    const map: Record<string, string> = {
+      RECEPTIONIST: 'FRONT OFFICE',
+      RECEPTION: 'FRONT OFFICE',
+      SUPER_ADMIN: 'SUPER ADMIN',
+      BUSINESS_ADMIN: 'ADMIN',
+      POS_STAFF: 'POS STAFF'
+    };
+    return map[r] ?? r.replace(/_/g, ' ');
+  };
+
+  const menuItems = (navigationConfig[role] || []).filter((item) => {
+    if (!item.module) {
+      return true;
+    }
+    return isModuleEnabled(item.module);
+  });
+  const activeItem =
+    menuItems.find((item) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)) ||
+    menuItems[0];
+  const enabledModules = (Object.keys(moduleMeta) as Array<keyof typeof moduleMeta>).map((moduleKey) => ({
+    ...moduleMeta[moduleKey],
+    enabled: isModuleEnabled(moduleKey)
+  }));
+
+  const drawerContent = (
+    <Box sx={{ width: drawerWidth, height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box
+        sx={{
+          p: 3,
+          pb: 2.5,
+          borderBottom: '1px solid rgba(255,255,255,0.08)'
+        }}
+      >
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box
+            component="img"
+            src="/logo.png"
+            alt="HotelOpX"
+            sx={{
+                width: 44,
+                height: 44,
+                borderRadius: '10px',
+                objectFit: 'contain',
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                padding: '6px',
+              boxShadow: '0 18px 32px rgba(0,0,0,0.12)'
+            }}
+          />
+          <Box>
+            <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.68)', letterSpacing: '0.12em' }}>
+              HOTEL OPS
+            </Typography>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: '#FFFFFF', mt: 0.25 }}>
+              HotelOpX
+            </Typography>
+          </Box>
+        </Stack>
+        <Typography variant="body2" sx={{ color: 'rgba(248,244,236,0.76)', mt: 2.5 }}>
+          Premium hotel operations control with PMS, POS, and finance in one command layer.
+        </Typography>
+        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 2.5 }}>
+          {enabledModules.map((moduleItem) => (
+            <Chip
+              key={moduleItem.label}
+              size="small"
+              icon={<moduleItem.icon />}
+              label={moduleItem.label}
+              sx={{
+                color: moduleItem.enabled ? '#F9F5EE' : 'rgba(255,255,255,0.44)',
+                backgroundColor: moduleItem.enabled
+                  ? alpha(theme.palette.secondary.main, isDark ? 0.22 : 0.16)
+                  : alpha('#FFFFFF', isDark ? 0.08 : 0.05),
+                border: `1px solid ${moduleItem.enabled ? 'rgba(215,163,77,0.24)' : 'rgba(255,255,255,0.08)'}`,
+                '& .MuiChip-icon': {
+                  color: 'inherit'
+                }
+              }}
+            />
+          ))}
+        </Stack>
+      </Box>
+      <Box sx={{ px: 2, pt: 2 }}>
+        <Typography variant="subtitle2" sx={{ color: 'rgba(248,244,236,0.58)', px: 1.25, pb: 1.25 }}>
+          Navigation
+        </Typography>
+      </Box>
+      <List sx={{ mt: 0, px: 2 }}>
+        {menuItems.map((item) => {
+          const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+          return (
+            <ListItemButton
+              key={item.label}
+              selected={isActive}
+              onClick={() => {
+                navigate(item.path);
+                if (isMobile) setDrawerOpen(false);
+              }}
+              sx={{
+                mb: 0.75,
+                color: isActive ? theme.palette.secondary.light : 'rgba(248,244,236,0.84)',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.06)'
+                }
+              }}
+            >
+              <ListItemIcon sx={{ color: isActive ? theme.palette.secondary.light : 'rgba(248,244,236,0.6)' }}>
+                <item.icon />
+              </ListItemIcon>
+              <ListItemText primary={item.label} />
+            </ListItemButton>
+          );
+        })}
+      </List>
+      <Box sx={{ mt: 'auto', p: 2.5, pt: 2 }}>
+        <Paper
+          sx={{
+            p: 2.25,
+            borderRadius: '10px',
+            bgcolor: 'rgba(255,255,255,0.06)',
+            color: '#F9F5EE',
+            border: '1px solid rgba(255,255,255,0.08)'
+          }}
+        >
+          <Stack direction="row" spacing={1.2} alignItems="center">
+            <Avatar sx={{ bgcolor: 'secondary.main', color: 'primary.main' }}>
+              {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
+            </Avatar>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="subtitle2" noWrap>
+                {user?.hotelName || 'Demo Property'}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'rgba(248,244,236,0.66)' }}>
+                {displayRole(normalizedRole)}
+              </Typography>
+            </Box>
+          </Stack>
+          <Divider sx={{ my: 1.75, borderColor: 'rgba(255,255,255,0.08)' }} />
+          <Stack direction="row" spacing={1} alignItems="center">
+            <WorkspacePremium sx={{ fontSize: 18, color: 'secondary.main' }} />
+            <Typography variant="body2" sx={{ color: 'rgba(248,244,236,0.72)' }}>
+              Premium operations suite enabled
+            </Typography>
+          </Stack>
+        </Paper>
+      </Box>
+    </Box>
+  );
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        minHeight: '100vh',
+        background: isDark ? '#0E1418' : '#FFFFFF'
+      }}
+    >
+      <AppBar position="fixed" sx={{ zIndex: theme.zIndex.drawer + 1 }}>
+        <Toolbar sx={{ minHeight: '88px !important', px: { xs: 2, md: 3 } }}>
+          <IconButton
+            color="inherit"
+            onClick={() => setDrawerOpen(!drawerOpen)}
+            sx={{ mr: 2, display: { md: 'none' } }}
+          >
+            {drawerOpen ? <CloseIcon /> : <MenuIcon />}
+          </IconButton>
+
+          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box
+              component="img"
+              src="/logo.png"
+              alt="HotelOpX"
+              sx={{
+                width: 42,
+                height: 42,
+                borderRadius: '10px',
+                objectFit: 'contain',
+                backgroundColor: alpha('#FFFFFF', 0.88),
+                padding: '6px',
+                boxShadow: '0 18px 28px rgba(34,48,56,0.08)'
+              }}
+            />
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: '0.12em' }}>
+                COMMAND CENTER
+              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
+                {activeItem?.label || 'HotelOpX'}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Paper
+            sx={{
+              display: { xs: 'none', lg: 'flex' },
+              alignItems: 'center',
+              px: 1.75,
+              py: 1,
+              mr: 1.5,
+              borderRadius: '10px',
+              bgcolor: alpha(theme.palette.background.paper, isDark ? 0.82 : 0.84),
+              border: `1px solid ${alpha(theme.palette.primary.main, isDark ? 0.18 : 0.08)}`
+            }}
+          >
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {user?.hotelName || 'Demo Property'}
+            </Typography>
+          </Paper>
+
+          <Tooltip title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+            <IconButton color="inherit" onClick={toggleColorMode} sx={{ mr: 1 }}>
+              {isDark ? <LightModeRounded /> : <DarkModeRounded />}
+            </IconButton>
+          </Tooltip>
+
+          <IconButton color="inherit" sx={{ mr: 1 }}>
+            <Badge badgeContent={3} color="error">
+              <Notifications />
+            </Badge>
+          </IconButton>
+
+          <Box onClick={handleProfileMenuOpen} sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+            <Avatar sx={{ bgcolor: 'secondary.main', mr: 1 }}>
+              {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
+            </Avatar>
+            <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexDirection: 'column' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                {user?.name}
+              </Typography>
+              <Typography variant="caption">
+                {displayRole(normalizedRole)}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleProfileMenuClose}>
+            <MenuItem onClick={handleLogout}>
+              <LogoutIcon sx={{ mr: 1 }} />
+              Logout
+            </MenuItem>
+          </Menu>
+        </Toolbar>
+      </AppBar>
+
+      <Drawer
+        variant={isMobile ? 'temporary' : 'permanent'}
+        open={isMobile ? drawerOpen : true}
+        onClose={() => setDrawerOpen(false)}
+        sx={{
+          width: drawerWidth,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: drawerWidth,
+            boxSizing: 'border-box',
+            marginTop: '88px',
+            height: 'calc(100vh - 88px)'
+          }
+        }}
+      >
+        {drawerContent}
+      </Drawer>
+
+      <Box
+        component={motion.main}
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          p: { xs: 2, md: 3 },
+          marginTop: '88px',
+          minHeight: 'calc(100vh - 88px)',
+          overflowX: 'hidden'
+        }}
+      >
+        <DemoModeBanner />
+        <DesktopUpdateBanner />
+        <Box sx={{ mt: 2 }}>{children}</Box>
+      </Box>
+    </Box>
+  );
+};
+
+export default Layout;

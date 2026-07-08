@@ -1,0 +1,16 @@
+{
+  "name": "HotelOpX Dashboard",
+  "short_name": "HotelOpX",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B2436",
+  "theme_color": "#0B2436",
+  "description": "HotelOpX web dashboard",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
