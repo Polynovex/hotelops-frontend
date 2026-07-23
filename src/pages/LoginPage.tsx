@@ -195,110 +195,233 @@ const LoginPage: React.FC = () => {
 
         <Grid container spacing={{ xs: 3, md: 5 }} alignItems="stretch">
           {/* LEFT — Brand panel */}
-          <Grid item xs={12} md={6}>
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-              style={{ height: '100%' }}
+
+<Grid item xs={12} md={6}>
+  <motion.div
+    initial={{ opacity: 0, x: -20 }}
+    animate={{ opacity: 1, x: 0 }}
+    transition={{ duration: 0.5 }}
+    style={{ height: "100%" }}
+  >
+    <Box
+      sx={{
+        position: "relative",
+        overflow: "hidden",
+        height: "100%",
+        borderRadius: "28px",
+        p: { xs: 4, md: 6 },
+        color: "#fff",
+        background: `
+          linear-gradient(
+            160deg,
+            #13283D 0%,
+            #1B3C61 45%,
+            #244F80 100%
+          )
+        `,
+        boxShadow: "0 40px 100px rgba(7,18,31,.35)",
+      }}
+    >
+      {/* Decorative Background */}
+      <Box
+        sx={{
+          position: "absolute",
+          top: -180,
+          right: -120,
+          width: 420,
+          height: 420,
+          borderRadius: "50%",
+          background:
+            "radial-gradient(circle, rgba(255,255,255,.12), transparent 70%)",
+        }}
+      />
+
+      <Box
+        sx={{
+          position: "absolute",
+          bottom: -120,
+          left: -80,
+          width: 280,
+          height: 280,
+          borderRadius: "50%",
+          background:
+            "radial-gradient(circle, rgba(59,130,246,.20), transparent 70%)",
+        }}
+      />
+
+      <Box sx={{ position: "relative", zIndex: 2 }}>
+        {/* ================= Logo ================= */}
+
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 2.5,
+            mb: 6,
+          }}
+        >
+          <Box
+            sx={{
+              width: 100,
+              height: 100,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              overflow: "hidden",
+              flexShrink: 0,
+            }}
+          >
+            <img
+              src="/icon.png"
+              alt="HotelOpX"
+              style={{
+                width: "68%",
+                height: "68%",
+                objectFit: "contain",
+              }}
+            />
+          </Box>
+
+          <Box>
+            <Typography
+              sx={{
+                fontSize: {
+                  xs: "2.6rem",
+                  md: "4rem",
+                },
+                fontWeight: 800,
+                letterSpacing: "-0.05em",
+                lineHeight: 1,
+              }}
+            >
+              <Box component="span" sx={{ color: "#0F1D3D" }}>
+                Hotel
+              </Box>
+
+              <Box component="span" sx={{ color: "#132349" }}>
+                Op
+              </Box>
+
+              <Box component="span" sx={{ color: "#3B82F6" }}>
+                X
+              </Box>
+            </Typography>
+
+            <Typography
+              sx={{
+                mt: 0.5,
+                color: "rgba(255,255,255,.68)",
+                fontWeight: 600,
+                fontSize: 11,
+                letterSpacing: ".22em",
+              }}
+            >
+              HOSPITALITY OPERATING SYSTEM
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* ================= Heading ================= */}
+
+        <Typography
+          sx={{
+            fontFamily: '"Cormorant Garamond", serif',
+            fontSize: {
+              xs: "2.5rem",
+              md: "4rem",
+            },
+            lineHeight: 1.08,
+            fontWeight: 600,
+            letterSpacing: "-0.03em",
+            maxWidth: 520,
+            mb: 3,
+          }}
+        >
+          A modern command layer for African hospitality.
+        </Typography>
+
+        <Typography
+          sx={{
+            color: "rgba(255,255,255,.78)",
+            maxWidth: 500,
+            fontSize: 18,
+            lineHeight: 1.8,
+            mb: 5,
+          }}
+        >
+          Front desk, restaurant POS, housekeeping and night-audit — unified
+          into one premium workspace that keeps working offline.
+        </Typography>
+
+        {/* ================= Features ================= */}
+
+        <Stack spacing={2.2}>
+          {[
+            {
+              icon: ShieldRounded,
+              label: "Bank-grade audit trail & NDPR controls",
+            },
+            {
+              icon: BadgeRounded,
+              label: "One-tap usercode login for POS & reception",
+            },
+            {
+              icon: LockRounded,
+              label: "Offline-first sync — never lose a guest order",
+            },
+          ].map((feature) => (
+            <Box
+              key={feature.label}
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 2,
+                px: 2,
+                py: 1.6,
+                borderRadius: "16px",
+                background: "rgba(255,255,255,.05)",
+                border: "1px solid rgba(255,255,255,.08)",
+                backdropFilter: "blur(16px)",
+                transition: ".3s",
+
+                "&:hover": {
+                  background: "rgba(255,255,255,.08)",
+                  transform: "translateX(6px)",
+                },
+              }}
             >
               <Box
                 sx={{
-                  height: '100%',
-                  borderRadius: '20px',
-                  p: { xs: 4, md: 5 },
-                  color: '#F8F4EC',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.light} 60%, ${theme.palette.primary.main} 100%)`,
-                  boxShadow: '0 30px 80px rgba(15, 27, 35, 0.32)'
+                  width: 44,
+                  height: 44,
+                  borderRadius: 2,
+                  bgcolor: "#2D5C93",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  color: "#F6C26B",
+                  flexShrink: 0,
                 }}
               >
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: `radial-gradient(circle at top right, ${alpha(theme.palette.secondary.main, 0.32)} 0%, transparent 40%)`,
-                    pointerEvents: 'none'
-                  }}
-                />
-                <Box sx={{ position: 'relative' }}>
-                  <Stack direction="row" spacing={1.5} alignItems="center" mb={3}>
-                    <Box
-                    >
-                      <img src="./logo.png" style={{ width: '100%', height:'100%' }} />
-                    </Box>
-                  </Stack>
-
-                  <Typography
-                    variant="h2"
-                    sx={{
-                      fontFamily: '"Cormorant Garamond", serif',
-                      fontWeight: 600,
-                      lineHeight: 1.05,
-                      mb: 2
-                    }}
-                  >
-                    A modern command layer for African hospitality.
-                  </Typography>
-                  <Typography sx={{ color: alpha('#F8F4EC', 0.78), maxWidth: 460, mb: 4 }}>
-                    Front desk, restaurant POS, housekeeping, and night-audit — unified into one premium
-                    workspace that keeps working offline.
-                  </Typography>
-
-                  <Stack spacing={1.5}>
-                    {[
-                      { icon: ShieldRounded, label: 'Bank-grade audit trail & NDPR controls' },
-                      { icon: BadgeRounded, label: 'One-tap usercode login for POS & reception' },
-                      { icon: LockRounded, label: 'Offline-first sync — never lose a guest order' }
-                    ].map((f) => (
-                      <Stack key={f.label} direction="row" alignItems="center" spacing={1.5}>
-                        <Box
-                          sx={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: '8px',
-                            display: 'grid',
-                            placeItems: 'center',
-                            background: alpha('#F8F4EC', 0.08),
-                            color: theme.palette.secondary.light
-                          }}
-                        >
-                          <f.icon fontSize="small" />
-                        </Box>
-                        <Typography sx={{ color: alpha('#F8F4EC', 0.86) }}>{f.label}</Typography>
-                      </Stack>
-                    ))}
-                  </Stack>
-
-                  {/* <Divider sx={{ my: 4, borderColor: alpha('#F8F4EC', 0.12) }} />
-                  <Typography variant="overline" sx={{ color: alpha('#F8F4EC', 0.62), display: 'block', mb: 1.5 }}>
-                    Try a demo role
-                  </Typography> */}
-                  {/* <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    {demoCredentials.slice(0, 5).map((cred) => (
-                      <Chip
-                        key={cred.role}
-                        label={cred.label}
-                        onClick={() => void handleDemoLogin(cred)}
-                        disabled={loading}
-                        sx={{
-                          color: '#F8F4EC',
-                          bgcolor: alpha('#F8F4EC', 0.08),
-                          border: `1px solid ${alpha('#F8F4EC', 0.16)}`,
-                          fontWeight: 600,
-                          '&:hover': {
-                            bgcolor: alpha(theme.palette.secondary.main, 0.22),
-                            borderColor: theme.palette.secondary.main
-                          }
-                        }}
-                      />
-                    ))}
-                  </Stack> */}
-                </Box>
+                <feature.icon fontSize="small" />
               </Box>
-            </motion.div>
-          </Grid>
+
+              <Typography
+                sx={{
+                  color: "rgba(255,255,255,.92)",
+                  fontWeight: 500,
+                  fontSize: 16,
+                }}
+              >
+                {feature.label}
+              </Typography>
+            </Box>
+          ))}
+        </Stack>
+      </Box>
+    </Box>
+  </motion.div>
+</Grid>
 
           {/* RIGHT — Login card */}
           <Grid item xs={12} md={6}>
