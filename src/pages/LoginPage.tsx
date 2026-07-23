@@ -26,7 +26,6 @@ import {
   BackspaceRounded,
   BadgeRounded,
   DarkModeRounded,
-  HotelRounded,
   LightModeRounded,
   LockRounded,
   LoginRounded,
