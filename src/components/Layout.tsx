@@ -171,6 +171,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isDark = mode === 'dark';
 
+  const isSuperAdmin = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
+  const logoSrc = isSuperAdmin || !user?.logoUrl ? '/logo.png' : user.logoUrl;
+  const brandName = isSuperAdmin ? 'HotelOpX' : (user?.hotelName || 'HotelOpX');
+
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
@@ -247,8 +251,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Box
             component="img"
-            src="/logo.png"
-            alt="HotelOpX"
+            src={logoSrc}
+            alt={brandName}
             sx={{
                 width: 44,
                 height: 44,
@@ -264,7 +268,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               HOTEL OPS
             </Typography>
             <Typography variant="h5" sx={{ fontWeight: 700, color: '#FFFFFF', mt: 0.25 }}>
-              HotelOpX
+              {brandName}
             </Typography>
           </Box>
         </Stack>
@@ -380,8 +384,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box
               component="img"
-              src="/logo.png"
-              alt="HotelOpX"
+              src={logoSrc}
+              alt={brandName}
               sx={{
                 width: 42,
                 height: 42,

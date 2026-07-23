@@ -225,26 +225,8 @@ const LoginPage: React.FC = () => {
                 <Box sx={{ position: 'relative' }}>
                   <Stack direction="row" spacing={1.5} alignItems="center" mb={3}>
                     <Box
-                      sx={{
-                        width: 52,
-                        height: 52,
-                        borderRadius: '14px',
-                        display: 'grid',
-                        placeItems: 'center',
-                        background: `linear-gradient(135deg, ${theme.palette.secondary.main}, ${theme.palette.secondary.light})`,
-                        color: theme.palette.primary.dark,
-                        boxShadow: '0 18px 36px rgba(0,0,0,0.32)'
-                      }}
                     >
-                      <HotelRounded fontSize="medium" />
-                    </Box>
-                    <Box>
-                      <Typography variant="overline" sx={{ color: alpha('#F8F4EC', 0.62) }}>
-                        HOTEL OPS · NIGERIA
-                      </Typography>
-                      <Typography variant="h4" sx={{ fontFamily: '"Cormorant Garamond", serif', lineHeight: 1 }}>
-                        HotelOpX
-                      </Typography>
+                      <img src="./logo.png" style={{ width: '100%', height:'100%' }} />
                     </Box>
                   </Stack>
 
@@ -289,11 +271,11 @@ const LoginPage: React.FC = () => {
                     ))}
                   </Stack>
 
-                  <Divider sx={{ my: 4, borderColor: alpha('#F8F4EC', 0.12) }} />
+                  {/* <Divider sx={{ my: 4, borderColor: alpha('#F8F4EC', 0.12) }} />
                   <Typography variant="overline" sx={{ color: alpha('#F8F4EC', 0.62), display: 'block', mb: 1.5 }}>
                     Try a demo role
-                  </Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  </Typography> */}
+                  {/* <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     {demoCredentials.slice(0, 5).map((cred) => (
                       <Chip
                         key={cred.role}
@@ -312,7 +294,7 @@ const LoginPage: React.FC = () => {
                         }}
                       />
                     ))}
-                  </Stack>
+                  </Stack> */}
                 </Box>
               </Box>
             </motion.div>

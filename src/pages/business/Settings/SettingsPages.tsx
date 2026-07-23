@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Avatar,
@@ -27,7 +27,8 @@ import {
   CheckCircleRounded,
   ContentCopyRounded,
   KeyRounded,
-  PersonAddAlt1Rounded
+  PersonAddAlt1Rounded,
+  UploadFileRounded
 } from '@mui/icons-material';
 import Layout from '../../../components/Layout';
 import DataTable from '../../../components/common/DataTable';
@@ -39,8 +40,11 @@ import {
   settingsOpsService
 } from '../../../services/operations';
 import { maskUserCode, markUserCodeCopied, isUserCodeCopied } from '../../../utils/userCode';
+import { apiClient } from '../../../api/client';
+import { useAuthStore } from '../../../store/authStore';
 
 export const BusinessProfileSettingsPage = () => {
+  const { user, setUser } = useAuthStore();
   const profile = settingsOpsService.getBusinessProfile();
 
   const [name, setName] = useState(profile.name);
@@ -49,10 +53,45 @@ export const BusinessProfileSettingsPage = () => {
   const [address, setAddress] = useState(profile.address || '');
   const [timezone, setTimezone] = useState(profile.timezone);
   const [currency, setCurrency] = useState(profile.currency);
+  const [logoPreview, setLogoPreview] = useState<string | null>(user?.logoUrl || null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const save = (event: FormEvent<HTMLFormElement>) => {
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+  };
+
+  const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    settingsOpsService.updateBusinessProfile({ name, email, phone, address, timezone, currency });
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    try {
+      // Always save local profile fields
+      settingsOpsService.updateBusinessProfile({ name, email, phone, address, timezone, currency });
+
+      // If there's a logo or businessName change, hit the real API
+      if (logoFile || name) {
+        const formData = new FormData();
+        formData.append('businessName', name);
+        if (logoFile) formData.append('logo', logoFile);
+        const { data } = await apiClient.put('/settings/branding', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        setUser({ hotelName: data.businessName || data.name, logoUrl: data.logoUrl });
+      }
+      setSaveSuccess(true);
+    } catch (err: any) {
+      setSaveError(err?.response?.data?.error || err?.message || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -60,21 +99,49 @@ export const BusinessProfileSettingsPage = () => {
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>Business Profile</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Core property settings used across PMS/POS/Finance modules.
+          Core property settings. The logo and business name appear on the sidebar and all dashboards.
         </Typography>
 
         <Paper sx={{ p: 3 }}>
           <Box component="form" onSubmit={save}>
-            <Stack spacing={2}>
-              <TextField label="Business Name" value={name} onChange={(event) => setName(event.target.value)} required />
-              <TextField label="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-              <TextField label="Phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
-              <TextField label="Address" value={address} onChange={(event) => setAddress(event.target.value)} multiline minRows={2} />
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <TextField label="Timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)} fullWidth />
-                <TextField label="Currency" value={currency} onChange={(event) => setCurrency(event.target.value)} fullWidth />
+            <Stack spacing={2.5}>
+              {saveError && <Alert severity="error" onClose={() => setSaveError(null)}>{saveError}</Alert>}
+              {saveSuccess && <Alert severity="success" onClose={() => setSaveSuccess(false)}>Saved successfully</Alert>}
+
+              {/* Logo upload */}
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Box
+                  component="img"
+                  src={logoPreview || '/logo.png'}
+                  alt="Business logo"
+                  sx={{ width: 72, height: 72, borderRadius: 2, objectFit: 'contain', border: '1px solid', borderColor: 'divider', p: 0.5 }}
+                />
+                <Stack spacing={0.5}>
+                  <Typography variant="subtitle2">Company Logo</Typography>
+                  <Typography variant="caption" color="text.secondary">PNG, JPG or WebP · max 5 MB</Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<UploadFileRounded />}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {logoPreview ? 'Change logo' : 'Upload logo'}
+                  </Button>
+                  <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleLogoChange} />
+                </Stack>
               </Stack>
-              <Button type="submit" variant="contained">Save Profile</Button>
+
+              <TextField label="Business Name" value={name} onChange={(e) => setName(e.target.value)} required />
+              <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <TextField label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <TextField label="Address" value={address} onChange={(e) => setAddress(e.target.value)} multiline minRows={2} />
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField label="Timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} fullWidth />
+                <TextField label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value)} fullWidth />
+              </Stack>
+              <Button type="submit" variant="contained" disabled={saving}>
+                {saving ? 'Saving…' : 'Save Profile'}
+              </Button>
             </Stack>
           </Box>
         </Paper>

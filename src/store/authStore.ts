@@ -12,6 +12,7 @@ interface User {
   role: string;
   hotelId?: string;
   hotelName?: string;
+  logoUrl?: string | null;
   pmsEnabled?: boolean;
   posEnabled?: boolean;
   financeEnabled?: boolean;
