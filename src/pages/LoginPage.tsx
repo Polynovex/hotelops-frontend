@@ -51,13 +51,55 @@ interface DemoCredential {
 }
 
 const demoCredentials: DemoCredential[] = [
-  { label: 'Super admin', email: 'superadmin@hotelopx.com', password: 'demo123', role: 'SUPER_ADMIN', description: 'Platform-wide control' },
-  { label: 'Business admin', email: 'admin@demo.com', password: 'demo123', role: 'BUSINESS_ADMIN', description: 'Hotel operator view' },
-  { label: 'Manager', email: 'manager@demo.com', password: 'demo123', role: 'MANAGER', description: 'Daily operations' },
-  { label: 'Accountant', email: 'accounting@demo.com', password: 'demo123', role: 'ACCOUNTANT', description: 'Finance & audits' },
-  { label: 'Reception', email: 'reception@demo.com', password: 'demo123', role: 'RECEPTIONIST', description: 'Front desk shift' },
-  { label: 'POS staff', email: 'pos@demo.com', password: 'demo123', role: 'POS_STAFF', description: 'Restaurant POS' },
-  { label: 'Housekeeping', email: 'housekeeping@demo.com', password: 'demo123', role: 'HOUSEKEEPING', description: 'Room status' }
+  {
+    label: 'Super admin',
+    email: 'superadmin@hotelopx.com',
+    password: 'demo123',
+    role: 'SUPER_ADMIN',
+    description: 'Platform-wide control'
+  },
+  {
+    label: 'Business admin',
+    email: 'admin@demo.com',
+    password: 'demo123',
+    role: 'BUSINESS_ADMIN',
+    description: 'Hotel operator view'
+  },
+  {
+    label: 'Manager',
+    email: 'manager@demo.com',
+    password: 'demo123',
+    role: 'MANAGER',
+    description: 'Daily operations'
+  },
+  {
+    label: 'Accountant',
+    email: 'accounting@demo.com',
+    password: 'demo123',
+    role: 'ACCOUNTANT',
+    description: 'Finance & audits'
+  },
+  {
+    label: 'Reception',
+    email: 'reception@demo.com',
+    password: 'demo123',
+    role: 'RECEPTIONIST',
+    description: 'Front desk shift'
+  },
+  {
+    label: 'POS staff',
+    email: 'pos@demo.com',
+    password: 'demo123',
+    role: 'POS_STAFF',
+    description: 'Restaurant POS'
+  },
+  {
+    label: 'Housekeeping',
+    email: 'housekeeping@demo.com',
+    password: 'demo123',
+    role: 'HOUSEKEEPING',
+    description: 'Room status'
+  }
 ];
 
 const routeForRole = (role: UserRole) => {
@@ -195,22 +237,22 @@ const LoginPage: React.FC = () => {
         <Grid container spacing={{ xs: 3, md: 5 }} alignItems="stretch">
           {/* LEFT — Brand panel */}
 
-<Grid item xs={12} md={6}>
-  <motion.div
-    initial={{ opacity: 0, x: -20 }}
-    animate={{ opacity: 1, x: 0 }}
-    transition={{ duration: 0.5 }}
-    style={{ height: "100%" }}
-  >
-    <Box
-      sx={{
-        position: "relative",
-        overflow: "hidden",
-        height: "100%",
-        borderRadius: "28px",
-        p: { xs: 4, md: 6 },
-        color: "#fff",
-        background: `
+          <Grid item xs={12} md={6}>
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+              style={{ height: '100%' }}
+            >
+              <Box
+                sx={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  height: '100%',
+                  borderRadius: '28px',
+                  p: { xs: 4, md: 6 },
+                  color: '#fff',
+                  background: `
           linear-gradient(
             160deg,
             #13283D 0%,
@@ -218,209 +260,207 @@ const LoginPage: React.FC = () => {
             #244F80 100%
           )
         `,
-        boxShadow: "0 40px 100px rgba(7,18,31,.35)",
-      }}
-    >
-      {/* Decorative Background */}
-      <Box
-        sx={{
-          position: "absolute",
-          top: -180,
-          right: -120,
-          width: 420,
-          height: 420,
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle, rgba(255,255,255,.12), transparent 70%)",
-        }}
-      />
-
-      <Box
-        sx={{
-          position: "absolute",
-          bottom: -120,
-          left: -80,
-          width: 280,
-          height: 280,
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle, rgba(59,130,246,.20), transparent 70%)",
-        }}
-      />
-
-      <Box sx={{ position: "relative", zIndex: 2 }}>
-        {/* ================= Logo ================= */}
-
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 2.5,
-            mb: 6,
-          }}
-        >
-          <Box
-            sx={{
-              width: 100,
-              height: 100,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              overflow: "hidden",
-              flexShrink: 0,
-            }}
-          >
-            <img
-              src="/icon.png"
-              alt="HotelOpX"
-              style={{
-                width: "68%",
-                height: "68%",
-                objectFit: "contain",
-              }}
-            />
-          </Box>
-
-          <Box>
-            <Typography
-              sx={{
-                fontSize: {
-                  xs: "2.6rem",
-                  md: "4rem",
-                },
-                fontWeight: 800,
-                letterSpacing: "-0.05em",
-                lineHeight: 1,
-              }}
-            >
-              <Box component="span" sx={{ color: "#0F1D3D" }}>
-                Hotel
-              </Box>
-
-              <Box component="span" sx={{ color: "#132349" }}>
-                Op
-              </Box>
-
-              <Box component="span" sx={{ color: "#3B82F6" }}>
-                X
-              </Box>
-            </Typography>
-
-            <Typography
-              sx={{
-                mt: 0.5,
-                color: "rgba(255,255,255,.68)",
-                fontWeight: 600,
-                fontSize: 11,
-                letterSpacing: ".22em",
-              }}
-            >
-              HOSPITALITY OPERATING SYSTEM
-            </Typography>
-          </Box>
-        </Box>
-
-        {/* ================= Heading ================= */}
-
-        <Typography
-          sx={{
-            fontFamily: '"Cormorant Garamond", serif',
-            fontSize: {
-              xs: "2.5rem",
-              md: "4rem",
-            },
-            lineHeight: 1.08,
-            fontWeight: 600,
-            letterSpacing: "-0.03em",
-            maxWidth: 520,
-            mb: 3,
-          }}
-        >
-          A modern command layer for African hospitality.
-        </Typography>
-
-        <Typography
-          sx={{
-            color: "rgba(255,255,255,.78)",
-            maxWidth: 500,
-            fontSize: 18,
-            lineHeight: 1.8,
-            mb: 5,
-          }}
-        >
-          Front desk, restaurant POS, housekeeping and night-audit — unified
-          into one premium workspace that keeps working offline.
-        </Typography>
-
-        {/* ================= Features ================= */}
-
-        <Stack spacing={2.2}>
-          {[
-            {
-              icon: ShieldRounded,
-              label: "Bank-grade audit trail & NDPR controls",
-            },
-            {
-              icon: BadgeRounded,
-              label: "One-tap usercode login for POS & reception",
-            },
-            {
-              icon: LockRounded,
-              label: "Offline-first sync — never lose a guest order",
-            },
-          ].map((feature) => (
-            <Box
-              key={feature.label}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 2,
-                px: 2,
-                py: 1.6,
-                borderRadius: "16px",
-                background: "rgba(255,255,255,.05)",
-                border: "1px solid rgba(255,255,255,.08)",
-                backdropFilter: "blur(16px)",
-                transition: ".3s",
-
-                "&:hover": {
-                  background: "rgba(255,255,255,.08)",
-                  transform: "translateX(6px)",
-                },
-              }}
-            >
-              <Box
-                sx={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 2,
-                  bgcolor: "#2D5C93",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  color: "#F6C26B",
-                  flexShrink: 0,
+                  boxShadow: '0 40px 100px rgba(7,18,31,.35)'
                 }}
               >
-                <feature.icon fontSize="small" />
-              </Box>
+                {/* Decorative Background */}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: -180,
+                    right: -120,
+                    width: 420,
+                    height: 420,
+                    borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(255,255,255,.12), transparent 70%)'
+                  }}
+                />
 
-              <Typography
-                sx={{
-                  color: "rgba(255,255,255,.92)",
-                  fontWeight: 500,
-                  fontSize: 16,
-                }}
-              >
-                {feature.label}
-              </Typography>
-            </Box>
-          ))}
-        </Stack>
-      </Box>
-    </Box>
-  </motion.div>
-</Grid>
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    bottom: -120,
+                    left: -80,
+                    width: 280,
+                    height: 280,
+                    borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(59,130,246,.20), transparent 70%)'
+                  }}
+                />
+
+                <Box sx={{ position: 'relative', zIndex: 2 }}>
+                  {/* ================= Logo ================= */}
+
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2.5,
+                      mb: 6
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 100,
+                        height: 100,
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        overflow: 'hidden',
+                        flexShrink: 0
+                      }}
+                    >
+                      <img
+                        src="/icon.png"
+                        alt="HotelOpX"
+                        style={{
+                          width: '68%',
+                          height: '68%',
+                          objectFit: 'contain'
+                        }}
+                      />
+                    </Box>
+
+                    <Box>
+                      <Typography
+                        sx={{
+                          fontSize: {
+                            xs: '2.6rem',
+                            md: '4rem'
+                          },
+                          fontWeight: 800,
+                          letterSpacing: '-0.05em',
+                          lineHeight: 1
+                        }}
+                      >
+                        <Box component="span" sx={{ color: '#0F1D3D' }}>
+                          Hotel
+                        </Box>
+
+                        <Box component="span" sx={{ color: '#132349' }}>
+                          Op
+                        </Box>
+
+                        <Box component="span" sx={{ color: '#3B82F6' }}>
+                          X
+                        </Box>
+                      </Typography>
+
+                      <Typography
+                        sx={{
+                          mt: 0.5,
+                          color: 'rgba(255,255,255,.68)',
+                          fontWeight: 600,
+                          fontSize: 11,
+                          letterSpacing: '.22em'
+                        }}
+                      >
+                        HOSPITALITY OPERATING SYSTEM
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* ================= Heading ================= */}
+
+                  <Typography
+                    sx={{
+                      fontFamily: '"Cormorant Garamond", serif',
+                      fontSize: {
+                        xs: '2.5rem',
+                        md: '4rem'
+                      },
+                      lineHeight: 1.08,
+                      fontWeight: 600,
+                      letterSpacing: '-0.03em',
+                      maxWidth: 520,
+                      mb: 3
+                    }}
+                  >
+                    A modern command layer for African hospitality.
+                  </Typography>
+
+                  <Typography
+                    sx={{
+                      color: 'rgba(255,255,255,.78)',
+                      maxWidth: 500,
+                      fontSize: 18,
+                      lineHeight: 1.8,
+                      mb: 5
+                    }}
+                  >
+                    Front desk, restaurant POS, housekeeping and night-audit — unified into one
+                    premium workspace that keeps working offline.
+                  </Typography>
+
+                  {/* ================= Features ================= */}
+
+                  <Stack spacing={2.2}>
+                    {[
+                      {
+                        icon: ShieldRounded,
+                        label: 'Bank-grade audit trail & NDPR controls'
+                      },
+                      {
+                        icon: BadgeRounded,
+                        label: 'One-tap usercode login for POS & reception'
+                      },
+                      {
+                        icon: LockRounded,
+                        label: 'Offline-first sync — never lose a guest order'
+                      }
+                    ].map((feature) => (
+                      <Box
+                        key={feature.label}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 2,
+                          px: 2,
+                          py: 1.6,
+                          borderRadius: '16px',
+                          background: 'rgba(255,255,255,.05)',
+                          border: '1px solid rgba(255,255,255,.08)',
+                          backdropFilter: 'blur(16px)',
+                          transition: '.3s',
+
+                          '&:hover': {
+                            background: 'rgba(255,255,255,.08)',
+                            transform: 'translateX(6px)'
+                          }
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 2,
+                            bgcolor: '#2D5C93',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            color: '#F6C26B',
+                            flexShrink: 0
+                          }}
+                        >
+                          <feature.icon fontSize="small" />
+                        </Box>
+
+                        <Typography
+                          sx={{
+                            color: 'rgba(255,255,255,.92)',
+                            fontWeight: 500,
+                            fontSize: 16
+                          }}
+                        >
+                          {feature.label}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+              </Box>
+            </motion.div>
+          </Grid>
 
           {/* RIGHT — Login card */}
           <Grid item xs={12} md={6}>
@@ -442,7 +482,12 @@ const LoginPage: React.FC = () => {
                 <Typography variant="caption">Welcome back</Typography>
                 <Typography
                   variant="h2"
-                  sx={{ fontFamily: '"Cormorant Garamond", serif', fontWeight: 600, lineHeight: 1, mb: 1 }}
+                  sx={{
+                    fontFamily: '"Cormorant Garamond", serif',
+                    fontWeight: 600,
+                    lineHeight: 1,
+                    mb: 1
+                  }}
                 >
                   Sign in
                 </Typography>
@@ -474,12 +519,23 @@ const LoginPage: React.FC = () => {
                 {mode === 'USERCODE' ? (
                   <Stack spacing={2.5}>
                     <Box>
-                      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        mb={1}
+                      >
                         <Typography variant="subtitle2">
                           {pinRequired ? 'Enter PIN' : 'Enter usercode'}
                         </Typography>
                         {pinRequired && (
-                          <Button size="small" onClick={() => { setPinRequired(false); setPin(''); }}>
+                          <Button
+                            size="small"
+                            onClick={() => {
+                              setPinRequired(false);
+                              setPin('');
+                            }}
+                          >
                             Back
                           </Button>
                         )}
@@ -514,7 +570,10 @@ const LoginPage: React.FC = () => {
                               width: 10,
                               height: 10,
                               borderRadius: '50%',
-                              bgcolor: i < target.length ? theme.palette.secondary.main : alpha(theme.palette.text.primary, 0.18)
+                              bgcolor:
+                                i < target.length
+                                  ? theme.palette.secondary.main
+                                  : alpha(theme.palette.text.primary, 0.18)
                             }}
                           />
                         ))}
@@ -533,7 +592,12 @@ const LoginPage: React.FC = () => {
                           key={d}
                           variant="outlined"
                           onClick={() => handleKey(d)}
-                          sx={{ py: 1.5, fontFamily: '"JetBrains Mono", monospace', fontSize: 22, fontWeight: 700 }}
+                          sx={{
+                            py: 1.5,
+                            fontFamily: '"JetBrains Mono", monospace',
+                            fontSize: 22,
+                            fontWeight: 700
+                          }}
                         >
                           {d}
                         </Button>
@@ -542,11 +606,21 @@ const LoginPage: React.FC = () => {
                       <Button
                         variant="outlined"
                         onClick={() => handleKey('0')}
-                        sx={{ py: 1.5, fontFamily: '"JetBrains Mono", monospace', fontSize: 22, fontWeight: 700 }}
+                        sx={{
+                          py: 1.5,
+                          fontFamily: '"JetBrains Mono", monospace',
+                          fontSize: 22,
+                          fontWeight: 700
+                        }}
                       >
                         0
                       </Button>
-                      <Button variant="outlined" onClick={handleBackspace} sx={{ py: 1.5 }} color="inherit">
+                      <Button
+                        variant="outlined"
+                        onClick={handleBackspace}
+                        sx={{ py: 1.5 }}
+                        color="inherit"
+                      >
                         <BackspaceRounded />
                       </Button>
                     </Box>
@@ -554,7 +628,9 @@ const LoginPage: React.FC = () => {
                     <Button
                       size="large"
                       variant="contained"
-                      startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <LoginRounded />}
+                      startIcon={
+                        loading ? <CircularProgress size={18} color="inherit" /> : <LoginRounded />
+                      }
                       disabled={loading || !target || target.length < (pinRequired ? 4 : 5)}
                       onClick={() => void handleUsercodeLogin()}
                     >
@@ -606,12 +682,23 @@ const LoginPage: React.FC = () => {
                         size="large"
                         type="submit"
                         variant="contained"
-                        startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <LoginRounded />}
+                        startIcon={
+                          loading ? (
+                            <CircularProgress size={18} color="inherit" />
+                          ) : (
+                            <LoginRounded />
+                          )
+                        }
                         disabled={loading}
                       >
                         Sign in
                       </Button>
-                      <Button type="button" variant="text" size="small" onClick={() => navigate('/forgot-password')}>
+                      <Button
+                        type="button"
+                        variant="text"
+                        size="small"
+                        onClick={() => navigate('/forgot-password')}
+                      >
                         Forgot your password?
                       </Button>
                     </Stack>

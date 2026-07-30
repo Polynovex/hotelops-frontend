@@ -12,12 +12,17 @@ class WebSocketService {
       return;
     }
 
+    const base = import.meta.env.VITE_WS_URL;
+    if (!base) {
+      // WebSocket disabled — serverless backend does not support persistent connections
+      return;
+    }
+
     const token = useAuthStore.getState().token;
     if (!token) {
       return;
     }
 
-    const base = import.meta.env.VITE_WS_URL || 'ws://localhost:3000/ws';
     const url = new URL(base);
     url.searchParams.set('token', token);
 
