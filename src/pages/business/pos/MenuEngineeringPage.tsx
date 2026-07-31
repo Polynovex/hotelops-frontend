@@ -15,7 +15,7 @@ import {
   TextField,
   Typography
 } from '@mui/material';
-import { useAuthStore } from '../../../store/authStore';
+import { apiClient } from '../../../api/client';
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import DataTable from '../../../components/common/DataTable';
@@ -73,9 +73,6 @@ const QuadrantCard = ({ label, count, desc, color }: { label: string; count: num
 );
 
 const MenuEngineeringPage = () => {
-  const token = useAuthStore((s) => s.token);
-  const baseUrl = (import.meta as any).env?.VITE_API_URL ?? '';
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rows, setRows] = useState<MERow[]>([]);
@@ -87,15 +84,11 @@ const MenuEngineeringPage = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${baseUrl}/api/pos/menu-engineering?days=${days}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
-      setRows(data.rows ?? []);
-      setSummary(data.summary ?? null);
+      const res = await apiClient.get(`/pos/menu-engineering?days=${days}`);
+      setRows(res.data.rows ?? []);
+      setSummary(res.data.summary ?? null);
     } catch (err: any) {
-      setError(err.message ?? 'Failed to load menu engineering data');
+      setError(err?.response?.data?.error ?? err.message ?? 'Failed to load menu engineering data');
     } finally {
       setLoading(false);
     }

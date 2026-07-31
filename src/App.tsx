@@ -675,7 +675,7 @@ function App() {
               <Route
                 path="/business/pos/menu"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN']}>
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
                     <PosMenuManagementPage />
                   </ProtectedRoute>
                 }

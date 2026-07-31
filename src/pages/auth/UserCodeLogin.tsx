@@ -47,6 +47,7 @@ const UserCodeLogin: React.FC = () => {
       if (mode === 'USERCODE') {
         const result = await authService.userCodeLogin(identifier, pin || undefined);
         if ('requiresPin' in result) {
+          // Backend says PIN required — show field and focus it
           setPinRequired(true);
           setLoading(false);
           return;
@@ -170,10 +171,10 @@ const UserCodeLogin: React.FC = () => {
                 />
               )}
 
-              {mode === 'USERCODE' && pinRequired && (
+              {mode === 'USERCODE' && (pinRequired || identifier.length >= 5) && (
                 <TextField
                   fullWidth
-                  autoFocus
+                  autoFocus={pinRequired}
                   label="PIN (4–6 digits)"
                   type="password"
                   value={pin}
@@ -197,8 +198,7 @@ const UserCodeLogin: React.FC = () => {
                 disabled={
                   loading ||
                   !identifier ||
-                  (mode === 'PASSWORD' && !password) ||
-                  (pinRequired && !pin)
+                  (mode === 'PASSWORD' && !password)
                 }
               >
                 {loading ? <CircularProgress size={22} /> : 'Sign in'}
