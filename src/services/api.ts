@@ -122,6 +122,10 @@ export interface BusinessSummary {
   planId?: string | null;
   plan?: PlanSummary | null;
   createdAt: string;
+  adminPassword?: string;
+  adminUserCode?: string;
+  adminFirstName?: string;
+  adminLastName?: string;
   _count?: {
     users: number;
     rooms: number;

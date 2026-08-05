@@ -108,7 +108,11 @@ const SuperAdminPage: React.FC = () => {
     email: '',
     phone: '',
     address: '',
-    planId: ''
+    planId: '',
+    adminPassword: '',
+    adminUserCode: '',
+    adminFirstName: 'Business',
+    adminLastName: 'Admin'
   });
 
   const formatDateTime = (value?: string | null) => {
@@ -291,18 +295,45 @@ const SuperAdminPage: React.FC = () => {
       return;
     }
 
+    if (!newBusiness.adminPassword || newBusiness.adminPassword.length < 6) {
+      enqueueSnackbar('Business admin password is required and must be at least 6 characters.', { variant: 'warning' });
+      return;
+    }
+
+    const trimmedUserCode = newBusiness.adminUserCode.trim();
+    if (trimmedUserCode && (!/^\d{5,6}$/.test(trimmedUserCode))) {
+      enqueueSnackbar('Business admin usercode must be 5 or 6 digits.', { variant: 'warning' });
+      return;
+    }
+
     setSaving(true);
     try {
-      const created = await superAdminService.createBusiness({
+      const payload = {
         ...newBusiness,
+        adminPassword: newBusiness.adminPassword,
+        adminUserCode: trimmedUserCode || undefined,
+        adminFirstName: newBusiness.adminFirstName.trim() || 'Business',
+        adminLastName: newBusiness.adminLastName.trim() || 'Admin',
         pmsEnabled: true,
         posEnabled: true,
         financeEnabled: true
-      });
+      };
+
+      const created = await superAdminService.createBusiness(payload);
       setBusinesses((prev) => [created, ...prev]);
       setOpenCreateDialog(false);
-      setNewBusiness({ name: '', email: '', phone: '', address: '', planId: '' });
-      enqueueSnackbar('Business created', { variant: 'success' });
+      setNewBusiness({
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        planId: '',
+        adminPassword: '',
+        adminUserCode: '',
+        adminFirstName: 'Business',
+        adminLastName: 'Admin'
+      });
+      enqueueSnackbar('Business created and business admin credentials prepared.', { variant: 'success' });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create business';
       enqueueSnackbar(message, { variant: 'error' });
@@ -658,6 +689,39 @@ const SuperAdminPage: React.FC = () => {
                 </MenuItem>
               ))}
             </TextField>
+
+            <Divider />
+
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Business Admin Credentials</Typography>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <TextField
+                label="Admin First Name"
+                value={newBusiness.adminFirstName}
+                onChange={(event) => setNewBusiness((prev) => ({ ...prev, adminFirstName: event.target.value }))}
+                fullWidth
+              />
+              <TextField
+                label="Admin Last Name"
+                value={newBusiness.adminLastName}
+                onChange={(event) => setNewBusiness((prev) => ({ ...prev, adminLastName: event.target.value }))}
+                fullWidth
+              />
+            </Stack>
+            <TextField
+              label="Admin Password"
+              type="password"
+              value={newBusiness.adminPassword}
+              onChange={(event) => setNewBusiness((prev) => ({ ...prev, adminPassword: event.target.value }))}
+              helperText="Required. Minimum 6 characters."
+              fullWidth
+            />
+            <TextField
+              label="Admin Usercode"
+              value={newBusiness.adminUserCode}
+              onChange={(event) => setNewBusiness((prev) => ({ ...prev, adminUserCode: event.target.value.replace(/\D/g, '').slice(0, 6) }))}
+              helperText="Optional. 5–6 digits. Leave blank to auto-generate."
+              fullWidth
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
