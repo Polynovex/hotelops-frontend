@@ -1,5 +1,20 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Alert, Box, Button, CircularProgress, Container, Grid, IconButton, InputAdornment, Paper, Stack, TextField, Tooltip, Typography, useTheme } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Container,
+  Grid,
+  IconButton,
+  InputAdornment,
+  Paper,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+  useTheme
+} from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { DarkModeRounded, LightModeRounded, MailOutlineRounded } from '@mui/icons-material';
 import { motion } from 'framer-motion';
@@ -20,8 +35,12 @@ const AuthCard = ({
 }) => (
   <Container maxWidth="sm" sx={{ py: 6 }}>
     <Paper sx={{ p: 4 }}>
-      <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>{title}</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>{subtitle}</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+        {title}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        {subtitle}
+      </Typography>
       {children}
     </Paper>
   </Container>
@@ -93,7 +112,12 @@ export const ForgotPasswordPage = () => {
         <Grid container spacing={{ xs: 3, md: 5 }} alignItems="stretch">
           {/* Left brand panel */}
           <Grid item xs={12} md={6} sx={{ display: { xs: 'none', md: 'block' } }}>
-            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }} style={{ height: '100%' }}>
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+              style={{ height: '100%' }}
+            >
               <Box
                 sx={{
                   position: 'relative',
@@ -106,26 +130,89 @@ export const ForgotPasswordPage = () => {
                   boxShadow: '0 40px 100px rgba(7,18,31,.35)'
                 }}
               >
-                <Box sx={{ position: 'absolute', top: -180, right: -120, width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,.12), transparent 70%)' }} />
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: -180,
+                    right: -120,
+                    width: 420,
+                    height: 420,
+                    borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(255,255,255,.12), transparent 70%)'
+                  }}
+                />
                 <Box sx={{ position: 'relative', zIndex: 2 }}>
                   <Stack direction="row" alignItems="center" spacing={2} mb={6}>
-                    <Box sx={{ width: 64, height: 64, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                      <img src="/icon.png" alt="HotelOpX" style={{ width: '68%', height: '68%', objectFit: 'contain' }} />
+                    <Box
+                      sx={{
+                        width: 64,
+                        height: 64,
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <img
+                        src="/icon.png"
+                        alt="HotelOpX"
+                        style={{ width: '68%', height: '68%', objectFit: 'contain' }}
+                      />
                     </Box>
                     <Box>
-                      <Typography sx={{ fontSize: '2.4rem', fontWeight: 800, letterSpacing: '-0.05em', lineHeight: 1 }}>
-                        <Box component="span" sx={{ color: '#0F1D3D' }}>Hotel</Box>
-                        <Box component="span" sx={{ color: '#132349' }}>Op</Box>
-                        <Box component="span" sx={{ color: '#3B82F6' }}>X</Box>
+                      <Typography
+                        sx={{
+                          fontSize: '2.4rem',
+                          fontWeight: 800,
+                          letterSpacing: '-0.05em',
+                          lineHeight: 1
+                        }}
+                      >
+                        <Box component="span" sx={{ color: '#0F1D3D' }}>
+                          Hotel
+                        </Box>
+                        <Box component="span" sx={{ color: '#132349' }}>
+                          Op
+                        </Box>
+                        <Box component="span" sx={{ color: '#3B82F6' }}>
+                          X
+                        </Box>
                       </Typography>
-                      <Typography sx={{ mt: 0.5, color: 'rgba(255,255,255,.68)', fontWeight: 600, fontSize: 11, letterSpacing: '.22em' }}>HOSPITALITY OPERATING SYSTEM</Typography>
+                      <Typography
+                        sx={{
+                          mt: 0.5,
+                          color: 'rgba(255,255,255,.68)',
+                          fontWeight: 600,
+                          fontSize: 11,
+                          letterSpacing: '.22em'
+                        }}
+                      >
+                        HOSPITALITY OPERATING SYSTEM
+                      </Typography>
                     </Box>
                   </Stack>
-                  <Typography sx={{ fontFamily: '"Cormorant Garamond", serif', fontSize: { xs: '2.5rem', md: '3.5rem' }, lineHeight: 1.08, fontWeight: 600, letterSpacing: '-0.03em', maxWidth: 480, mb: 3 }}>
+                  <Typography
+                    sx={{
+                      fontFamily: '"Cormorant Garamond", serif',
+                      fontSize: { xs: '2.5rem', md: '3.5rem' },
+                      lineHeight: 1.08,
+                      fontWeight: 600,
+                      letterSpacing: '-0.03em',
+                      maxWidth: 480,
+                      mb: 3
+                    }}
+                  >
                     Recover access to your workspace.
                   </Typography>
-                  <Typography sx={{ color: 'rgba(255,255,255,.78)', maxWidth: 460, fontSize: 17, lineHeight: 1.8 }}>
-                    Enter your account email and we'll send you a secure link to reset your password.
+                  <Typography
+                    sx={{
+                      color: 'rgba(255,255,255,.78)',
+                      maxWidth: 460,
+                      fontSize: 17,
+                      lineHeight: 1.8
+                    }}
+                  >
+                    Enter your account email and we'll send you a secure link to reset your
+                    password.
                   </Typography>
                 </Box>
               </Box>
@@ -134,7 +221,11 @@ export const ForgotPasswordPage = () => {
 
           {/* Right form */}
           <Grid item xs={12} md={6}>
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.05 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.05 }}
+            >
               <Box
                 sx={{
                   borderRadius: '20px',
@@ -146,15 +237,31 @@ export const ForgotPasswordPage = () => {
                 }}
               >
                 <Typography variant="caption">Account recovery</Typography>
-                <Typography variant="h2" sx={{ fontFamily: '"Cormorant Garamond", serif', fontWeight: 600, lineHeight: 1, mb: 1 }}>
+                <Typography
+                  variant="h2"
+                  sx={{
+                    fontFamily: '"Cormorant Garamond", serif',
+                    fontWeight: 600,
+                    lineHeight: 1,
+                    mb: 1
+                  }}
+                >
                   Forgot password
                 </Typography>
                 <Typography color="text.secondary" sx={{ mb: 3 }}>
                   Enter your email address to receive a reset link.
                 </Typography>
 
-                {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
-                {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
+                {error && (
+                  <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+                    {error}
+                  </Alert>
+                )}
+                {message && (
+                  <Alert severity="success" sx={{ mb: 2 }}>
+                    {message}
+                  </Alert>
+                )}
 
                 {!message && (
                   <Box component="form" onSubmit={submit}>
@@ -180,7 +287,9 @@ export const ForgotPasswordPage = () => {
                         type="submit"
                         variant="contained"
                         disabled={submitting}
-                        startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : undefined}
+                        startIcon={
+                          submitting ? <CircularProgress size={18} color="inherit" /> : undefined
+                        }
                       >
                         Send reset link
                       </Button>
@@ -188,7 +297,12 @@ export const ForgotPasswordPage = () => {
                   </Box>
                 )}
 
-                <Button variant="text" size="small" sx={{ mt: 2 }} onClick={() => navigate('/login')}>
+                <Button
+                  variant="text"
+                  size="small"
+                  sx={{ mt: 2 }}
+                  onClick={() => navigate('/login')}
+                >
                   ← Back to sign in
                 </Button>
               </Box>
@@ -247,12 +361,31 @@ export const ResetPasswordPage = () => {
 
   return (
     <AuthCard title="Reset Password" subtitle="Create a new secure password for your account.">
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      {message && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {message}
+        </Alert>
+      )}
       <Box component="form" onSubmit={submit}>
         <Stack spacing={2}>
-          <TextField label="Reset Token" value={token} InputProps={{ readOnly: true }} helperText="Token pulled from URL query" />
-          <TextField label="New Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+          <TextField
+            label="Reset Token"
+            value={token}
+            InputProps={{ readOnly: true }}
+            helperText="Token pulled from URL query"
+          />
+          <TextField
+            label="New Password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
           <TextField
             label="Confirm Password"
             type="password"
@@ -260,7 +393,9 @@ export const ResetPasswordPage = () => {
             onChange={(event) => setConfirmPassword(event.target.value)}
             required
           />
-          <Button type="submit" variant="contained" disabled={submitting}>Reset Password</Button>
+          <Button type="submit" variant="contained" disabled={submitting}>
+            Reset Password
+          </Button>
         </Stack>
       </Box>
     </AuthCard>
@@ -268,7 +403,9 @@ export const ResetPasswordPage = () => {
 };
 
 export const MfaSetupPage = () => {
-  const [secret] = useState(`HOPX-${Math.random().toString(36).slice(2, 8).toUpperCase()}-${Date.now().toString().slice(-6)}`);
+  const [secret] = useState(
+    `HOPX-${Math.random().toString(36).slice(2, 8).toUpperCase()}-${Date.now().toString().slice(-6)}`
+  );
   const [copied, setCopied] = useState(false);
 
   const copySecret = async () => {
@@ -278,11 +415,18 @@ export const MfaSetupPage = () => {
   };
 
   return (
-    <AuthCard title="MFA Setup" subtitle="Add this secret to your authenticator app to enable TOTP verification.">
+    <AuthCard
+      title="MFA Setup"
+      subtitle="Add this secret to your authenticator app to enable TOTP verification."
+    >
       <Stack spacing={2}>
         <TextField label="MFA Secret" value={secret} InputProps={{ readOnly: true }} />
-        <Button variant="outlined" onClick={() => void copySecret()}>{copied ? 'Copied' : 'Copy Secret'}</Button>
-        <Alert severity="info">Use this secret in Google Authenticator/Authy. Then proceed to verification.</Alert>
+        <Button variant="outlined" onClick={() => void copySecret()}>
+          {copied ? 'Copied' : 'Copy Secret'}
+        </Button>
+        <Alert severity="info">
+          Use this secret in Google Authenticator/Authy. Then proceed to verification.
+        </Alert>
       </Stack>
     </AuthCard>
   );
@@ -316,12 +460,27 @@ export const MfaVerifyPage = () => {
   };
 
   return (
-    <AuthCard title="MFA Verify" subtitle="Enter the 6-digit code generated by your authenticator app.">
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+    <AuthCard
+      title="MFA Verify"
+      subtitle="Enter the 6-digit code generated by your authenticator app."
+    >
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
       <Box component="form" onSubmit={submit}>
         <Stack spacing={2}>
-          <TextField label="6-digit code" value={code} onChange={(event) => setCode(event.target.value)} inputProps={{ maxLength: 6 }} required />
-          <Button type="submit" variant="contained" disabled={submitting}>Verify</Button>
+          <TextField
+            label="6-digit code"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            inputProps={{ maxLength: 6 }}
+            required
+          />
+          <Button type="submit" variant="contained" disabled={submitting}>
+            Verify
+          </Button>
         </Stack>
       </Box>
     </AuthCard>

@@ -20,7 +20,10 @@ api.interceptors.response.use(
   (error) => {
     const token = useAuthStore.getState().token;
     const isDemo = token?.startsWith('demo-token');
-    if (!isDemo && error.response?.status === 401) {
+    const isAuthEndpoint =
+      error.config?.url?.includes('/auth/login') ||
+      error.config?.url?.includes('/auth/usercode-login');
+    if (!isDemo && !isAuthEndpoint && error.response?.status === 401) {
       useAuthStore.getState().logout();
       window.location.href = '/login';
     }
@@ -50,6 +53,8 @@ export interface AuthUser {
   pmsEnabled?: boolean;
   posEnabled?: boolean;
   financeEnabled?: boolean;
+  mustResetPassword?: boolean;
+  userCode?: string | null;
 }
 
 export interface PlanSummary {

@@ -63,7 +63,7 @@ import {
   PersonOutlineRounded,
   LockOutlined,
   Visibility,
-  VisibilityOff,
+  VisibilityOff
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -106,13 +106,33 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Room Types', icon: HotelIcon, path: '/business/room-types', module: 'pms' },
     { label: 'Rooms', icon: RoomIcon, path: '/business/rooms', module: 'pms' },
     { label: 'Menu Configuration', icon: MenuBookIcon, path: '/business/menu', module: 'pos' },
-    { label: 'Menu Engineering', icon: AssessmentIcon, path: '/business/pos/menu-engineering', module: 'pos' },
+    {
+      label: 'Menu Engineering',
+      icon: AssessmentIcon,
+      path: '/business/pos/menu-engineering',
+      module: 'pos'
+    },
     { label: 'Promotions', icon: WorkspacePremium, path: '/business/promotions', module: 'pos' },
     { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
     { label: 'Profiles (View)', icon: PeopleIcon, path: '/business/profiles', module: 'pms' },
-    { label: 'Inventory', icon: ReceiptIcon, path: '/business/accounting/inventory', module: 'finance' },
-    { label: 'Forecasting', icon: TrendingUpRounded, path: '/business/accounting/forecasting', module: 'finance' },
-    { label: 'Reports', icon: AssessmentIcon, path: '/business/reports/revenue', module: 'finance' },
+    {
+      label: 'Inventory',
+      icon: ReceiptIcon,
+      path: '/business/accounting/inventory',
+      module: 'finance'
+    },
+    {
+      label: 'Forecasting',
+      icon: TrendingUpRounded,
+      path: '/business/accounting/forecasting',
+      module: 'finance'
+    },
+    {
+      label: 'Reports',
+      icon: AssessmentIcon,
+      path: '/business/reports/revenue',
+      module: 'finance'
+    },
     { label: 'Audit Trail', icon: AuditIcon, path: '/business/audit' },
     { label: 'Settings', icon: Settings, path: '/business/settings' }
   ],
@@ -124,7 +144,12 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Departures', icon: PeopleIcon, path: '/reception/departures', module: 'pms' },
     { label: 'In-House', icon: HotelIcon, path: '/reception/in-house', module: 'pms' },
     { label: 'Waitlist', icon: ReceiptIcon, path: '/reception/waitlist', module: 'pms' },
-    { label: 'New Reservation', icon: CalendarIcon, path: '/reception/new-reservation', module: 'pms' },
+    {
+      label: 'New Reservation',
+      icon: CalendarIcon,
+      path: '/reception/new-reservation',
+      module: 'pms'
+    },
     { label: 'Guest Profiles', icon: PeopleIcon, path: '/business/profiles', module: 'pms' }
   ],
   POS_STAFF: [
@@ -141,25 +166,70 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
   ],
   ACCOUNTANT: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/accountant/dashboard', module: 'finance' },
-    { label: 'Night Audit Status', icon: AssessmentIcon, path: '/accountant/night-audit/status', module: 'finance' },
-    { label: 'Validate Audit', icon: ReceiptIcon, path: '/accountant/night-audit/validate', module: 'finance' },
-    { label: 'Run Night Audit', icon: AuditIcon, path: '/accountant/night-audit/run', module: 'finance' },
-    { label: 'Audit History', icon: HistoryIcon, path: '/accountant/night-audit/history', module: 'finance' },
+    {
+      label: 'Night Audit Status',
+      icon: AssessmentIcon,
+      path: '/accountant/night-audit/status',
+      module: 'finance'
+    },
+    {
+      label: 'Validate Audit',
+      icon: ReceiptIcon,
+      path: '/accountant/night-audit/validate',
+      module: 'finance'
+    },
+    {
+      label: 'Run Night Audit',
+      icon: AuditIcon,
+      path: '/accountant/night-audit/run',
+      module: 'finance'
+    },
+    {
+      label: 'Audit History',
+      icon: HistoryIcon,
+      path: '/accountant/night-audit/history',
+      module: 'finance'
+    },
     // { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
     { label: 'Revenue', icon: AssessmentIcon, path: '/accountant/revenue', module: 'finance' },
-    { label: 'Inventory', icon: ReceiptIcon, path: '/business/accounting/inventory', module: 'finance' },
-    { label: 'Forecasting', icon: TrendingUpRounded, path: '/business/accounting/forecasting', module: 'finance' },
+    {
+      label: 'Inventory',
+      icon: ReceiptIcon,
+      path: '/business/accounting/inventory',
+      module: 'finance'
+    },
+    {
+      label: 'Forecasting',
+      icon: TrendingUpRounded,
+      path: '/business/accounting/forecasting',
+      module: 'finance'
+    },
     { label: 'Aging', icon: ReceiptIcon, path: '/accountant/aging', module: 'finance' },
     { label: 'VAT', icon: ReceiptIcon, path: '/accountant/vat', module: 'finance' },
-    { label: 'Trial Balance', icon: AssessmentIcon, path: '/accountant/trial-balance', module: 'finance' }
+    {
+      label: 'Trial Balance',
+      icon: AssessmentIcon,
+      path: '/accountant/trial-balance',
+      module: 'finance'
+    }
   ],
   MANAGER: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/business/dashboard' },
     { label: 'Reservations', icon: CalendarIcon, path: '/business/reservations', module: 'pms' },
     { label: 'Arrivals', icon: PeopleIcon, path: '/business/reservations/arrivals', module: 'pms' },
     { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
-    { label: 'Revenue', icon: AssessmentIcon, path: '/business/accounting/reports/profit-loss', module: 'finance' },
-    { label: 'Trial Balance', icon: AssessmentIcon, path: '/business/accounting/reports/trial-balance', module: 'finance' },
+    {
+      label: 'Revenue',
+      icon: AssessmentIcon,
+      path: '/business/accounting/reports/profit-loss',
+      module: 'finance'
+    },
+    {
+      label: 'Trial Balance',
+      icon: AssessmentIcon,
+      path: '/business/accounting/reports/trial-balance',
+      module: 'finance'
+    },
     { label: 'Audit Trail', icon: AuditIcon, path: '/business/audit-trail' }
   ]
 };
@@ -193,8 +263,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isDark = mode === 'dark';
 
   const isSuperAdmin = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
-  const logoSrc = isSuperAdmin ? '/logo.png' : (user?.logoUrl || '/logo.png');
-  const brandName = isSuperAdmin ? 'HotelOpX' : (user?.hotelName || 'HotelOpX');
+  const logoSrc = isSuperAdmin ? '/logo.png' : user?.logoUrl || '/logo.png';
+  const brandName = isSuperAdmin ? 'HotelOpX' : user?.hotelName || 'HotelOpX';
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -212,15 +282,23 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleChangePassword = async () => {
     setPwError('');
     setPwSuccess(false);
-    if (newPassword.length < 8) { setPwError('New password must be at least 8 characters.'); return; }
-    if (newPassword !== confirmPassword) { setPwError('Passwords do not match.'); return; }
+    if (newPassword.length < 8) {
+      setPwError('New password must be at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwError('Passwords do not match.');
+      return;
+    }
     setPwLoading(true);
     try {
       const { api } = await import('../services/api');
       await api.post('/auth/change-password', { currentPassword, newPassword });
       setUser({ mustResetPassword: false });
       setPwSuccess(true);
-      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
     } catch (err: any) {
       setPwError(err?.response?.data?.error || err?.message || 'Failed to change password.');
     } finally {
@@ -272,12 +350,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return isModuleEnabled(item.module);
   });
   const activeItem =
-    menuItems.find((item) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)) ||
-    menuItems[0];
-  const enabledModules = (Object.keys(moduleMeta) as Array<keyof typeof moduleMeta>).map((moduleKey) => ({
-    ...moduleMeta[moduleKey],
-    enabled: isModuleEnabled(moduleKey)
-  }));
+    menuItems.find(
+      (item) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
+    ) || menuItems[0];
+  const enabledModules = (Object.keys(moduleMeta) as Array<keyof typeof moduleMeta>).map(
+    (moduleKey) => ({
+      ...moduleMeta[moduleKey],
+      enabled: isModuleEnabled(moduleKey)
+    })
+  );
 
   const drawerContent = (
     <Box sx={{ width: drawerWidth, height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -319,13 +400,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </Stack>
       </Box>
       <Box sx={{ px: 2, pt: 2 }}>
-        <Typography variant="subtitle2" sx={{ color: 'rgba(248,244,236,0.58)', px: 1.25, pb: 1.25 }}>
+        <Typography
+          variant="subtitle2"
+          sx={{ color: 'rgba(248,244,236,0.58)', px: 1.25, pb: 1.25 }}
+        >
           Navigation
         </Typography>
       </Box>
       <List sx={{ mt: 0, px: 2 }}>
         {menuItems.map((item) => {
-          const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+          const isActive =
+            location.pathname === item.path || location.pathname.startsWith(item.path + '/');
           return (
             <ListItemButton
               key={item.label}
@@ -342,7 +427,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 }
               }}
             >
-              <ListItemIcon sx={{ color: isActive ? theme.palette.secondary.light : 'rgba(248,244,236,0.6)' }}>
+              <ListItemIcon
+                sx={{ color: isActive ? theme.palette.secondary.light : 'rgba(248,244,236,0.6)' }}
+              >
                 <item.icon />
               </ListItemIcon>
               <ListItemText primary={item.label} />
@@ -366,7 +453,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Avatar>
             <Box sx={{ minWidth: 0 }}>
               <Typography variant="subtitle2" noWrap>
-                {isSuperAdmin ? (user?.name || 'Super Admin') : (user?.hotelName || 'Demo Property')}
+                {isSuperAdmin ? user?.name || 'Super Admin' : user?.hotelName || 'Demo Property'}
               </Typography>
               <Typography variant="caption" sx={{ color: 'rgba(248,244,236,0.66)' }}>
                 {displayRole(normalizedRole)}
@@ -412,7 +499,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
           <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box>
-              <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: '0.12em' }}>
+              <Typography
+                variant="caption"
+                sx={{ color: 'text.secondary', letterSpacing: '0.12em' }}
+              >
                 COMMAND CENTER
               </Typography>
               <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
@@ -434,7 +524,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             }}
           >
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              {!isSuperAdmin ? (user?.hotelName || 'Demo Property') : ''}
+              {!isSuperAdmin ? user?.hotelName || 'Demo Property' : ''}
             </Typography>
           </Paper>
 
@@ -450,7 +540,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Badge>
           </IconButton>
 
-          <Box onClick={handleProfileMenuOpen} sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+          <Box
+            onClick={handleProfileMenuOpen}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
             <Avatar sx={{ bgcolor: 'secondary.main', mr: 1 }}>
               {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
             </Avatar>
@@ -458,18 +551,26 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                 {user?.name}
               </Typography>
-              <Typography variant="caption">
-                {displayRole(normalizedRole)}
-              </Typography>
+              <Typography variant="caption">{displayRole(normalizedRole)}</Typography>
             </Box>
           </Box>
 
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleProfileMenuClose}>
-            <MenuItem onClick={() => { handleProfileMenuClose(); setProfileOpen(true); }}>
+            <MenuItem
+              onClick={() => {
+                handleProfileMenuClose();
+                setProfileOpen(true);
+              }}
+            >
               <PersonOutlineRounded sx={{ mr: 1 }} fontSize="small" />
               Profile
             </MenuItem>
-            <MenuItem onClick={() => { handleProfileMenuClose(); setSecurityOpen(true); }}>
+            <MenuItem
+              onClick={() => {
+                handleProfileMenuClose();
+                setSecurityOpen(true);
+              }}
+            >
               <LockOutlined sx={{ mr: 1 }} fontSize="small" />
               Security
             </MenuItem>
@@ -486,12 +587,24 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <DialogContent>
               <Stack spacing={2} pt={1}>
                 <Stack direction="row" spacing={2} alignItems="center">
-                  <Avatar sx={{ width: 56, height: 56, bgcolor: 'secondary.main', fontSize: 22, fontWeight: 700 }}>
+                  <Avatar
+                    sx={{
+                      width: 56,
+                      height: 56,
+                      bgcolor: 'secondary.main',
+                      fontSize: 22,
+                      fontWeight: 700
+                    }}
+                  >
                     {user?.name?.charAt(0).toUpperCase() || '?'}
                   </Avatar>
                   <Box>
-                    <Typography variant="h6" fontWeight={700}>{user?.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">{displayRole(normalizedRole)}</Typography>
+                    <Typography variant="h6" fontWeight={700}>
+                      {user?.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {displayRole(normalizedRole)}
+                    </Typography>
                   </Box>
                 </Stack>
                 <Divider />
@@ -501,51 +614,113 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   { label: 'Last Name', value: user?.lastName },
                   { label: 'Role', value: displayRole(normalizedRole) },
                   { label: 'Business', value: user?.hotelName || '—' },
-                  { label: 'Usercode', value: user?.userCode || '—' },
+                  { label: 'Usercode', value: user?.userCode || '—' }
                 ].map(({ label, value }) => (
                   <Box key={label}>
-                    <Typography variant="caption" color="text.secondary">{label}</Typography>
-                    <Typography variant="body2" fontWeight={500}>{value || '—'}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {label}
+                    </Typography>
+                    <Typography variant="body2" fontWeight={500}>
+                      {value || '—'}
+                    </Typography>
                   </Box>
                 ))}
               </Stack>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => setProfileOpen(false)} variant="contained">Close</Button>
+              <Button onClick={() => setProfileOpen(false)} variant="contained">
+                Close
+              </Button>
             </DialogActions>
           </Dialog>
 
           {/* Security Modal */}
-          <Dialog open={securityOpen} onClose={() => { setSecurityOpen(false); setPwError(''); setPwSuccess(false); }} maxWidth="xs" fullWidth>
+          <Dialog
+            open={securityOpen}
+            onClose={() => {
+              setSecurityOpen(false);
+              setPwError('');
+              setPwSuccess(false);
+            }}
+            maxWidth="xs"
+            fullWidth
+          >
             <DialogTitle>Security — Change Password</DialogTitle>
             <DialogContent>
               <Stack spacing={2} pt={1}>
-                {pwError && <Alert severity="error" onClose={() => setPwError('')}>{pwError}</Alert>}
+                {pwError && (
+                  <Alert severity="error" onClose={() => setPwError('')}>
+                    {pwError}
+                  </Alert>
+                )}
                 {pwSuccess && <Alert severity="success">Password changed successfully.</Alert>}
                 <TextField
-                  fullWidth label="Current password" type="password"
-                  value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><LockOutlined fontSize="small" /></InputAdornment> }}
-                />
-                <TextField
-                  fullWidth label="New password" type={showNewPw ? 'text' : 'password'}
-                  value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-                  helperText="Minimum 8 characters"
+                  fullWidth
+                  label="Current password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
                   InputProps={{
-                    startAdornment: <InputAdornment position="start"><LockOutlined fontSize="small" /></InputAdornment>,
-                    endAdornment: <InputAdornment position="end"><IconButton size="small" onClick={() => setShowNewPw(s => !s)}>{showNewPw ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment>
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <LockOutlined fontSize="small" />
+                      </InputAdornment>
+                    )
                   }}
                 />
                 <TextField
-                  fullWidth label="Confirm new password" type="password"
-                  value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><LockOutlined fontSize="small" /></InputAdornment> }}
+                  fullWidth
+                  label="New password"
+                  type={showNewPw ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  helperText="Minimum 8 characters"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <LockOutlined fontSize="small" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setShowNewPw((s) => !s)}>
+                          {showNewPw ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="Confirm new password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <LockOutlined fontSize="small" />
+                      </InputAdornment>
+                    )
+                  }}
                 />
               </Stack>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => { setSecurityOpen(false); setPwError(''); setPwSuccess(false); }}>Cancel</Button>
-              <Button variant="contained" onClick={() => void handleChangePassword()} disabled={pwLoading || !currentPassword || !newPassword || !confirmPassword}>
+              <Button
+                onClick={() => {
+                  setSecurityOpen(false);
+                  setPwError('');
+                  setPwSuccess(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={() => void handleChangePassword()}
+                disabled={pwLoading || !currentPassword || !newPassword || !confirmPassword}
+              >
                 {pwLoading ? 'Saving…' : 'Change Password'}
               </Button>
             </DialogActions>

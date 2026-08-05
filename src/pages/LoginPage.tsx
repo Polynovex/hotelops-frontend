@@ -445,9 +445,15 @@ const LoginPage: React.FC = () => {
                         lineHeight: 1
                       }}
                     >
-                      <Box component="span" sx={{ color: '#0F1D3D' }}>Hotel</Box>
-                      <Box component="span" sx={{ color: '#132349' }}>Op</Box>
-                      <Box component="span" sx={{ color: '#3B82F6' }}>X</Box>
+                      <Box component="span" sx={{ color: '#0F1D3D' }}>
+                        Hotel
+                      </Box>
+                      <Box component="span" sx={{ color: '#132349' }}>
+                        Op
+                      </Box>
+                      <Box component="span" sx={{ color: '#3B82F6' }}>
+                        X
+                      </Box>
                     </Typography>
                     <Typography
                       sx={{
