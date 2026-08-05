@@ -16,6 +16,8 @@ interface User {
   pmsEnabled?: boolean;
   posEnabled?: boolean;
   financeEnabled?: boolean;
+  mustResetPassword?: boolean;
+  userCode?: string | null;
 }
 
 interface AuthState {

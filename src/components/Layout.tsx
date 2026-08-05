@@ -20,7 +20,15 @@ import {
   Divider,
   Paper,
   Stack,
-  Tooltip
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  Alert,
+  InputAdornment
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
@@ -52,6 +60,10 @@ import {
   RestaurantRounded,
   AutoAwesomeRounded,
   TrendingUpRounded,
+  PersonOutlineRounded,
+  LockOutlined,
+  Visibility,
+  VisibilityOff,
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -84,6 +96,7 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
   SUPER_ADMIN: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/super-admin/dashboard' },
     { label: 'Businesses', icon: BusinessIcon, path: '/super-admin/businesses' },
+    { label: 'Package Configuration', icon: WorkspacePremium, path: '/super-admin/plans' },
     { label: 'System Stats', icon: AssessmentIcon, path: '/super-admin/stats' },
     { label: 'Audit Log', icon: AuditIcon, path: '/super-admin/audit' }
   ],
@@ -132,7 +145,7 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Validate Audit', icon: ReceiptIcon, path: '/accountant/night-audit/validate', module: 'finance' },
     { label: 'Run Night Audit', icon: AuditIcon, path: '/accountant/night-audit/run', module: 'finance' },
     { label: 'Audit History', icon: HistoryIcon, path: '/accountant/night-audit/history', module: 'finance' },
-    { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
+    // { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
     { label: 'Revenue', icon: AssessmentIcon, path: '/accountant/revenue', module: 'finance' },
     { label: 'Inventory', icon: ReceiptIcon, path: '/business/accounting/inventory', module: 'finance' },
     { label: 'Forecasting', icon: TrendingUpRounded, path: '/business/accounting/forecasting', module: 'finance' },
@@ -162,16 +175,25 @@ const moduleMeta = {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuthStore();
+  const { user, logout, setUser } = useAuthStore();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [securityOpen, setSecurityOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState(false);
   const theme = useTheme();
   const { mode, toggleColorMode } = useColorMode();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isDark = mode === 'dark';
 
   const isSuperAdmin = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
-  const logoSrc = isSuperAdmin || !user?.logoUrl ? '/logo.png' : user.logoUrl;
+  const logoSrc = isSuperAdmin ? '/logo.png' : (user?.logoUrl || '/logo.png');
   const brandName = isSuperAdmin ? 'HotelOpX' : (user?.hotelName || 'HotelOpX');
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -185,6 +207,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleChangePassword = async () => {
+    setPwError('');
+    setPwSuccess(false);
+    if (newPassword.length < 8) { setPwError('New password must be at least 8 characters.'); return; }
+    if (newPassword !== confirmPassword) { setPwError('Passwords do not match.'); return; }
+    setPwLoading(true);
+    try {
+      const { api } = await import('../services/api');
+      await api.post('/auth/change-password', { currentPassword, newPassword });
+      setUser({ mustResetPassword: false });
+      setPwSuccess(true);
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+    } catch (err: any) {
+      setPwError(err?.response?.data?.error || err?.message || 'Failed to change password.');
+    } finally {
+      setPwLoading(false);
+    }
   };
 
   const normalizedRole = String(user?.role || '').toUpperCase();
@@ -247,30 +288,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           borderBottom: '1px solid rgba(255,255,255,0.08)'
         }}
       >
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <Box
-            component="img"
-            src={logoSrc}
-            alt={brandName}
-            sx={{
-                width: 44,
-                height: 44,
-                borderRadius: '10px',
-                objectFit: 'contain',
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                padding: '6px',
-              boxShadow: '0 18px 32px rgba(0,0,0,0.12)'
-            }}
-          />
-          <Box>
-            <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.68)', letterSpacing: '0.12em' }}>
-              HOTEL OPS
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#FFFFFF', mt: 0.25 }}>
-              {brandName}
-            </Typography>
-          </Box>
-        </Stack>
+        <Box
+          component="img"
+          src={logoSrc}
+          alt={brandName}
+          sx={{ width: 240, height: 120, objectFit: 'contain' }}
+        />
         <Typography variant="body2" sx={{ color: 'rgba(248,244,236,0.76)', mt: 2.5 }}>
           Premium hotel operations control with PMS, POS, and finance in one command layer.
         </Typography>
@@ -343,7 +366,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Avatar>
             <Box sx={{ minWidth: 0 }}>
               <Typography variant="subtitle2" noWrap>
-                {user?.hotelName || 'Demo Property'}
+                {isSuperAdmin ? (user?.name || 'Super Admin') : (user?.hotelName || 'Demo Property')}
               </Typography>
               <Typography variant="caption" sx={{ color: 'rgba(248,244,236,0.66)' }}>
                 {displayRole(normalizedRole)}
@@ -370,7 +393,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         background: isDark ? '#0E1418' : '#FFFFFF'
       }}
     >
-      <AppBar position="fixed" sx={{ zIndex: theme.zIndex.drawer + 1 }}>
+      <AppBar
+        position="fixed"
+        sx={{
+          zIndex: theme.zIndex.drawer + 1,
+          width: { md: `calc(100% - ${drawerWidth}px)` },
+          ml: { md: `${drawerWidth}px` }
+        }}
+      >
         <Toolbar sx={{ minHeight: '88px !important', px: { xs: 2, md: 3 } }}>
           <IconButton
             color="inherit"
@@ -381,26 +411,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </IconButton>
 
           <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box
-              component="img"
-              src={logoSrc}
-              alt={brandName}
-              sx={{
-                width: 42,
-                height: 42,
-                borderRadius: '10px',
-                objectFit: 'contain',
-                backgroundColor: alpha('#FFFFFF', 0.88),
-                padding: '6px',
-                boxShadow: '0 18px 28px rgba(34,48,56,0.08)'
-              }}
-            />
             <Box>
               <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: '0.12em' }}>
                 COMMAND CENTER
               </Typography>
               <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
-                {activeItem?.label || 'HotelOpX'}
+                {activeItem?.label || brandName}
               </Typography>
             </Box>
           </Box>
@@ -418,7 +434,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             }}
           >
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              {user?.hotelName || 'Demo Property'}
+              {!isSuperAdmin ? (user?.hotelName || 'Demo Property') : ''}
             </Typography>
           </Paper>
 
@@ -449,11 +465,91 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </Box>
 
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleProfileMenuClose}>
+            <MenuItem onClick={() => { handleProfileMenuClose(); setProfileOpen(true); }}>
+              <PersonOutlineRounded sx={{ mr: 1 }} fontSize="small" />
+              Profile
+            </MenuItem>
+            <MenuItem onClick={() => { handleProfileMenuClose(); setSecurityOpen(true); }}>
+              <LockOutlined sx={{ mr: 1 }} fontSize="small" />
+              Security
+            </MenuItem>
+            <Divider />
             <MenuItem onClick={handleLogout}>
               <LogoutIcon sx={{ mr: 1 }} />
               Logout
             </MenuItem>
           </Menu>
+
+          {/* Profile Modal */}
+          <Dialog open={profileOpen} onClose={() => setProfileOpen(false)} maxWidth="xs" fullWidth>
+            <DialogTitle>My Profile</DialogTitle>
+            <DialogContent>
+              <Stack spacing={2} pt={1}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Avatar sx={{ width: 56, height: 56, bgcolor: 'secondary.main', fontSize: 22, fontWeight: 700 }}>
+                    {user?.name?.charAt(0).toUpperCase() || '?'}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6" fontWeight={700}>{user?.name}</Typography>
+                    <Typography variant="body2" color="text.secondary">{displayRole(normalizedRole)}</Typography>
+                  </Box>
+                </Stack>
+                <Divider />
+                {[
+                  { label: 'Email', value: user?.email },
+                  { label: 'First Name', value: user?.firstName },
+                  { label: 'Last Name', value: user?.lastName },
+                  { label: 'Role', value: displayRole(normalizedRole) },
+                  { label: 'Business', value: user?.hotelName || '—' },
+                  { label: 'Usercode', value: user?.userCode || '—' },
+                ].map(({ label, value }) => (
+                  <Box key={label}>
+                    <Typography variant="caption" color="text.secondary">{label}</Typography>
+                    <Typography variant="body2" fontWeight={500}>{value || '—'}</Typography>
+                  </Box>
+                ))}
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setProfileOpen(false)} variant="contained">Close</Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Security Modal */}
+          <Dialog open={securityOpen} onClose={() => { setSecurityOpen(false); setPwError(''); setPwSuccess(false); }} maxWidth="xs" fullWidth>
+            <DialogTitle>Security — Change Password</DialogTitle>
+            <DialogContent>
+              <Stack spacing={2} pt={1}>
+                {pwError && <Alert severity="error" onClose={() => setPwError('')}>{pwError}</Alert>}
+                {pwSuccess && <Alert severity="success">Password changed successfully.</Alert>}
+                <TextField
+                  fullWidth label="Current password" type="password"
+                  value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
+                  InputProps={{ startAdornment: <InputAdornment position="start"><LockOutlined fontSize="small" /></InputAdornment> }}
+                />
+                <TextField
+                  fullWidth label="New password" type={showNewPw ? 'text' : 'password'}
+                  value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                  helperText="Minimum 8 characters"
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start"><LockOutlined fontSize="small" /></InputAdornment>,
+                    endAdornment: <InputAdornment position="end"><IconButton size="small" onClick={() => setShowNewPw(s => !s)}>{showNewPw ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment>
+                  }}
+                />
+                <TextField
+                  fullWidth label="Confirm new password" type="password"
+                  value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                  InputProps={{ startAdornment: <InputAdornment position="start"><LockOutlined fontSize="small" /></InputAdornment> }}
+                />
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => { setSecurityOpen(false); setPwError(''); setPwSuccess(false); }}>Cancel</Button>
+              <Button variant="contained" onClick={() => void handleChangePassword()} disabled={pwLoading || !currentPassword || !newPassword || !confirmPassword}>
+                {pwLoading ? 'Saving…' : 'Change Password'}
+              </Button>
+            </DialogActions>
+          </Dialog>
         </Toolbar>
       </AppBar>
 
@@ -467,8 +563,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: 'border-box',
-            marginTop: '88px',
-            height: 'calc(100vh - 88px)'
+            height: '100vh'
           }
         }}
       >

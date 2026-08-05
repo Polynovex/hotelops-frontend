@@ -6,10 +6,8 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   CircularProgress,
   Container,
-  Divider,
   Grid,
   IconButton,
   InputAdornment,
@@ -42,69 +40,11 @@ import { LoginSchema, loginSchema } from '../validation/auth.schema';
 
 type LoginMode = 'USERCODE' | 'EMAIL';
 
-interface DemoCredential {
-  label: string;
-  email: string;
-  password: string;
-  role: UserRole;
-  description: string;
-}
-
-const demoCredentials: DemoCredential[] = [
-  {
-    label: 'Super admin',
-    email: 'superadmin@hotelopx.com',
-    password: 'demo123',
-    role: 'SUPER_ADMIN',
-    description: 'Platform-wide control'
-  },
-  {
-    label: 'Business admin',
-    email: 'admin@demo.com',
-    password: 'demo123',
-    role: 'BUSINESS_ADMIN',
-    description: 'Hotel operator view'
-  },
-  {
-    label: 'Manager',
-    email: 'manager@demo.com',
-    password: 'demo123',
-    role: 'MANAGER',
-    description: 'Daily operations'
-  },
-  {
-    label: 'Accountant',
-    email: 'accounting@demo.com',
-    password: 'demo123',
-    role: 'ACCOUNTANT',
-    description: 'Finance & audits'
-  },
-  {
-    label: 'Reception',
-    email: 'reception@demo.com',
-    password: 'demo123',
-    role: 'RECEPTIONIST',
-    description: 'Front desk shift'
-  },
-  {
-    label: 'POS staff',
-    email: 'pos@demo.com',
-    password: 'demo123',
-    role: 'POS_STAFF',
-    description: 'Restaurant POS'
-  },
-  {
-    label: 'Housekeeping',
-    email: 'housekeeping@demo.com',
-    password: 'demo123',
-    role: 'HOUSEKEEPING',
-    description: 'Room status'
-  }
-];
-
-const routeForRole = (role: UserRole) => {
+const routeForRole = (role: UserRole, mustResetPassword?: boolean) => {
+  if (mustResetPassword) return '/change-password';
   if (role === 'SUPER_ADMIN') return '/super-admin/dashboard';
   if (role === 'BUSINESS_ADMIN' || role === 'MANAGER') return '/business/dashboard';
+  if (role === 'HOUSEKEEPING') return '/business/rooms/status-board';
   return '/shift';
 };
 
@@ -138,8 +78,8 @@ const LoginPage: React.FC = () => {
     setPin('');
   }, [mode]);
 
-  const completeLogin = (role: UserRole) => {
-    navigate(routeForRole(role));
+  const completeLogin = (role: UserRole, mustResetPassword?: boolean) => {
+    navigate(routeForRole(role, mustResetPassword));
     reset();
   };
 
@@ -149,7 +89,7 @@ const LoginPage: React.FC = () => {
     try {
       const auth = await authService.login(data.email, data.password);
       useAuthStore.getState().setAuth(auth.user, auth.token, auth.refreshToken);
-      completeLogin(auth.user.role);
+      completeLogin(auth.user.role, auth.user.mustResetPassword);
     } catch (err: any) {
       setError(err?.message || err?.response?.data?.error || 'Login failed');
     } finally {
@@ -179,20 +119,6 @@ const LoginPage: React.FC = () => {
         LOCKED: 'Account locked. Try again later.'
       };
       setError(map[code] || err?.message || 'Login failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDemoLogin = async (cred: DemoCredential) => {
-    setLoading(true);
-    setError('');
-    try {
-      const auth = await authService.login(cred.email, cred.password);
-      useAuthStore.getState().setAuth(auth.user, auth.token, auth.refreshToken);
-      completeLogin(auth.user.role);
-    } catch (err: any) {
-      setError(err?.message || 'Demo login failed');
     } finally {
       setLoading(false);
     }
@@ -237,7 +163,7 @@ const LoginPage: React.FC = () => {
         <Grid container spacing={{ xs: 3, md: 5 }} alignItems="stretch">
           {/* LEFT — Brand panel */}
 
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={6} sx={{ display: { xs: 'none', md: 'block' } }}>
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -479,6 +405,64 @@ const LoginPage: React.FC = () => {
                   boxShadow: '0 24px 64px rgba(15, 27, 35, 0.12)'
                 }}
               >
+                {/* Mobile logo — hidden on md+ */}
+                <Box
+                  sx={{
+                    display: { xs: 'flex', md: 'none' },
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 2.5,
+                    mb: 4,
+                    p: 3,
+                    borderRadius: '20px',
+                    background: 'linear-gradient(160deg, #13283D 0%, #1B3C61 45%, #244F80 100%)',
+                    boxShadow: '0 40px 100px rgba(7,18,31,.35)'
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 100,
+                      height: 100,
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      overflow: 'hidden',
+                      flexShrink: 0
+                    }}
+                  >
+                    <img
+                      src="/icon.png"
+                      alt="HotelOpX"
+                      style={{ width: '68%', height: '68%', objectFit: 'contain' }}
+                    />
+                  </Box>
+                  <Box>
+                    <Typography
+                      sx={{
+                        fontSize: '2.6rem',
+                        fontWeight: 800,
+                        letterSpacing: '-0.05em',
+                        lineHeight: 1
+                      }}
+                    >
+                      <Box component="span" sx={{ color: '#0F1D3D' }}>Hotel</Box>
+                      <Box component="span" sx={{ color: '#132349' }}>Op</Box>
+                      <Box component="span" sx={{ color: '#3B82F6' }}>X</Box>
+                    </Typography>
+                    <Typography
+                      sx={{
+                        mt: 0.5,
+                        color: 'rgba(255,255,255,.68)',
+                        fontWeight: 600,
+                        fontSize: 11,
+                        letterSpacing: '.22em'
+                      }}
+                    >
+                      HOSPITALITY OPERATING SYSTEM
+                    </Typography>
+                  </Box>
+                </Box>
+
                 <Typography variant="caption">Welcome back</Typography>
                 <Typography
                   variant="h2"
@@ -705,8 +689,8 @@ const LoginPage: React.FC = () => {
                   </Box>
                 )}
 
-                <Divider sx={{ my: 3 }}>or</Divider>
-                <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>
+                {/* <Divider sx={{ my: 3 }}>or</Divider> */}
+                {/* <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>
                   Quick demo
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -720,7 +704,7 @@ const LoginPage: React.FC = () => {
                       onClick={() => void handleDemoLogin(cred)}
                     />
                   ))}
-                </Stack>
+                </Stack> */}
               </Box>
             </motion.div>
           </Grid>

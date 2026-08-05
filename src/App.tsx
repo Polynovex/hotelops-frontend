@@ -93,9 +93,9 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: false,
-      refetchOnWindowFocus: false,
-    },
-  },
+      refetchOnWindowFocus: false
+    }
+  }
 });
 
 const normalizeRouteRole = (role?: string) => (role === 'RECEPTION' ? 'RECEPTIONIST' : role || '');
@@ -214,7 +214,13 @@ const resolveModuleFallbackPath = (user: ModuleAwareUser) => {
   return '/login';
 };
 
-const ProtectedRoute = ({ children, allowedRoles }: { children: JSX.Element; allowedRoles: string[] }) => {
+const ProtectedRoute = ({
+  children,
+  allowedRoles
+}: {
+  children: JSX.Element;
+  allowedRoles: string[];
+}) => {
   const user = useAuthStore((state) => state.user);
   const location = useLocation();
 
@@ -294,7 +300,7 @@ function App() {
         maxSnack={3}
         anchorOrigin={{
           vertical: 'top',
-          horizontal: 'right',
+          horizontal: 'right'
         }}
       >
         <QueryClientProvider client={queryClient}>
@@ -357,7 +363,9 @@ function App() {
               <Route
                 path="/business/dashboard"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT', 'RECEPTIONIST']}>
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT', 'RECEPTIONIST']}
+                  >
                     <ShiftGatedRoute>
                       <DashboardPage />
                     </ShiftGatedRoute>
@@ -412,7 +420,9 @@ function App() {
               <Route
                 path="/business/profiles"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'ACCOUNTANT']}>
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'ACCOUNTANT']}
+                  >
                     <ProfileListPage />
                   </ProtectedRoute>
                 }
@@ -421,7 +431,9 @@ function App() {
               <Route
                 path="/business/profiles/individual"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'ACCOUNTANT']}>
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'ACCOUNTANT']}
+                  >
                     <ProfileListPage />
                   </ProtectedRoute>
                 }
@@ -439,7 +451,9 @@ function App() {
               <Route
                 path="/business/profiles/:id"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'ACCOUNTANT']}>
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'ACCOUNTANT']}
+                  >
                     <ProfileDetailPage />
                   </ProtectedRoute>
                 }
@@ -567,7 +581,9 @@ function App() {
               <Route
                 path="/business/rooms"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'HOUSEKEEPING']}>
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'HOUSEKEEPING']}
+                  >
                     <RoomListPage />
                   </ProtectedRoute>
                 }
@@ -603,7 +619,9 @@ function App() {
               <Route
                 path="/business/rooms/:id"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'HOUSEKEEPING']}>
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'HOUSEKEEPING']}
+                  >
                     <RoomDetailPage />
                   </ProtectedRoute>
                 }
@@ -621,7 +639,9 @@ function App() {
               <Route
                 path="/business/rooms/status-board"
                 element={
-                  <ProtectedRoute allowedRoles={['HOUSEKEEPING', 'RECEPTIONIST', 'MANAGER', 'BUSINESS_ADMIN']}>
+                  <ProtectedRoute
+                    allowedRoles={['HOUSEKEEPING', 'RECEPTIONIST', 'MANAGER', 'BUSINESS_ADMIN']}
+                  >
                     <RoomStatusBoardPage />
                   </ProtectedRoute>
                 }
@@ -998,53 +1018,149 @@ function App() {
                 }
               />
 
-              <Route path="/super-admin/stats" element={<Navigate to="/super-admin/system-health" replace />} />
-              <Route path="/super-admin/audit" element={<Navigate to="/super-admin/audit-log" replace />} />
+              <Route
+                path="/super-admin/stats"
+                element={<Navigate to="/super-admin/system-health" replace />}
+              />
+              <Route
+                path="/super-admin/audit"
+                element={<Navigate to="/super-admin/audit-log" replace />}
+              />
 
-              <Route path="/business/users" element={<Navigate to="/business/settings/users" replace />} />
-              <Route path="/business/room-types" element={<Navigate to="/business/rooms/types" replace />} />
+              <Route
+                path="/business/users"
+                element={<Navigate to="/business/settings/users" replace />}
+              />
+              <Route
+                path="/business/room-types"
+                element={<Navigate to="/business/rooms/types" replace />}
+              />
               <Route path="/business/menu" element={<Navigate to="/business/pos/menu" replace />} />
-              <Route path="/business/audit" element={<Navigate to="/business/audit-trail" replace />} />
+              <Route
+                path="/business/audit"
+                element={<Navigate to="/business/audit-trail" replace />}
+              />
 
-              <Route path="/reception/dashboard" element={<Navigate to="/business/reservations/arrivals" replace />} />
-              <Route path="/reception/stay-view" element={<Navigate to="/business/reservations/stay-view" replace />} />
-              <Route path="/reception/arrivals" element={<Navigate to="/business/reservations/arrivals" replace />} />
-              <Route path="/reception/departures" element={<Navigate to="/business/reservations/departures" replace />} />
-              <Route path="/reception/in-house" element={<Navigate to="/business/reservations/in-house" replace />} />
-              <Route path="/reception/waitlist" element={<Navigate to="/business/reservations/q-room" replace />} />
-              <Route path="/reception/new-reservation" element={<Navigate to="/business/reservations/create" replace />} />
+              <Route
+                path="/reception/dashboard"
+                element={<Navigate to="/business/reservations/arrivals" replace />}
+              />
+              <Route
+                path="/reception/stay-view"
+                element={<Navigate to="/business/reservations/stay-view" replace />}
+              />
+              <Route
+                path="/reception/arrivals"
+                element={<Navigate to="/business/reservations/arrivals" replace />}
+              />
+              <Route
+                path="/reception/departures"
+                element={<Navigate to="/business/reservations/departures" replace />}
+              />
+              <Route
+                path="/reception/in-house"
+                element={<Navigate to="/business/reservations/in-house" replace />}
+              />
+              <Route
+                path="/reception/waitlist"
+                element={<Navigate to="/business/reservations/q-room" replace />}
+              />
+              <Route
+                path="/reception/new-reservation"
+                element={<Navigate to="/business/reservations/create" replace />}
+              />
 
-              <Route path="/pos/dashboard" element={<Navigate to="/business/pos/orders" replace />} />
+              <Route
+                path="/pos/dashboard"
+                element={<Navigate to="/business/pos/orders" replace />}
+              />
               <Route path="/pos/order" element={<Navigate to="/business/pos/orders" replace />} />
               <Route path="/pos/tables" element={<Navigate to="/business/pos/tables" replace />} />
               <Route path="/pos/orders" element={<Navigate to="/business/pos/orders" replace />} />
 
-              <Route path="/housekeeping/dashboard" element={<Navigate to="/business/rooms/status-board" replace />} />
-              <Route path="/housekeeping/rooms" element={<Navigate to="/business/rooms/status-board" replace />} />
-              <Route path="/housekeeping/tasks" element={<Navigate to="/business/housekeeping/tasks" replace />} />
+              <Route
+                path="/housekeeping/dashboard"
+                element={<Navigate to="/business/rooms/status-board" replace />}
+              />
+              <Route
+                path="/housekeeping/rooms"
+                element={<Navigate to="/business/rooms/status-board" replace />}
+              />
+              <Route
+                path="/housekeeping/tasks"
+                element={<Navigate to="/business/housekeeping/tasks" replace />}
+              />
 
-              <Route path="/accountant/dashboard" element={<Navigate to="/business/accounting/reports/profit-loss" replace />} />
-              <Route path="/accountant/night-audit" element={<Navigate to="/business/accounting/night-audit/status" replace />} />
-              <Route path="/accountant/night-audit/status" element={<Navigate to="/business/accounting/night-audit/status" replace />} />
-              <Route path="/accountant/night-audit/validate" element={<Navigate to="/business/accounting/night-audit/validate" replace />} />
-              <Route path="/accountant/night-audit/run" element={<Navigate to="/business/accounting/night-audit/run" replace />} />
-              <Route path="/accountant/night-audit/history" element={<Navigate to="/business/accounting/night-audit/history" replace />} />
-              <Route path="/accountant/revenue" element={<Navigate to="/business/accounting/reports/profit-loss" replace />} />
-              <Route path="/accountant/aging" element={<Navigate to="/business/accounting/reports/aging" replace />} />
-              <Route path="/accountant/vat" element={<Navigate to="/business/accounting/reports/vat" replace />} />
-              <Route path="/accountant/trial-balance" element={<Navigate to="/business/accounting/reports/trial-balance" replace />} />
-              <Route path="/accountant/audit" element={<Navigate to="/business/audit-trail" replace />} />
+              <Route
+                path="/accountant/dashboard"
+                element={<Navigate to="/business/accounting/reports/profit-loss" replace />}
+              />
+              <Route
+                path="/accountant/night-audit"
+                element={<Navigate to="/business/accounting/night-audit/status" replace />}
+              />
+              <Route
+                path="/accountant/night-audit/status"
+                element={<Navigate to="/business/accounting/night-audit/status" replace />}
+              />
+              <Route
+                path="/accountant/night-audit/validate"
+                element={<Navigate to="/business/accounting/night-audit/validate" replace />}
+              />
+              <Route
+                path="/accountant/night-audit/run"
+                element={<Navigate to="/business/accounting/night-audit/run" replace />}
+              />
+              <Route
+                path="/accountant/night-audit/history"
+                element={<Navigate to="/business/accounting/night-audit/history" replace />}
+              />
+              <Route
+                path="/accountant/revenue"
+                element={<Navigate to="/business/accounting/reports/profit-loss" replace />}
+              />
+              <Route
+                path="/accountant/aging"
+                element={<Navigate to="/business/accounting/reports/aging" replace />}
+              />
+              <Route
+                path="/accountant/vat"
+                element={<Navigate to="/business/accounting/reports/vat" replace />}
+              />
+              <Route
+                path="/accountant/trial-balance"
+                element={<Navigate to="/business/accounting/reports/trial-balance" replace />}
+              />
+              <Route
+                path="/accountant/audit"
+                element={<Navigate to="/business/audit-trail" replace />}
+              />
 
-              <Route path="/super-admin" element={<Navigate to="/super-admin/businesses" replace />} />
+              <Route
+                path="/super-admin"
+                element={<Navigate to="/super-admin/businesses" replace />}
+              />
               <Route path="/business" element={<Navigate to="/business/dashboard" replace />} />
-              <Route path="/business/accounting/night-audit" element={<Navigate to="/business/accounting/night-audit/status" replace />} />
-              <Route path="/business/accounting" element={<Navigate to="/business/accounting/chart-of-accounts" replace />} />
+              <Route
+                path="/business/accounting/night-audit"
+                element={<Navigate to="/business/accounting/night-audit/status" replace />}
+              />
+              <Route
+                path="/business/accounting"
+                element={<Navigate to="/business/accounting/chart-of-accounts" replace />}
+              />
 
               <Route path="/dashboard" element={<Navigate to="/business/dashboard" replace />} />
               <Route path="/bookings" element={<Navigate to="/business/reservations" replace />} />
               <Route path="/pos" element={<Navigate to="/business/pos/orders" replace />} />
-              <Route path="/settings" element={<Navigate to="/business/settings/profile" replace />} />
-              <Route path="/reception" element={<Navigate to="/business/reservations/arrivals" replace />} />
+              <Route
+                path="/settings"
+                element={<Navigate to="/business/settings/profile" replace />}
+              />
+              <Route
+                path="/reception"
+                element={<Navigate to="/business/reservations/arrivals" replace />}
+              />
 
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="*" element={<NotFoundPage />} />
