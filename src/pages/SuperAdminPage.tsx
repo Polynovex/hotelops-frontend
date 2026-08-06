@@ -17,7 +17,6 @@ import {
   List,
   ListItem,
   ListItemText,
-
   MenuItem,
   Paper,
   Select,
@@ -25,7 +24,11 @@ import {
   TextField,
   Typography
 } from '@mui/material';
-import { Add as AddIcon, History as HistoryIcon, Settings as SettingsIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  History as HistoryIcon,
+  Settings as SettingsIcon
+} from '@mui/icons-material';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useSnackbar } from 'notistack';
 import Layout from '../components/Layout';
@@ -89,7 +92,10 @@ const SuperAdminPage: React.FC = () => {
   const [businesses, setBusinesses] = useState<BusinessSummary[]>([]);
   const [plans, setPlans] = useState<PlanSummary[]>([]);
   const [metrics, setMetrics] = useState<SystemMetrics>(defaultMetrics);
-  const [health, setHealth] = useState<{ status: string; services?: Record<string, string> } | null>(null);
+  const [health, setHealth] = useState<{
+    status: string;
+    services?: Record<string, string>;
+  } | null>(null);
   const [openModulesDialog, setOpenModulesDialog] = useState(false);
   const [moduleBusiness, setModuleBusiness] = useState<BusinessSummary | null>(null);
   const [moduleStatus, setModuleStatus] = useState<BusinessModuleStatus | null>(null);
@@ -164,7 +170,9 @@ const SuperAdminPage: React.FC = () => {
   }, [businesses]);
 
   const updateBusinessLocally = (id: string, patch: Partial<BusinessSummary>) => {
-    setBusinesses((prev) => prev.map((business) => (business.id === id ? { ...business, ...patch } : business)));
+    setBusinesses((prev) =>
+      prev.map((business) => (business.id === id ? { ...business, ...patch } : business))
+    );
   };
 
   const syncBusinessModules = (businessId: string, status: BusinessModuleStatus) => {
@@ -296,13 +304,17 @@ const SuperAdminPage: React.FC = () => {
     }
 
     if (!newBusiness.adminPassword || newBusiness.adminPassword.length < 6) {
-      enqueueSnackbar('Business admin password is required and must be at least 6 characters.', { variant: 'warning' });
+      enqueueSnackbar('Business admin password is required and must be at least 6 characters.', {
+        variant: 'warning'
+      });
       return;
     }
 
     const trimmedUserCode = newBusiness.adminUserCode.trim();
-    if (trimmedUserCode && (!/^\d{5,6}$/.test(trimmedUserCode))) {
-      enqueueSnackbar('Business admin usercode must be 5 or 6 digits.', { variant: 'warning' });
+    if (!trimmedUserCode || !/^\d{5,6}$/.test(trimmedUserCode)) {
+      enqueueSnackbar('Business admin usercode is required and must be 5 or 6 digits.', {
+        variant: 'warning'
+      });
       return;
     }
 
@@ -311,7 +323,7 @@ const SuperAdminPage: React.FC = () => {
       const payload = {
         ...newBusiness,
         adminPassword: newBusiness.adminPassword,
-        adminUserCode: trimmedUserCode || undefined,
+        adminUserCode: trimmedUserCode,
         adminFirstName: newBusiness.adminFirstName.trim() || 'Business',
         adminLastName: newBusiness.adminLastName.trim() || 'Admin',
         pmsEnabled: true,
@@ -333,7 +345,9 @@ const SuperAdminPage: React.FC = () => {
         adminFirstName: 'Business',
         adminLastName: 'Admin'
       });
-      enqueueSnackbar('Business created and business admin credentials prepared.', { variant: 'success' });
+      enqueueSnackbar('Business created and business admin credentials prepared.', {
+        variant: 'success'
+      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create business';
       enqueueSnackbar(message, { variant: 'error' });
@@ -367,7 +381,12 @@ const SuperAdminPage: React.FC = () => {
             <Button variant="outlined" onClick={() => void loadData()} disabled={loading || saving}>
               Refresh
             </Button>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenCreateDialog(true)} disabled={saving}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setOpenCreateDialog(true)}
+              disabled={saving}
+            >
               Create Business
             </Button>
           </Stack>
@@ -380,18 +399,43 @@ const SuperAdminPage: React.FC = () => {
         )}
 
         {(loading || saving) && (
-          <LogoLoader inline minHeight={160} label={saving ? 'Saving business' : 'Loading businesses'} />
+          <LogoLoader
+            inline
+            minHeight={160}
+            label={saving ? 'Saving business' : 'Loading businesses'}
+          />
         )}
 
         <Grid container spacing={2} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6} md={3}>
-            <Card><CardContent><Typography color="textSecondary">Businesses</Typography><Typography variant="h5" sx={{ fontWeight: 700 }}>{metrics.totalBusinesses}</Typography></CardContent></Card>
+            <Card>
+              <CardContent>
+                <Typography color="textSecondary">Businesses</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                  {metrics.totalBusinesses}
+                </Typography>
+              </CardContent>
+            </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card><CardContent><Typography color="textSecondary">Active</Typography><Typography variant="h5" sx={{ fontWeight: 700 }}>{metrics.activeBusinesses}</Typography></CardContent></Card>
+            <Card>
+              <CardContent>
+                <Typography color="textSecondary">Active</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                  {metrics.activeBusinesses}
+                </Typography>
+              </CardContent>
+            </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card><CardContent><Typography color="textSecondary">MRR</Typography><Typography variant="h5" sx={{ fontWeight: 700 }}>₦{metrics.mrr.toLocaleString()}</Typography></CardContent></Card>
+            <Card>
+              <CardContent>
+                <Typography color="textSecondary">MRR</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                  ₦{metrics.mrr.toLocaleString()}
+                </Typography>
+              </CardContent>
+            </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Card>
@@ -433,7 +477,9 @@ const SuperAdminPage: React.FC = () => {
               <Stack spacing={1.2}>
                 {plans.map((plan) => (
                   <Box key={plan.id} sx={{ p: 1.5, border: '1px solid #e3e8ef', borderRadius: 2 }}>
-                    <Typography sx={{ fontWeight: 700 }}>{plan.name} ({plan.code})</Typography>
+                    <Typography sx={{ fontWeight: 700 }}>
+                      {plan.name} ({plan.code})
+                    </Typography>
                     <Typography variant="body2" color="text.secondary">
                       ₦{plan.monthlyPriceNgn.toLocaleString()} / month
                     </Typography>
@@ -457,7 +503,9 @@ const SuperAdminPage: React.FC = () => {
               render: (business) => (
                 <Box>
                   <Typography sx={{ fontWeight: 700 }}>{business.name}</Typography>
-                  <Typography variant="body2" color="text.secondary">{business.email}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {business.email}
+                  </Typography>
                 </Box>
               )
             },
@@ -483,7 +531,9 @@ const SuperAdminPage: React.FC = () => {
                 >
                   <MenuItem value="">No plan</MenuItem>
                   {plans.map((plan) => (
-                    <MenuItem key={plan.id} value={plan.id}>{plan.name} ({plan.code})</MenuItem>
+                    <MenuItem key={plan.id} value={plan.id}>
+                      {plan.name} ({plan.code})
+                    </MenuItem>
                   ))}
                 </Select>
               )
@@ -494,9 +544,21 @@ const SuperAdminPage: React.FC = () => {
               minWidth: 320,
               render: (business) => (
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  <Chip size="small" color={business.pmsEnabled ? 'success' : 'default'} label={`PMS ${business.pmsEnabled ? 'ON' : 'OFF'}`} />
-                  <Chip size="small" color={business.posEnabled ? 'success' : 'default'} label={`POS ${business.posEnabled ? 'ON' : 'OFF'}`} />
-                  <Chip size="small" color={business.financeEnabled ? 'success' : 'default'} label={`FIN ${business.financeEnabled ? 'ON' : 'OFF'}`} />
+                  <Chip
+                    size="small"
+                    color={business.pmsEnabled ? 'success' : 'default'}
+                    label={`PMS ${business.pmsEnabled ? 'ON' : 'OFF'}`}
+                  />
+                  <Chip
+                    size="small"
+                    color={business.posEnabled ? 'success' : 'default'}
+                    label={`POS ${business.posEnabled ? 'ON' : 'OFF'}`}
+                  />
+                  <Chip
+                    size="small"
+                    color={business.financeEnabled ? 'success' : 'default'}
+                    label={`FIN ${business.financeEnabled ? 'ON' : 'OFF'}`}
+                  />
                 </Stack>
               )
             },
@@ -515,7 +577,9 @@ const SuperAdminPage: React.FC = () => {
                     Manage Modules
                   </Button>
                   <Button size="small" onClick={() => void handleStatusChange(business)}>
-                    {business.status === 'ACTIVE' || business.status === 'TRIAL' ? 'Suspend' : 'Activate'}
+                    {business.status === 'ACTIVE' || business.status === 'TRIAL'
+                      ? 'Suspend'
+                      : 'Activate'}
                   </Button>
                 </Stack>
               )
@@ -524,12 +588,7 @@ const SuperAdminPage: React.FC = () => {
         />
       </Container>
 
-      <Dialog
-        open={openModulesDialog}
-        onClose={closeManageModules}
-        fullWidth
-        maxWidth="md"
-      >
+      <Dialog open={openModulesDialog} onClose={closeManageModules} fullWidth maxWidth="md">
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <SettingsIcon fontSize="small" />
           Manage Modules - {moduleBusiness?.name || 'Business'}
@@ -584,7 +643,10 @@ const SuperAdminPage: React.FC = () => {
                         )}
                       </Box>
 
-                      <Stack spacing={1} sx={{ minWidth: { md: 340 }, width: { xs: '100%', md: 'auto' } }}>
+                      <Stack
+                        spacing={1}
+                        sx={{ minWidth: { md: 340 }, width: { xs: '100%', md: 'auto' } }}
+                      >
                         <TextField
                           label="Deactivation reason"
                           size="small"
@@ -627,7 +689,15 @@ const SuperAdminPage: React.FC = () => {
                     No module history available for this business.
                   </Typography>
                 ) : (
-                  <List dense sx={{ maxHeight: 260, overflowY: 'auto', border: '1px solid #e3e8ef', borderRadius: 1 }}>
+                  <List
+                    dense
+                    sx={{
+                      maxHeight: 260,
+                      overflowY: 'auto',
+                      border: '1px solid #e3e8ef',
+                      borderRadius: 1
+                    }}
+                  >
                     {moduleHistory.map((entry) => {
                       const moduleName = parseModuleFromAudit(entry);
                       const reason = parseReasonFromAudit(entry);
@@ -637,11 +707,20 @@ const SuperAdminPage: React.FC = () => {
                             primary={`${entry.action} ${moduleName ? `(${moduleLabels[moduleName]})` : ''}`}
                             secondary={
                               <>
-                                <Typography component="span" variant="caption" color="text.secondary">
-                                  {formatDateTime(entry.createdAt)} • by {entry.user?.email || entry.userId}
+                                <Typography
+                                  component="span"
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  {formatDateTime(entry.createdAt)} • by{' '}
+                                  {entry.user?.email || entry.userId}
                                 </Typography>
                                 {reason && (
-                                  <Typography component="span" variant="caption" sx={{ display: 'block', mt: 0.4 }}>
+                                  <Typography
+                                    component="span"
+                                    variant="caption"
+                                    sx={{ display: 'block', mt: 0.4 }}
+                                  >
                                     Reason: {reason}
                                   </Typography>
                                 )}
@@ -658,7 +737,10 @@ const SuperAdminPage: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => moduleBusiness && void loadModuleManagerData(moduleBusiness.id)} disabled={moduleLoading || moduleActionLoading !== null}>
+          <Button
+            onClick={() => moduleBusiness && void loadModuleManagerData(moduleBusiness.id)}
+            disabled={moduleLoading || moduleActionLoading !== null}
+          >
             Refresh
           </Button>
           <Button onClick={closeManageModules} variant="contained">
@@ -667,19 +749,54 @@ const SuperAdminPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={openCreateDialog} onClose={() => setOpenCreateDialog(false)} fullWidth maxWidth="sm">
+      <Dialog
+        open={openCreateDialog}
+        onClose={() => setOpenCreateDialog(false)}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle>Create Business</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Stack spacing={2}>
-            <TextField label="Business Name" value={newBusiness.name} onChange={(event) => setNewBusiness((prev) => ({ ...prev, name: event.target.value }))} fullWidth />
-            <TextField label="Email" value={newBusiness.email} onChange={(event) => setNewBusiness((prev) => ({ ...prev, email: event.target.value }))} fullWidth />
-            <TextField label="Phone" value={newBusiness.phone} onChange={(event) => setNewBusiness((prev) => ({ ...prev, phone: event.target.value }))} fullWidth />
-            <TextField label="Address" value={newBusiness.address} onChange={(event) => setNewBusiness((prev) => ({ ...prev, address: event.target.value }))} fullWidth />
+            <TextField
+              label="Business Name"
+              value={newBusiness.name}
+              onChange={(event) =>
+                setNewBusiness((prev) => ({ ...prev, name: event.target.value }))
+              }
+              fullWidth
+            />
+            <TextField
+              label="Email"
+              value={newBusiness.email}
+              onChange={(event) =>
+                setNewBusiness((prev) => ({ ...prev, email: event.target.value }))
+              }
+              fullWidth
+            />
+            <TextField
+              label="Phone"
+              value={newBusiness.phone}
+              onChange={(event) =>
+                setNewBusiness((prev) => ({ ...prev, phone: event.target.value }))
+              }
+              fullWidth
+            />
+            <TextField
+              label="Address"
+              value={newBusiness.address}
+              onChange={(event) =>
+                setNewBusiness((prev) => ({ ...prev, address: event.target.value }))
+              }
+              fullWidth
+            />
             <TextField
               select
               label="Plan"
               value={newBusiness.planId}
-              onChange={(event) => setNewBusiness((prev) => ({ ...prev, planId: event.target.value }))}
+              onChange={(event) =>
+                setNewBusiness((prev) => ({ ...prev, planId: event.target.value }))
+              }
               fullWidth
             >
               <MenuItem value="">No plan</MenuItem>
@@ -692,18 +809,24 @@ const SuperAdminPage: React.FC = () => {
 
             <Divider />
 
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Business Admin Credentials</Typography>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Business Admin Credentials
+            </Typography>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
               <TextField
                 label="Admin First Name"
                 value={newBusiness.adminFirstName}
-                onChange={(event) => setNewBusiness((prev) => ({ ...prev, adminFirstName: event.target.value }))}
+                onChange={(event) =>
+                  setNewBusiness((prev) => ({ ...prev, adminFirstName: event.target.value }))
+                }
                 fullWidth
               />
               <TextField
                 label="Admin Last Name"
                 value={newBusiness.adminLastName}
-                onChange={(event) => setNewBusiness((prev) => ({ ...prev, adminLastName: event.target.value }))}
+                onChange={(event) =>
+                  setNewBusiness((prev) => ({ ...prev, adminLastName: event.target.value }))
+                }
                 fullWidth
               />
             </Stack>
@@ -711,15 +834,22 @@ const SuperAdminPage: React.FC = () => {
               label="Admin Password"
               type="password"
               value={newBusiness.adminPassword}
-              onChange={(event) => setNewBusiness((prev) => ({ ...prev, adminPassword: event.target.value }))}
+              onChange={(event) =>
+                setNewBusiness((prev) => ({ ...prev, adminPassword: event.target.value }))
+              }
               helperText="Required. Minimum 6 characters."
               fullWidth
             />
             <TextField
               label="Admin Usercode"
               value={newBusiness.adminUserCode}
-              onChange={(event) => setNewBusiness((prev) => ({ ...prev, adminUserCode: event.target.value.replace(/\D/g, '').slice(0, 6) }))}
-              helperText="Optional. 5–6 digits. Leave blank to auto-generate."
+              onChange={(event) =>
+                setNewBusiness((prev) => ({
+                  ...prev,
+                  adminUserCode: event.target.value.replace(/\D/g, '').slice(0, 6)
+                }))
+              }
+              helperText="Required. 5–6 digits. This is the Business Admin login code."
               fullWidth
             />
           </Stack>

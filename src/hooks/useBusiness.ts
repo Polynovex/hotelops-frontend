@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { businessApi } from '../api/business';
-import { BusinessSummary } from '../services/api';
+import { CreateBusinessPayload } from '../services/api';
 
 export const useBusinesses = () => {
   return useQuery({
@@ -14,7 +14,7 @@ export const useCreateBusiness = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: Partial<BusinessSummary>) => businessApi.createBusiness(payload),
+    mutationFn: (payload: CreateBusinessPayload) => businessApi.createBusiness(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['businesses'] });
       queryClient.invalidateQueries({ queryKey: ['system-metrics'] });

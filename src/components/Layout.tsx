@@ -250,6 +250,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [resetCodeOpen, setResetCodeOpen] = useState(false);
+  const [resetCodeUserId, setResetCodeUserId] = useState('');
+  const [resetCodeResult, setResetCodeResult] = useState<string | null>(null);
+  const [resetCodeLoading, setResetCodeLoading] = useState(false);
+  const [resetCodeError, setResetCodeError] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -303,6 +308,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       setPwError(err?.response?.data?.error || err?.message || 'Failed to change password.');
     } finally {
       setPwLoading(false);
+    }
+  };
+
+  const handleResetUserCode = async () => {
+    if (!resetCodeUserId.trim()) {
+      setResetCodeError('User ID is required.');
+      return;
+    }
+    setResetCodeLoading(true);
+    setResetCodeError('');
+    setResetCodeResult(null);
+    try {
+      const { authService } = await import('../services/api');
+      const result = await authService.resetUserCode(resetCodeUserId.trim());
+      setResetCodeResult(result.userCode);
+    } catch (err: any) {
+      setResetCodeError(err?.response?.data?.error || err?.message || 'Failed to reset usercode.');
+    } finally {
+      setResetCodeLoading(false);
     }
   };
 
@@ -574,6 +598,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <LockOutlined sx={{ mr: 1 }} fontSize="small" />
               Security
             </MenuItem>
+            {normalizedRole === 'BUSINESS_ADMIN' && (
+              <MenuItem
+                onClick={() => {
+                  handleProfileMenuClose();
+                  setResetCodeOpen(true);
+                  setResetCodeUserId('');
+                  setResetCodeResult(null);
+                  setResetCodeError('');
+                }}
+              >
+                <LockOutlined sx={{ mr: 1 }} fontSize="small" />
+                Reset Staff Usercode
+              </MenuItem>
+            )}
             <Divider />
             <MenuItem onClick={handleLogout}>
               <LogoutIcon sx={{ mr: 1 }} />
@@ -631,6 +669,71 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Button onClick={() => setProfileOpen(false)} variant="contained">
                 Close
               </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Reset Usercode Modal — Business Admin only */}
+          <Dialog
+            open={resetCodeOpen}
+            onClose={() => {
+              setResetCodeOpen(false);
+              setResetCodeResult(null);
+              setResetCodeError('');
+            }}
+            maxWidth="xs"
+            fullWidth
+          >
+            <DialogTitle>Reset Staff Usercode</DialogTitle>
+            <DialogContent>
+              <Stack spacing={2} pt={1}>
+                {resetCodeError && (
+                  <Alert severity="error" onClose={() => setResetCodeError('')}>
+                    {resetCodeError}
+                  </Alert>
+                )}
+                {resetCodeResult ? (
+                  <Alert severity="success">
+                    New usercode: <strong style={{ letterSpacing: '0.2em', fontSize: 18 }}>{resetCodeResult}</strong>
+                    <br />
+                    <Typography variant="caption">Share this securely — it is shown only once.</Typography>
+                  </Alert>
+                ) : (
+                  <TextField
+                    fullWidth
+                    label="User ID"
+                    value={resetCodeUserId}
+                    onChange={(e) => setResetCodeUserId(e.target.value)}
+                    helperText="Enter the ID of the staff member whose usercode you want to reset."
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LockOutlined fontSize="small" />
+                        </InputAdornment>
+                      )
+                    }}
+                  />
+                )}
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button
+                onClick={() => {
+                  setResetCodeOpen(false);
+                  setResetCodeResult(null);
+                  setResetCodeError('');
+                }}
+              >
+                {resetCodeResult ? 'Close' : 'Cancel'}
+              </Button>
+              {!resetCodeResult && (
+                <Button
+                  variant="contained"
+                  onClick={() => void handleResetUserCode()}
+                  disabled={resetCodeLoading || !resetCodeUserId.trim()}
+                >
+                  {resetCodeLoading ? 'Resetting…' : 'Reset Usercode'}
+                </Button>
+              )}
             </DialogActions>
           </Dialog>
 

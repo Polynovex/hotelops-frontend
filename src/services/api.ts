@@ -55,6 +55,7 @@ export interface AuthUser {
   financeEnabled?: boolean;
   mustResetPassword?: boolean;
   userCode?: string | null;
+  logoUrl?: string | null;
 }
 
 export interface PlanSummary {
@@ -122,15 +123,27 @@ export interface BusinessSummary {
   planId?: string | null;
   plan?: PlanSummary | null;
   createdAt: string;
-  adminPassword?: string;
-  adminUserCode?: string;
-  adminFirstName?: string;
-  adminLastName?: string;
   _count?: {
     users: number;
     rooms: number;
     bookings: number;
   };
+}
+
+export interface CreateBusinessPayload {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  planId?: string | null;
+  pmsEnabled?: boolean;
+  posEnabled?: boolean;
+  financeEnabled?: boolean;
+  subscriptionTier?: string;
+  adminPassword: string;
+  adminUserCode: string;
+  adminFirstName?: string;
+  adminLastName?: string;
 }
 
 export type BusinessModuleName = 'pms' | 'pos' | 'finance';
@@ -524,11 +537,17 @@ export interface NightAuditRunResult {
 }
 
 const DEMO_MODE_ENABLED = import.meta.env.VITE_ENABLE_DEMO_MODE !== 'false';
-const isDemoMode = () => DEMO_MODE_ENABLED && useAuthStore.getState().token?.startsWith('demo-token');
+const isDemoMode = () =>
+  DEMO_MODE_ENABLED && useAuthStore.getState().token?.startsWith('demo-token');
 
 const unwrapData = <T>(payload: unknown): T => {
   const dataPayload = payload as { data?: T };
-  if (dataPayload && typeof dataPayload === 'object' && 'data' in dataPayload && dataPayload.data !== undefined) {
+  if (
+    dataPayload &&
+    typeof dataPayload === 'object' &&
+    'data' in dataPayload &&
+    dataPayload.data !== undefined
+  ) {
     return dataPayload.data as T;
   }
   return payload as T;
@@ -555,7 +574,9 @@ const normalizeRole = (role: unknown): UserRole => {
   return 'BUSINESS_ADMIN';
 };
 
-const normalizeUser = (rawUser: Omit<AuthUser, 'name'> & Partial<Pick<AuthUser, 'name'>>): AuthUser => {
+const normalizeUser = (
+  rawUser: Omit<AuthUser, 'name'> & Partial<Pick<AuthUser, 'name'>>
+): AuthUser => {
   return {
     ...rawUser,
     role: normalizeRole(rawUser.role),
@@ -663,7 +684,9 @@ const addDaysIso = (isoDate: string, days: number) => {
 };
 
 const isFutureDay = (auditDate: string, businessDate: string) => {
-  return new Date(startOfDayIso(auditDate)).getTime() > new Date(startOfDayIso(businessDate)).getTime();
+  return (
+    new Date(startOfDayIso(auditDate)).getTime() > new Date(startOfDayIso(businessDate)).getTime()
+  );
 };
 
 let demoBusinesses: BusinessSummary[] = [
@@ -694,9 +717,33 @@ let demoBusinesses: BusinessSummary[] = [
 ];
 
 const demoPlans: PlanSummary[] = [
-  { id: 'plan-s', code: 'S', name: 'Small Hotel', monthlyPriceNgn: 75000, annualPriceNgn: 720000, isActive: true, _count: { hotels: 0 } },
-  { id: 'plan-m', code: 'M', name: 'Medium Hotel', monthlyPriceNgn: 175000, annualPriceNgn: 1680000, isActive: true, _count: { hotels: 1 } },
-  { id: 'plan-e', code: 'E', name: 'Enterprise', monthlyPriceNgn: 0, annualPriceNgn: 0, isActive: true, _count: { hotels: 0 } }
+  {
+    id: 'plan-s',
+    code: 'S',
+    name: 'Small Hotel',
+    monthlyPriceNgn: 75000,
+    annualPriceNgn: 720000,
+    isActive: true,
+    _count: { hotels: 0 }
+  },
+  {
+    id: 'plan-m',
+    code: 'M',
+    name: 'Medium Hotel',
+    monthlyPriceNgn: 175000,
+    annualPriceNgn: 1680000,
+    isActive: true,
+    _count: { hotels: 1 }
+  },
+  {
+    id: 'plan-e',
+    code: 'E',
+    name: 'Enterprise',
+    monthlyPriceNgn: 0,
+    annualPriceNgn: 0,
+    isActive: true,
+    _count: { hotels: 0 }
+  }
 ];
 
 let demoOutlets: Outlet[] = [
@@ -840,7 +887,10 @@ type DemoModuleMetadata = {
   reason?: string | null;
 };
 
-const buildDemoModuleMetadata = (business: BusinessSummary | undefined, enabled: boolean): DemoModuleMetadata => ({
+const buildDemoModuleMetadata = (
+  business: BusinessSummary | undefined,
+  enabled: boolean
+): DemoModuleMetadata => ({
   enabled,
   ...(enabled
     ? {}
@@ -851,7 +901,10 @@ const buildDemoModuleMetadata = (business: BusinessSummary | undefined, enabled:
       })
 });
 
-const demoModuleStateByBusiness: Record<string, Record<BusinessModuleName, DemoModuleMetadata>> = {};
+const demoModuleStateByBusiness: Record<
+  string,
+  Record<BusinessModuleName, DemoModuleMetadata>
+> = {};
 
 const ensureDemoModuleState = (businessId: string) => {
   if (!demoModuleStateByBusiness[businessId]) {
@@ -1025,19 +1078,83 @@ export const authService = {
   userCodeLogin: async (
     userCode: string,
     pin?: string
-  ): Promise<
-    | { requiresPin: true }
-    | { token: string; refreshToken?: string; user: AuthUser }
-  > => {
+  ): Promise<{ requiresPin: true } | { token: string; refreshToken?: string; user: AuthUser }> => {
     if (DEMO_MODE_ENABLED) {
       const DEMO_CODES: Record<string, AuthUser> = {
-        '10001': normalizeUser({ id: '1', email: 'superadmin@hotelopx.com', firstName: 'Super', lastName: 'Admin', role: 'SUPER_ADMIN', hotelId: 'demo-hotel-1' }),
-        '20001': normalizeUser({ id: '2', email: 'admin@demo.com', firstName: 'Business', lastName: 'Admin', role: 'BUSINESS_ADMIN', hotelId: 'demo-hotel-1', pmsEnabled: true, posEnabled: true, financeEnabled: true }),
-        '30001': normalizeUser({ id: '6', email: 'manager@demo.com', firstName: 'Ops', lastName: 'Manager', role: 'MANAGER', hotelId: 'demo-hotel-1', pmsEnabled: true, posEnabled: true, financeEnabled: true }),
-        '40001': normalizeUser({ id: '3', email: 'reception@demo.com', firstName: 'Front', lastName: 'Desk', role: 'RECEPTIONIST', hotelId: 'demo-hotel-1', pmsEnabled: true, posEnabled: true, financeEnabled: true }),
-        '50001': normalizeUser({ id: '4', email: 'pos@demo.com', firstName: 'POS', lastName: 'Staff', role: 'POS_STAFF', hotelId: 'demo-hotel-1', pmsEnabled: true, posEnabled: true, financeEnabled: true }),
-        '60001': normalizeUser({ id: '5', email: 'housekeeping@demo.com', firstName: 'House', lastName: 'Keeping', role: 'HOUSEKEEPING', hotelId: 'demo-hotel-1', pmsEnabled: true, posEnabled: true, financeEnabled: true }),
-        '70001': normalizeUser({ id: '7', email: 'accounting@demo.com', firstName: 'Finance', lastName: 'Officer', role: 'ACCOUNTANT', hotelId: 'demo-hotel-1', pmsEnabled: true, posEnabled: true, financeEnabled: true }),
+        '10001': normalizeUser({
+          id: '1',
+          email: 'superadmin@hotelopx.com',
+          firstName: 'Super',
+          lastName: 'Admin',
+          role: 'SUPER_ADMIN',
+          hotelId: 'demo-hotel-1'
+        }),
+        '20001': normalizeUser({
+          id: '2',
+          email: 'admin@demo.com',
+          firstName: 'Business',
+          lastName: 'Admin',
+          role: 'BUSINESS_ADMIN',
+          hotelId: 'demo-hotel-1',
+          pmsEnabled: true,
+          posEnabled: true,
+          financeEnabled: true
+        }),
+        '30001': normalizeUser({
+          id: '6',
+          email: 'manager@demo.com',
+          firstName: 'Ops',
+          lastName: 'Manager',
+          role: 'MANAGER',
+          hotelId: 'demo-hotel-1',
+          pmsEnabled: true,
+          posEnabled: true,
+          financeEnabled: true
+        }),
+        '40001': normalizeUser({
+          id: '3',
+          email: 'reception@demo.com',
+          firstName: 'Front',
+          lastName: 'Desk',
+          role: 'RECEPTIONIST',
+          hotelId: 'demo-hotel-1',
+          pmsEnabled: true,
+          posEnabled: true,
+          financeEnabled: true
+        }),
+        '50001': normalizeUser({
+          id: '4',
+          email: 'pos@demo.com',
+          firstName: 'POS',
+          lastName: 'Staff',
+          role: 'POS_STAFF',
+          hotelId: 'demo-hotel-1',
+          pmsEnabled: true,
+          posEnabled: true,
+          financeEnabled: true
+        }),
+        '60001': normalizeUser({
+          id: '5',
+          email: 'housekeeping@demo.com',
+          firstName: 'House',
+          lastName: 'Keeping',
+          role: 'HOUSEKEEPING',
+          hotelId: 'demo-hotel-1',
+          pmsEnabled: true,
+          posEnabled: true,
+          financeEnabled: true
+        }),
+        '70001': normalizeUser({
+          id: '7',
+          email: 'accounting@demo.com',
+          firstName: 'Finance',
+          lastName: 'Officer',
+          role: 'ACCOUNTANT',
+          hotelId: 'demo-hotel-1',
+          pmsEnabled: true,
+          posEnabled: true,
+          financeEnabled: true
+        })
       };
       const demoUser = DEMO_CODES[userCode.trim()];
       if (demoUser) {
@@ -1064,6 +1181,11 @@ export const authService = {
   assignUserCode: async (userId: string): Promise<{ userCode: string }> => {
     const response = await api.post(`/users/${userId}/usercode`, {});
     return response.data;
+  },
+
+  resetUserCode: async (userId: string): Promise<{ userCode: string }> => {
+    const response = await api.post(`/users/${userId}/reset-usercode`, {});
+    return response.data;
   }
 };
 
@@ -1076,7 +1198,7 @@ export const superAdminService = {
     return asArray<BusinessSummary>(unwrapData<unknown>(response.data));
   },
 
-  createBusiness: async (data: Partial<BusinessSummary>): Promise<BusinessSummary> => {
+  createBusiness: async (data: CreateBusinessPayload): Promise<BusinessSummary> => {
     if (isDemoMode()) {
       const created: BusinessSummary = {
         id: `demo-${Date.now()}`,
@@ -1124,7 +1246,10 @@ export const superAdminService = {
     reason?: string
   ): Promise<BusinessModuleStatus> => {
     if (isDemoMode()) {
-      const field = `${module}Enabled` as keyof Pick<BusinessSummary, 'pmsEnabled' | 'posEnabled' | 'financeEnabled'>;
+      const field = `${module}Enabled` as keyof Pick<
+        BusinessSummary,
+        'pmsEnabled' | 'posEnabled' | 'financeEnabled'
+      >;
       updateDemoBusiness(businessId, { [field]: false } as Partial<BusinessSummary>);
       const moduleState = ensureDemoModuleState(businessId);
       moduleState[module] = {
@@ -1153,9 +1278,12 @@ export const superAdminService = {
       return buildDemoModuleStatus(businessId);
     }
 
-    const response = await api.post(`/admin/businesses/${businessId}/modules/${module}/deactivate`, {
-      reason
-    });
+    const response = await api.post(
+      `/admin/businesses/${businessId}/modules/${module}/deactivate`,
+      {
+        reason
+      }
+    );
     return unwrapData<BusinessModuleStatus>(response.data);
   },
 
@@ -1164,7 +1292,10 @@ export const superAdminService = {
     module: BusinessModuleName
   ): Promise<BusinessModuleStatus> => {
     if (isDemoMode()) {
-      const field = `${module}Enabled` as keyof Pick<BusinessSummary, 'pmsEnabled' | 'posEnabled' | 'financeEnabled'>;
+      const field = `${module}Enabled` as keyof Pick<
+        BusinessSummary,
+        'pmsEnabled' | 'posEnabled' | 'financeEnabled'
+      >;
       updateDemoBusiness(businessId, { [field]: true } as Partial<BusinessSummary>);
       const moduleState = ensureDemoModuleState(businessId);
       moduleState[module] = {
@@ -1327,7 +1458,8 @@ export const superAdminService = {
         totalBusinesses: demoBusinesses.length,
         activeBusinesses: demoBusinesses.filter((business) => business.status === 'ACTIVE').length,
         trialBusinesses: demoBusinesses.filter((business) => business.status === 'TRIAL').length,
-        suspendedBusinesses: demoBusinesses.filter((business) => business.status === 'SUSPENDED').length,
+        suspendedBusinesses: demoBusinesses.filter((business) => business.status === 'SUSPENDED')
+          .length,
         recentSignups: 2,
         totalPlans: demoPlans.length,
         mrr: 175000
@@ -1382,8 +1514,16 @@ export const superAdminService = {
         if (params?.userId && entry.userId !== params.userId) return false;
         if (params?.action && entry.action !== params.action) return false;
         if (params?.entity && entry.entity !== params.entity) return false;
-        if (params?.startDate && new Date(entry.createdAt).getTime() < new Date(params.startDate).getTime()) return false;
-        if (params?.endDate && new Date(entry.createdAt).getTime() > new Date(params.endDate).getTime()) return false;
+        if (
+          params?.startDate &&
+          new Date(entry.createdAt).getTime() < new Date(params.startDate).getTime()
+        )
+          return false;
+        if (
+          params?.endDate &&
+          new Date(entry.createdAt).getTime() > new Date(params.endDate).getTime()
+        )
+          return false;
         return true;
       });
     }
@@ -1477,7 +1617,9 @@ export const dashboardService = {
     return response.data;
   },
 
-  searchReservations: async (query: string): Promise<{ total: number; results: DashboardSearchResult[] }> => {
+  searchReservations: async (
+    query: string
+  ): Promise<{ total: number; results: DashboardSearchResult[] }> => {
     if (isDemoMode()) {
       const results: DashboardSearchResult[] = query.trim()
         ? [
@@ -1576,9 +1718,30 @@ export const roomService = {
   getAll: async () => {
     if (isDemoMode()) {
       return [
-        { id: '1', roomNumber: '101', roomType: 'Standard', floor: 1, rate: 25000, status: 'AVAILABLE' },
-        { id: '2', roomNumber: '201', roomType: 'Deluxe', floor: 2, rate: 45000, status: 'OCCUPIED' },
-        { id: '3', roomNumber: '301', roomType: 'Suite', floor: 3, rate: 75000, status: 'AVAILABLE' }
+        {
+          id: '1',
+          roomNumber: '101',
+          roomType: 'Standard',
+          floor: 1,
+          rate: 25000,
+          status: 'AVAILABLE'
+        },
+        {
+          id: '2',
+          roomNumber: '201',
+          roomType: 'Deluxe',
+          floor: 2,
+          rate: 45000,
+          status: 'OCCUPIED'
+        },
+        {
+          id: '3',
+          roomNumber: '301',
+          roomType: 'Suite',
+          floor: 3,
+          rate: 75000,
+          status: 'AVAILABLE'
+        }
       ];
     }
     const response = await api.get('/rooms');
@@ -1618,13 +1781,15 @@ export const posService = {
     const response = await api.get('/menu/categories');
     const raw = response.data;
     if (Array.isArray(raw)) {
-      return raw.map((entry) => {
-        if (typeof entry === 'string') {
-          return entry;
-        }
-        const row = entry as { name?: string; category?: string };
-        return row.name || row.category || '';
-      }).filter(Boolean);
+      return raw
+        .map((entry) => {
+          if (typeof entry === 'string') {
+            return entry;
+          }
+          const row = entry as { name?: string; category?: string };
+          return row.name || row.category || '';
+        })
+        .filter(Boolean);
     }
 
     const payload = raw as { categories?: string[] };
@@ -1641,24 +1806,118 @@ export const posService = {
     return payload.name || payload.category || name;
   },
 
-  getMenuItems: async (params?: { outletId?: string; activeOnly?: boolean }): Promise<PosMenuItem[]> => {
+  getMenuItems: async (params?: {
+    outletId?: string;
+    activeOnly?: boolean;
+  }): Promise<PosMenuItem[]> => {
     if (isDemoMode()) {
       const items: PosMenuItem[] = [
-        { id: 'menu-1', outletId: 'outlet-1', sku: 'JOL-001', name: 'Jollof Rice', description: 'Party-style jollof', price: 3500, category: 'Mains', isActive: true, isAvailable: true, canBeDiscounted: true },
-        { id: 'menu-2', outletId: 'outlet-1', sku: 'EGU-001', name: 'Egusi Soup & Eba', description: 'With assorted meat', price: 4500, category: 'Mains', isActive: true, isAvailable: true, canBeDiscounted: true },
-        { id: 'menu-3', outletId: 'outlet-1', sku: 'GRL-001', name: 'Grilled Chicken', description: 'Half bird, spiced', price: 5500, category: 'Mains', isActive: true, isAvailable: true, canBeDiscounted: true },
-        { id: 'menu-4', outletId: 'outlet-1', sku: 'SPR-001', name: 'Spring Rolls (4pcs)', description: 'Vegetable filling', price: 2000, category: 'Appetizers', isActive: true, isAvailable: true, canBeDiscounted: true },
-        { id: 'menu-5', outletId: 'outlet-1', sku: 'WTR-001', name: 'Water (50cl)', price: 300, category: 'Drinks', isActive: true, isAvailable: true, canBeDiscounted: false },
-        { id: 'menu-6', outletId: 'outlet-1', sku: 'MLT-001', name: 'Malt Drink', price: 600, category: 'Drinks', isActive: true, isAvailable: true, canBeDiscounted: false },
-        { id: 'menu-7', outletId: 'outlet-1', sku: 'BGR-001', name: 'Beef Burger', description: 'With fries', price: 4800, category: 'Mains', isActive: true, isAvailable: true, canBeDiscounted: true },
-        { id: 'menu-8', outletId: 'outlet-1', sku: 'ICE-001', name: 'Ice Cream', description: '2 scoops', price: 1500, category: 'Desserts', isActive: true, isAvailable: true, canBeDiscounted: false },
+        {
+          id: 'menu-1',
+          outletId: 'outlet-1',
+          sku: 'JOL-001',
+          name: 'Jollof Rice',
+          description: 'Party-style jollof',
+          price: 3500,
+          category: 'Mains',
+          isActive: true,
+          isAvailable: true,
+          canBeDiscounted: true
+        },
+        {
+          id: 'menu-2',
+          outletId: 'outlet-1',
+          sku: 'EGU-001',
+          name: 'Egusi Soup & Eba',
+          description: 'With assorted meat',
+          price: 4500,
+          category: 'Mains',
+          isActive: true,
+          isAvailable: true,
+          canBeDiscounted: true
+        },
+        {
+          id: 'menu-3',
+          outletId: 'outlet-1',
+          sku: 'GRL-001',
+          name: 'Grilled Chicken',
+          description: 'Half bird, spiced',
+          price: 5500,
+          category: 'Mains',
+          isActive: true,
+          isAvailable: true,
+          canBeDiscounted: true
+        },
+        {
+          id: 'menu-4',
+          outletId: 'outlet-1',
+          sku: 'SPR-001',
+          name: 'Spring Rolls (4pcs)',
+          description: 'Vegetable filling',
+          price: 2000,
+          category: 'Appetizers',
+          isActive: true,
+          isAvailable: true,
+          canBeDiscounted: true
+        },
+        {
+          id: 'menu-5',
+          outletId: 'outlet-1',
+          sku: 'WTR-001',
+          name: 'Water (50cl)',
+          price: 300,
+          category: 'Drinks',
+          isActive: true,
+          isAvailable: true,
+          canBeDiscounted: false
+        },
+        {
+          id: 'menu-6',
+          outletId: 'outlet-1',
+          sku: 'MLT-001',
+          name: 'Malt Drink',
+          price: 600,
+          category: 'Drinks',
+          isActive: true,
+          isAvailable: true,
+          canBeDiscounted: false
+        },
+        {
+          id: 'menu-7',
+          outletId: 'outlet-1',
+          sku: 'BGR-001',
+          name: 'Beef Burger',
+          description: 'With fries',
+          price: 4800,
+          category: 'Mains',
+          isActive: true,
+          isAvailable: true,
+          canBeDiscounted: true
+        },
+        {
+          id: 'menu-8',
+          outletId: 'outlet-1',
+          sku: 'ICE-001',
+          name: 'Ice Cream',
+          description: '2 scoops',
+          price: 1500,
+          category: 'Desserts',
+          isActive: true,
+          isAvailable: true,
+          canBeDiscounted: false
+        }
       ];
-      if (params?.outletId) return items.filter(i => i.outletId === params.outletId || params.outletId === 'outlet-1');
+      if (params?.outletId)
+        return items.filter(
+          (i) => i.outletId === params.outletId || params.outletId === 'outlet-1'
+        );
       return items;
     }
 
     const path = params?.activeOnly ? '/menu/active' : '/menu';
-    const response = await api.get(path, { params: params?.outletId ? { outletId: params.outletId } : undefined });
+    const response = await api.get(path, {
+      params: params?.outletId ? { outletId: params.outletId } : undefined
+    });
     return asArray<PosMenuItem>(unwrapData<unknown>(response.data));
   },
 
@@ -1731,7 +1990,10 @@ export const posService = {
     return unwrapData<{ deleted: boolean; id: string }>(response.data);
   },
 
-  toggleMenuItemAvailability: async (menuItemId: string, isAvailable?: boolean): Promise<PosMenuItem> => {
+  toggleMenuItemAvailability: async (
+    menuItemId: string,
+    isAvailable?: boolean
+  ): Promise<PosMenuItem> => {
     if (isDemoMode()) {
       return {
         id: menuItemId,
@@ -1813,11 +2075,15 @@ export const posService = {
   completeOrder: async (orderId: string) => {
     if (isDemoMode()) {
       demoOrders = demoOrders.map((order) =>
-        order.id === orderId ? { ...order, orderStatus: 'COMPLETED', paymentStatus: 'COMPLETED' } : order
+        order.id === orderId
+          ? { ...order, orderStatus: 'COMPLETED', paymentStatus: 'COMPLETED' }
+          : order
       );
       return demoOrders.find((order) => order.id === orderId);
     }
-    const response = await api.post(`/pos/orders/${orderId}/complete`, { paymentStatus: 'COMPLETED' });
+    const response = await api.post(`/pos/orders/${orderId}/complete`, {
+      paymentStatus: 'COMPLETED'
+    });
     return response.data;
   },
 
@@ -1884,7 +2150,9 @@ export const posService = {
       return { pendingCount: 0, items: [] };
     }
     const response = await api.get('/pos/sync/pending');
-    return unwrapData<{ pendingCount: number; items: Array<Record<string, unknown>> }>(response.data);
+    return unwrapData<{ pendingCount: number; items: Array<Record<string, unknown>> }>(
+      response.data
+    );
   },
 
   acknowledgeSync: async (clientIds: string[]) => {
@@ -2023,7 +2291,9 @@ export const accountingService = {
     return unwrapData<BankAccount>(response.data);
   },
 
-  getBankTransactions: async (bankAccountId: string): Promise<{ account: BankAccount; transactions: BankTransaction[] }> => {
+  getBankTransactions: async (
+    bankAccountId: string
+  ): Promise<{ account: BankAccount; transactions: BankTransaction[] }> => {
     if (isDemoMode()) {
       const account = demoBankAccounts.find((entry) => entry.id === bankAccountId);
       if (!account) {
@@ -2081,7 +2351,10 @@ export const accountingService = {
       demoBankTransactions = demoBankTransactions.map((txn) =>
         payload.transactionIds.includes(txn.id) ? { ...txn, status: 'RECONCILED' } : txn
       );
-      return { reconciledTransactions: payload.transactionIds.length, statementBalance: payload.statementBalance };
+      return {
+        reconciledTransactions: payload.transactionIds.length,
+        statementBalance: payload.statementBalance
+      };
     }
     const response = await api.post('/accounting/bank/reconcile', payload);
     return unwrapData<Record<string, unknown>>(response.data);
@@ -2180,7 +2453,10 @@ export const accountingService = {
     return unwrapData<FixedAsset>(response.data);
   },
 
-  disposeFixedAsset: async (assetId: string, payload: { disposalAmount?: number; disposalDate?: string }) => {
+  disposeFixedAsset: async (
+    assetId: string,
+    payload: { disposalAmount?: number; disposalDate?: string }
+  ) => {
     if (isDemoMode()) {
       const target = demoFixedAssets.find((entry) => entry.id === assetId);
       if (!target) {
@@ -2194,15 +2470,23 @@ export const accountingService = {
     return unwrapData<FixedAsset>(response.data);
   },
 
-  getTrialBalanceReport: async (params?: { startDate?: string; endDate?: string }): Promise<TrialBalanceReport> => {
+  getTrialBalanceReport: async (params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<TrialBalanceReport> => {
     if (isDemoMode()) {
       const rows = demoChartOfAccounts.map((account) => ({
         accountCode: account.accountCode,
         accountName: account.accountName,
         accountType: account.accountType,
-        periodDebit: account.accountType === 'ASSET' || account.accountType === 'EXPENSE' ? account.currentBalance : 0,
+        periodDebit:
+          account.accountType === 'ASSET' || account.accountType === 'EXPENSE'
+            ? account.currentBalance
+            : 0,
         periodCredit:
-          account.accountType === 'LIABILITY' || account.accountType === 'EQUITY' || account.accountType === 'INCOME'
+          account.accountType === 'LIABILITY' ||
+          account.accountType === 'EQUITY' ||
+          account.accountType === 'INCOME'
             ? account.currentBalance
             : 0,
         closingBalance: account.currentBalance
@@ -2220,7 +2504,10 @@ export const accountingService = {
     return unwrapData<TrialBalanceReport>(response.data);
   },
 
-  getProfitLossReport: async (params?: { startDate?: string; endDate?: string }): Promise<ProfitLossReport> => {
+  getProfitLossReport: async (params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<ProfitLossReport> => {
     if (isDemoMode()) {
       return {
         period: { startDate: params?.startDate || null, endDate: params?.endDate || null },
@@ -2239,13 +2526,25 @@ export const accountingService = {
     if (isDemoMode()) {
       const assets = demoChartOfAccounts
         .filter((account) => account.accountType === 'ASSET')
-        .map((account) => ({ code: account.accountCode, name: account.accountName, balance: account.currentBalance }));
+        .map((account) => ({
+          code: account.accountCode,
+          name: account.accountName,
+          balance: account.currentBalance
+        }));
       const liabilities = demoChartOfAccounts
         .filter((account) => account.accountType === 'LIABILITY')
-        .map((account) => ({ code: account.accountCode, name: account.accountName, balance: account.currentBalance }));
+        .map((account) => ({
+          code: account.accountCode,
+          name: account.accountName,
+          balance: account.currentBalance
+        }));
       const equity = demoChartOfAccounts
         .filter((account) => account.accountType === 'EQUITY')
-        .map((account) => ({ code: account.accountCode, name: account.accountName, balance: account.currentBalance }));
+        .map((account) => ({
+          code: account.accountCode,
+          name: account.accountName,
+          balance: account.currentBalance
+        }));
       const totalAssets = assets.reduce((sum, row) => sum + row.balance, 0);
       const totalLiabilities = liabilities.reduce((sum, row) => sum + row.balance, 0);
       const totalEquity = equity.reduce((sum, row) => sum + row.balance, 0);
@@ -2300,7 +2599,10 @@ export const accountingService = {
     return unwrapData<AgingReport>(response.data);
   },
 
-  getVatSummaryReport: async (params?: { startDate?: string; endDate?: string }): Promise<VatSummaryReport> => {
+  getVatSummaryReport: async (params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<VatSummaryReport> => {
     if (isDemoMode()) {
       return {
         period: { startDate: params?.startDate || null, endDate: params?.endDate || null },
@@ -2321,8 +2623,12 @@ export const accountingService = {
       return {
         account: {
           accountCode,
-          accountName: demoChartOfAccounts.find((account) => account.accountCode === accountCode)?.accountName || 'Demo Account',
-          accountType: demoChartOfAccounts.find((account) => account.accountCode === accountCode)?.accountType || 'ASSET'
+          accountName:
+            demoChartOfAccounts.find((account) => account.accountCode === accountCode)
+              ?.accountName || 'Demo Account',
+          accountType:
+            demoChartOfAccounts.find((account) => account.accountCode === accountCode)
+              ?.accountType || 'ASSET'
         },
         period: { startDate: params?.startDate || null, endDate: params?.endDate || null },
         entries: demoJournals.flatMap((journal) =>
@@ -2340,11 +2646,19 @@ export const accountingService = {
         ),
         totals: {
           debit: demoJournals.reduce(
-            (sum, journal) => sum + journal.lines.filter((line) => line.accountCode === accountCode).reduce((s, line) => s + Number(line.debit || 0), 0),
+            (sum, journal) =>
+              sum +
+              journal.lines
+                .filter((line) => line.accountCode === accountCode)
+                .reduce((s, line) => s + Number(line.debit || 0), 0),
             0
           ),
           credit: demoJournals.reduce(
-            (sum, journal) => sum + journal.lines.filter((line) => line.accountCode === accountCode).reduce((s, line) => s + Number(line.credit || 0), 0),
+            (sum, journal) =>
+              sum +
+              journal.lines
+                .filter((line) => line.accountCode === accountCode)
+                .reduce((s, line) => s + Number(line.credit || 0), 0),
             0
           )
         }
@@ -2365,7 +2679,9 @@ export const accountingService = {
     return unwrapData<NightAuditStatus>(response.data);
   },
 
-  validateNightAudit: async (payload?: { auditDate?: string }): Promise<NightAuditValidationResult> => {
+  validateNightAudit: async (payload?: {
+    auditDate?: string;
+  }): Promise<NightAuditValidationResult> => {
     if (isDemoMode()) {
       const auditDate = startOfDayIso(payload?.auditDate || demoNightAuditState.businessDate);
       const errors: string[] = [];

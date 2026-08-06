@@ -38,6 +38,7 @@ import MenuEngineeringPage from './pages/business/pos/MenuEngineeringPage';
 import LogoutPage from './pages/auth/Logout';
 import ForgotPasswordPage from './pages/auth/ForgotPassword';
 import ResetPasswordPage from './pages/auth/ResetPassword';
+import ChangePasswordPage from './pages/auth/ChangePassword';
 import MfaSetupPage from './pages/auth/MfaSetup';
 import MfaVerifyPage from './pages/auth/MfaVerify';
 import SuperAdminDashboardPage from './pages/super-admin/Dashboard';
@@ -269,9 +270,11 @@ function App() {
           role: me.role,
           hotelId: me.hotelId,
           hotelName: me.hotelName,
+          logoUrl: me.logoUrl,
           pmsEnabled: me.pmsEnabled,
           posEnabled: me.posEnabled,
-          financeEnabled: me.financeEnabled
+          financeEnabled: me.financeEnabled,
+          userCode: me.userCode
         });
       } catch (_error) {
         // ignore sync failures and continue with current session context
@@ -312,6 +315,24 @@ function App() {
               <Route path="/logout" element={<LogoutPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route
+                path="/change-password"
+                element={
+                  <ProtectedRoute
+                    allowedRoles={[
+                      'SUPER_ADMIN',
+                      'BUSINESS_ADMIN',
+                      'MANAGER',
+                      'RECEPTIONIST',
+                      'POS_STAFF',
+                      'HOUSEKEEPING',
+                      'ACCOUNTANT'
+                    ]}
+                  >
+                    <ChangePasswordPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/mfa/setup" element={<MfaSetupPage />} />
               <Route path="/mfa/verify" element={<MfaVerifyPage />} />
 
@@ -402,7 +423,7 @@ function App() {
               <Route
                 path="/business/anomalies"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT']}>
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
                     <AnomaliesPage />
                   </ProtectedRoute>
                 }

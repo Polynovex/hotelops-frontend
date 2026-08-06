@@ -171,7 +171,7 @@ const UserCodeLogin: React.FC = () => {
                 />
               )}
 
-              {mode === 'USERCODE' && (pinRequired || identifier.length >= 5) && (
+              {mode === 'USERCODE' && pinRequired && (
                 <TextField
                   fullWidth
                   autoFocus={pinRequired}

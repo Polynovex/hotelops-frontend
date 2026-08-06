@@ -16,7 +16,7 @@ import {
   useTheme
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { DarkModeRounded, LightModeRounded, MailOutlineRounded } from '@mui/icons-material';
+import { DarkModeRounded, LightModeRounded, MailOutlineRounded, Visibility, VisibilityOff } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
@@ -322,10 +322,14 @@ const getTokenFromSearch = (search: string): string => {
 export const ResetPasswordPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const theme = useTheme();
+  const { mode: colorMode, toggleColorMode } = useColorMode();
+  const isDark = colorMode === 'dark';
   const token = useMemo(() => getTokenFromSearch(location.search), [location.search]);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -345,10 +349,7 @@ export const ResetPasswordPage = () => {
         throw new Error('Password confirmation does not match');
       }
 
-      await api.post('/auth/reset-password', {
-        token,
-        password
-      });
+      await api.post('/auth/reset-password', { token, newPassword: password });
 
       setMessage('Password reset successful. Redirecting to login...');
       window.setTimeout(() => navigate('/login'), 1200);
@@ -360,45 +361,185 @@ export const ResetPasswordPage = () => {
   };
 
   return (
-    <AuthCard title="Reset Password" subtitle="Create a new secure password for your account.">
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-      {message && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {message}
-        </Alert>
-      )}
-      <Box component="form" onSubmit={submit}>
-        <Stack spacing={2}>
-          <TextField
-            label="Reset Token"
-            value={token}
-            InputProps={{ readOnly: true }}
-            helperText="Token pulled from URL query"
-          />
-          <TextField
-            label="New Password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
-          <TextField
-            label="Confirm Password"
-            type="password"
-            value={confirmPassword}
-            onChange={(event) => setConfirmPassword(event.target.value)}
-            required
-          />
-          <Button type="submit" variant="contained" disabled={submitting}>
-            Reset Password
-          </Button>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        py: { xs: 4, md: 6 },
+        background: isDark ? '#0E1418' : '#FFFFFF'
+      }}
+    >
+      <Container maxWidth="lg">
+        <Stack direction="row" justifyContent="flex-end" mb={2}>
+          <Tooltip title={isDark ? 'Switch to light' : 'Switch to dark'}>
+            <IconButton onClick={toggleColorMode}>
+              {isDark ? <LightModeRounded /> : <DarkModeRounded />}
+            </IconButton>
+          </Tooltip>
         </Stack>
-      </Box>
-    </AuthCard>
+
+        <Grid container spacing={{ xs: 3, md: 5 }} alignItems="stretch">
+          {/* Left brand panel */}
+          <Grid item xs={12} md={6} sx={{ display: { xs: 'none', md: 'block' } }}>
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+              style={{ height: '100%' }}
+            >
+              <Box
+                sx={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  height: '100%',
+                  borderRadius: '28px',
+                  p: { xs: 4, md: 6 },
+                  color: '#fff',
+                  background: 'linear-gradient(160deg, #13283D 0%, #1B3C61 45%, #244F80 100%)',
+                  boxShadow: '0 40px 100px rgba(7,18,31,.35)'
+                }}
+              >
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: -180,
+                    right: -120,
+                    width: 420,
+                    height: 420,
+                    borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(255,255,255,.12), transparent 70%)'
+                  }}
+                />
+                <Box sx={{ position: 'relative', zIndex: 2 }}>
+                  <Stack direction="row" alignItems="center" spacing={2} mb={6}>
+                    <Box sx={{ width: 64, height: 64, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <img src="/icon.png" alt="HotelOpX" style={{ width: '68%', height: '68%', objectFit: 'contain' }} />
+                    </Box>
+                    <Box>
+                      <Typography sx={{ fontSize: '2.4rem', fontWeight: 800, letterSpacing: '-0.05em', lineHeight: 1 }}>
+                        <Box component="span" sx={{ color: '#0F1D3D' }}>Hotel</Box>
+                        <Box component="span" sx={{ color: '#132349' }}>Op</Box>
+                        <Box component="span" sx={{ color: '#3B82F6' }}>X</Box>
+                      </Typography>
+                      <Typography sx={{ mt: 0.5, color: 'rgba(255,255,255,.68)', fontWeight: 600, fontSize: 11, letterSpacing: '.22em' }}>
+                        HOSPITALITY OPERATING SYSTEM
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Typography
+                    sx={{
+                      fontFamily: '"Cormorant Garamond", serif',
+                      fontSize: { xs: '2.5rem', md: '3.5rem' },
+                      lineHeight: 1.08,
+                      fontWeight: 600,
+                      letterSpacing: '-0.03em',
+                      maxWidth: 480,
+                      mb: 3
+                    }}
+                  >
+                    Set a new secure password.
+                  </Typography>
+                  <Typography sx={{ color: 'rgba(255,255,255,.78)', maxWidth: 460, fontSize: 17, lineHeight: 1.8 }}>
+                    Choose a strong password of at least 8 characters to protect your account.
+                  </Typography>
+                </Box>
+              </Box>
+            </motion.div>
+          </Grid>
+
+          {/* Right form */}
+          <Grid item xs={12} md={6}>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.05 }}
+            >
+              <Box
+                sx={{
+                  borderRadius: '20px',
+                  p: { xs: 3.5, md: 4.5 },
+                  bgcolor: alpha(theme.palette.background.paper, isDark ? 0.85 : 0.95),
+                  border: `1px solid ${theme.palette.divider}`,
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 24px 64px rgba(15, 27, 35, 0.12)'
+                }}
+              >
+                <Typography variant="caption">Account security</Typography>
+                <Typography
+                  variant="h2"
+                  sx={{ fontFamily: '"Cormorant Garamond", serif', fontWeight: 600, lineHeight: 1, mb: 1 }}
+                >
+                  Reset password
+                </Typography>
+                <Typography color="text.secondary" sx={{ mb: 3 }}>
+                  Enter and confirm your new password below.
+                </Typography>
+
+                {error && (
+                  <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+                    {error}
+                  </Alert>
+                )}
+                {message && (
+                  <Alert severity="success" sx={{ mb: 2 }}>
+                    {message}
+                  </Alert>
+                )}
+
+                {!message && (
+                  <Box component="form" onSubmit={submit}>
+                    <Stack spacing={2.5}>
+                      <TextField
+                        fullWidth
+                        autoFocus
+                        label="New password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        helperText="Minimum 8 characters"
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton size="small" onClick={() => setShowPassword((s) => !s)}>
+                                {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                              </IconButton>
+                            </InputAdornment>
+                          )
+                        }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Confirm new password"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                      />
+                      <Button
+                        size="large"
+                        type="submit"
+                        variant="contained"
+                        disabled={submitting}
+                        startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : undefined}
+                      >
+                        Set new password
+                      </Button>
+                    </Stack>
+                  </Box>
+                )}
+
+                <Button variant="text" size="small" sx={{ mt: 2 }} onClick={() => navigate('/login')}>
+                  ← Back to sign in
+                </Button>
+              </Box>
+            </motion.div>
+          </Grid>
+        </Grid>
+      </Container>
+    </Box>
   );
 };
 
