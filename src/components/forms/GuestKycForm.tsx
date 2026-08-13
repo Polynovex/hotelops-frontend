@@ -150,7 +150,7 @@ const GuestKycForm = ({ open, onClose, onCreated }: Props) => {
     try {
       const fd = new FormData();
       fd.append('file', idFile);
-      await fetch(`${baseUrl}/api/guests/${id}/id-document`, {
+      await fetch(`${baseUrl}/guests/${id}/id-document`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: fd
@@ -166,7 +166,7 @@ const GuestKycForm = ({ open, onClose, onCreated }: Props) => {
     setError('');
     setSaving(true);
     try {
-      const res = await fetch(`${baseUrl}/api/guests`, {
+      const res = await fetch(`${baseUrl}/guests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(form)

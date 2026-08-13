@@ -18,6 +18,8 @@ import {
   TextField,
   Typography
 } from '@mui/material';
+import { EmptyState } from '../../../components/premium';
+import { ReceiptLongOutlined } from '@mui/icons-material';
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import { accountingService, ChartOfAccount, Journal } from '../../../services/api';
@@ -144,6 +146,17 @@ const JournalsPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
+              {journals.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6}>
+                    <EmptyState
+                      icon={<ReceiptLongOutlined />}
+                      title="No journals yet"
+                      description="Posted journal entries will appear here."
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
               {journals.map((journal) => (
                 <TableRow key={journal.id} hover>
                   <TableCell>{journal.journalNumber}</TableCell>

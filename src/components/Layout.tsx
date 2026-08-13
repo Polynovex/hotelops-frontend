@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   AppBar,
@@ -28,7 +28,8 @@ import {
   Button,
   TextField,
   Alert,
-  InputAdornment
+  InputAdornment,
+  Popover
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
@@ -71,6 +72,9 @@ import { useAuthStore } from '../store/authStore';
 import { useColorMode } from '../theme/colorMode';
 import { DemoModeBanner } from './DemoModeBanner';
 import DesktopUpdateBanner from './DesktopUpdateBanner';
+import { useNotificationStore } from '../store/notificationStore';
+import { usePermissionStore } from '../store/permissionStore';
+import TenantLogo from './branding/TenantLogo';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -96,6 +100,8 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
   SUPER_ADMIN: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/super-admin/dashboard' },
     { label: 'Businesses', icon: BusinessIcon, path: '/super-admin/businesses' },
+    { label: 'Demo Requests', icon: PeopleIcon, path: '/super-admin/demo-requests' },
+    { label: 'Data Import', icon: BusinessIcon, path: '/super-admin/data-import' },
     { label: 'Package Configuration', icon: WorkspacePremium, path: '/super-admin/plans' },
     { label: 'System Stats', icon: AssessmentIcon, path: '/super-admin/stats' },
     { label: 'Audit Log', icon: AuditIcon, path: '/super-admin/audit' }
@@ -103,9 +109,15 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
   BUSINESS_ADMIN: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/business/dashboard' },
     { label: 'Staff', icon: UserIcon, path: '/business/users' },
+    { label: 'Roles & Permissions', icon: LockOutlined, path: '/business/permissions' },
     { label: 'Room Types', icon: HotelIcon, path: '/business/room-types', module: 'pms' },
     { label: 'Rooms', icon: RoomIcon, path: '/business/rooms', module: 'pms' },
     { label: 'Menu Configuration', icon: MenuBookIcon, path: '/business/menu', module: 'pos' },
+    { label: 'QR Ordering', icon: PosIcon, path: '/business/pos/qr-codes', module: 'pos' },
+    { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
+    { label: 'HR & Payroll', icon: UserIcon, path: '/business/hr' },
+    { label: 'Staff Rota', icon: CalendarIcon, path: '/business/hr/rota' },
+    { label: 'Loyalty', icon: WorkspacePremium, path: '/business/loyalty' },
     {
       label: 'Menu Engineering',
       icon: AssessmentIcon,
@@ -133,10 +145,12 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
       path: '/business/reports/revenue',
       module: 'finance'
     },
+    { label: 'Subscription', icon: WorkspacePremium, path: '/business/subscription' },
     { label: 'Audit Trail', icon: AuditIcon, path: '/business/audit' },
     { label: 'Settings', icon: Settings, path: '/business/settings' }
   ],
   RECEPTION: [
+    { label: 'My HR', icon: UserIcon, path: '/my-hr' },
     { label: 'Shift', icon: HistoryIcon, path: '/shift' },
     { label: 'Dashboard', icon: DashboardIcon, path: '/reception/dashboard', module: 'pms' },
     { label: 'Stay View', icon: CalendarIcon, path: '/reception/stay-view', module: 'pms' },
@@ -153,6 +167,7 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Guest Profiles', icon: PeopleIcon, path: '/business/profiles', module: 'pms' }
   ],
   POS_STAFF: [
+    { label: 'My HR', icon: UserIcon, path: '/my-hr' },
     { label: 'Shift', icon: HistoryIcon, path: '/shift' },
     { label: 'Dashboard', icon: DashboardIcon, path: '/pos/dashboard', module: 'pos' },
     { label: 'Take Orders', icon: PosIcon, path: '/pos/order', module: 'pos' },
@@ -160,11 +175,13 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Kitchen Display', icon: KdsIcon, path: '/pos/orders', module: 'pos' }
   ],
   HOUSEKEEPING: [
+    { label: 'My HR', icon: UserIcon, path: '/my-hr' },
     { label: 'Dashboard', icon: DashboardIcon, path: '/housekeeping/dashboard', module: 'pms' },
     { label: 'Room Status', icon: CleaningIcon, path: '/housekeeping/rooms', module: 'pms' },
-    { label: 'My Tasks', icon: AssessmentIcon, path: '/housekeeping/tasks', module: 'pms' }
+    { label: 'My Tasks', icon: AssessmentIcon, path: '/business/housekeeping/my-tasks', module: 'pms' }
   ],
   ACCOUNTANT: [
+    { label: 'My HR', icon: UserIcon, path: '/my-hr' },
     { label: 'Dashboard', icon: DashboardIcon, path: '/accountant/dashboard', module: 'finance' },
     {
       label: 'Night Audit Status',
@@ -217,6 +234,8 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Dashboard', icon: DashboardIcon, path: '/business/dashboard' },
     { label: 'Reservations', icon: CalendarIcon, path: '/business/reservations', module: 'pms' },
     { label: 'Arrivals', icon: PeopleIcon, path: '/business/reservations/arrivals', module: 'pms' },
+    { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
+    { label: 'HR & Payroll', icon: UserIcon, path: '/business/hr' },
     { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
     {
       label: 'Revenue',
@@ -231,6 +250,7 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
       module: 'finance'
     },
     { label: 'Audit Trail', icon: AuditIcon, path: '/business/audit-trail' }
+    // Settings intentionally excluded — MANAGER has no settings pages
   ]
 };
 
@@ -246,8 +266,21 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, setUser } = useAuthStore();
+  const loadPermissions = usePermissionStore((state) => state.load);
+
+  // Pull effective permissions once the user is authenticated. Loaded here
+  // rather than in authStore to avoid a circular import through the api client.
+  // The store keys its cache on user id, so a different user signing in on the
+  // same browser triggers a re-fetch rather than reusing stale permissions.
+  useEffect(() => {
+    if (user?.id) {
+      void loadPermissions(user.id);
+    }
+  }, [user?.id, loadPermissions]);
+  const { notifications, removeNotification } = useNotificationStore();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [notifAnchorEl, setNotifAnchorEl] = useState<null | HTMLElement>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
   const [resetCodeOpen, setResetCodeOpen] = useState(false);
@@ -393,11 +426,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           borderBottom: '1px solid rgba(255,255,255,0.08)'
         }}
       >
-        <Box
-          component="img"
-          src={logoSrc}
-          alt={brandName}
-          sx={{ width: 240, height: 120, objectFit: 'contain' }}
+        {/* White-label slot: flexible container, never crops or distorts. */}
+        <TenantLogo
+          branding={{ name: brandName, logo: logoSrc }}
+          surface="dark"
+          height={72}
+          maxWidth={220}
         />
         <Typography variant="body2" sx={{ color: 'rgba(248,244,236,0.76)', mt: 2.5 }}>
           Premium hotel operations control with PMS, POS, and finance in one command layer.
@@ -501,7 +535,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       sx={{
         display: 'flex',
         minHeight: '100vh',
-        background: isDark ? '#0E1418' : '#FFFFFF'
+        // Page ground comes from the theme so light mode is tinted, not white.
+        background: (t: typeof theme) => t.palette.background.default
       }}
     >
       <AppBar
@@ -558,11 +593,58 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </IconButton>
           </Tooltip>
 
-          <IconButton color="inherit" sx={{ mr: 1 }}>
-            <Badge badgeContent={3} color="error">
+          <IconButton
+            color="inherit"
+            sx={{ mr: 1 }}
+            onClick={(e) => setNotifAnchorEl(e.currentTarget)}
+          >
+            <Badge badgeContent={notifications.length || null} color="error">
               <Notifications />
             </Badge>
           </IconButton>
+
+          <Popover
+            open={Boolean(notifAnchorEl)}
+            anchorEl={notifAnchorEl}
+            onClose={() => setNotifAnchorEl(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            PaperProps={{ sx: { width: 320, maxHeight: 400 } }}
+          >
+            <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="subtitle2" fontWeight={700}>Notifications</Typography>
+            </Box>
+            {notifications.length === 0 ? (
+              <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">No new notifications</Typography>
+              </Box>
+            ) : (
+              <List dense disablePadding>
+                {notifications.map((n) => (
+                  <MenuItem
+                    key={n.id}
+                    sx={{ alignItems: 'flex-start', py: 1.25, whiteSpace: 'normal' }}
+                    onClick={() => removeNotification(n.id)}
+                  >
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2">{n.message}</Typography>
+                    </Box>
+                    <Chip
+                      label={n.type}
+                      size="small"
+                      color={
+                        n.type === 'error' ? 'error'
+                        : n.type === 'warning' ? 'warning'
+                        : n.type === 'success' ? 'success'
+                        : 'info'
+                      }
+                      sx={{ ml: 1, mt: 0.25 }}
+                    />
+                  </MenuItem>
+                ))}
+              </List>
+            )}
+          </Popover>
 
           <Box
             onClick={handleProfileMenuOpen}

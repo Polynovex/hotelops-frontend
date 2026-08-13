@@ -19,6 +19,8 @@ import {
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import { accountingService, BankAccount, BankTransaction } from '../../../services/api';
+import { EmptyState } from '../../../components/premium';
+import { AccountBalanceOutlined } from '@mui/icons-material';
 
 const BankReconciliationPage = () => {
   const [loading, setLoading] = useState(true);
@@ -154,6 +156,17 @@ const BankReconciliationPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
+              {transactions.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6}>
+                    <EmptyState
+                      icon={<AccountBalanceOutlined />}
+                      title="No transactions"
+                      description="Import a bank statement to begin reconciling."
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
               {transactions.map((transaction) => (
                 <TableRow key={transaction.id} hover>
                   <TableCell>{new Date(transaction.transactionDate).toLocaleDateString()}</TableCell>

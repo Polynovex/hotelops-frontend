@@ -42,7 +42,36 @@ export const brand = {
   surfaceDark: '#0E1418',
   surfaceDarkRaised: '#161E24',
   divider: 'rgba(15, 27, 35, 0.08)',
-  dividerDark: 'rgba(246, 242, 234, 0.10)'
+  dividerDark: 'rgba(246, 242, 234, 0.10)',
+
+  // --- Part 5 premium surface system -------------------------------------
+  // The old light theme painted background AND paper pure #FFFFFF, so white
+  // cards vanished into a white page. These tokens create explicit layers:
+  //   page (tinted) < card (near-white) < navy nav/header anchors.
+  deepNavy: '#0B2239',
+  navyMid: '#153E63',
+  indigo: '#243B8F',
+  primaryBlue: '#2563EB',
+  goldAccent: '#D9A441',
+  goldAccentLight: '#E7C06A',
+  /** Page background — cool blue-grey, never pure white. */
+  pageLight: '#F4F7FA',
+  /** Card surface — near-white so it lifts off the tinted page. */
+  cardLight: '#FFFFFF',
+  cardLightAlt: '#F8FAFC',
+  pageDark: '#081522',
+  cardDark: '#0F2235',
+  cardDarkRaised: '#122B42'
+} as const;
+
+/** Gradients used for navigation surfaces and premium KPI cards. */
+export const gradients = {
+  header: 'linear-gradient(135deg, #0B2239 0%, #153E63 100%)',
+  sidebar: 'linear-gradient(180deg, #0B2239 0%, #102F4F 100%)',
+  premiumBlue: 'linear-gradient(135deg, #153E63 0%, #243B8F 100%)',
+  accent: 'linear-gradient(135deg, #2563EB 0%, #4F46E5 100%)',
+  card: 'linear-gradient(135deg, #FFFFFF 0%, #F7F9FC 100%)',
+  cardCool: 'linear-gradient(135deg, #F8FAFC 0%, #EEF4FA 100%)'
 } as const;
 
 const shadows = [
@@ -71,11 +100,14 @@ export const createAppTheme = (mode: PaletteMode) => {
       dark: brand.goldDark,
       contrastText: brand.ink
     },
+    // Status colours are mode-aware. The light-mode wine red only reaches
+    // 2.83:1 on the dark card surface, below the WCAG 3:1 minimum, so dark
+    // mode uses the lighter variants (error 4.80:1, success 5.63:1).
     success: {
-      main: brand.emerald,
+      main: isDark ? brand.emeraldLight : brand.emerald,
       light: brand.emeraldLight,
       dark: brand.emeraldDark,
-      contrastText: '#FFFFFF'
+      contrastText: isDark ? brand.ink : '#FFFFFF'
     },
     info: {
       main: brand.navyTint,
@@ -84,26 +116,30 @@ export const createAppTheme = (mode: PaletteMode) => {
       contrastText: '#FFFFFF'
     },
     warning: {
-      main: brand.amber,
+      // Light mode needs a darker amber: the brand amber is only 2.21:1 on a
+      // white card, below the 3:1 minimum. Dark mode keeps the brighter tone,
+      // which reads at 7.31:1 on the dark surface.
+      main: isDark ? brand.amber : '#B57A12',
       light: '#EFC066',
       dark: '#A77519',
       contrastText: brand.ink
     },
     error: {
-      main: brand.wine,
+      main: isDark ? brand.wineLight : brand.wine,
       light: brand.wineLight,
       dark: '#7F2727',
-      contrastText: '#FFFFFF'
+      contrastText: isDark ? brand.ink : '#FFFFFF'
     },
     background: isDark
       ? {
-          default: brand.surfaceDark,
-          paper: brand.surfaceDarkRaised
+          default: brand.pageDark,
+          paper: brand.cardDark
         }
       : {
-          // Light mode: clean white surface for max content legibility.
-          default: '#FFFFFF',
-          paper: '#FFFFFF'
+          // Tinted page behind near-white cards, so surfaces read as layers
+          // rather than dissolving into one another.
+          default: brand.pageLight,
+          paper: brand.cardLight
         },
     text: isDark
       ? {
@@ -241,9 +277,21 @@ export const createAppTheme = (mode: PaletteMode) => {
       },
       MuiPaper: {
         styleOverrides: {
+          // Applied globally so all ~138 <Paper> instances pick up the premium
+          // radius and border without touching 41 files. Deliberately sets no
+          // padding: Paper also backs table containers, dialogs, and menus,
+          // where forced padding would break the layout.
           root: {
             backgroundImage: 'none',
-            color: palette?.text?.primary
+            color: palette?.text?.primary,
+            borderRadius: 14,
+            transition: 'box-shadow 200ms ease, transform 200ms ease'
+          },
+          outlined: {
+            borderColor: isDark ? brand.dividerDark : brand.divider,
+            boxShadow: isDark
+              ? '0 8px 30px rgba(0, 0, 0, 0.24)'
+              : '0 8px 30px rgba(15, 34, 57, 0.06)'
           }
         }
       },

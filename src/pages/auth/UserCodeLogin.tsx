@@ -78,7 +78,9 @@ const UserCodeLogin: React.FC = () => {
       alignItems="center"
       justifyContent="center"
       sx={{
-        background: '#FFFFFF',
+        // Was hard-coded #FFFFFF, which left light-grey secondary text on a
+        // white ground in dark mode. Reads from the theme in both modes now.
+        bgcolor: 'background.default',
         py: 4
       }}
     >

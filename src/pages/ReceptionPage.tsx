@@ -41,6 +41,8 @@ import {
   mockApiResponse,
 } from '../services/dummyData';
 import { useSnackbar } from 'notistack';
+import { EmptyState } from '../components/premium';
+import { EventBusyOutlined } from '@mui/icons-material';
 
 interface Booking {
   id: string;
@@ -340,6 +342,13 @@ const ReceptionPage: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
+                {filteredBookings.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8}>
+                      <EmptyState icon={<EventBusyOutlined />} title="No arrivals or departures" description="Nothing matches the current filters for today." />
+                    </TableCell>
+                  </TableRow>
+                )}
                 {filteredBookings.map((booking) => (
                   <TableRow key={booking.id} hover>
                     <TableCell>{booking.guestName}</TableCell>

@@ -18,6 +18,8 @@ import {
   TextField,
   Typography
 } from '@mui/material';
+import { EmptyState } from '../../../components/premium';
+import { AccountTreeOutlined } from '@mui/icons-material';
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import { accountingService, ChartOfAccount } from '../../../services/api';
@@ -114,6 +116,17 @@ const ChartOfAccountsPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
+              {accounts.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6}>
+                    <EmptyState
+                      icon={<AccountTreeOutlined />}
+                      title="No accounts yet"
+                      description="Add a chart of accounts to start posting transactions."
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
               {accounts.map((account) => (
                 <TableRow key={account.id} hover>
                   <TableCell>{account.accountCode}</TableCell>

@@ -1,4 +1,41 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useWebSocket } from '../../../hooks/useWebSocket';
+
+/**
+ * Short audible cue for a new order. Uses the Web Audio API rather than an
+ * asset so there is no file to ship or fail to load, and it is wrapped in a
+ * try/catch because browsers block audio until the user has interacted with
+ * the page — a silent failure is correct here, not an error.
+ */
+const notifyKitchen = () => {
+  try {
+    const AudioCtx =
+      window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) {
+      return;
+    }
+
+    const context = new AudioCtx();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, context.currentTime);
+    gain.gain.setValueAtTime(0.12, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.4);
+
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.4);
+  } catch {
+    // Autoplay blocked or Web Audio unavailable — the visual toast still fires.
+  }
+
+  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+    navigator.vibrate?.(200);
+  }
+};
 import {
   Alert,
   Box,
@@ -22,6 +59,7 @@ import { Outlet, PosOrder, posService } from '../../../services/api';
 
 const KdsPage = () => {
   const { enqueueSnackbar } = useSnackbar();
+  const { on } = useWebSocket();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -53,6 +91,42 @@ const KdsPage = () => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.outletId, filters.includeCompleted]);
+
+  /**
+   * Live order alerts over the existing authenticated WebSocket (Part 7 #9).
+   *
+   * Chosen over the Web Push API deliberately: the socket is already
+   * authenticated and hotel-scoped, so this needs no service worker, no VAPID
+   * keys, and no browser permission prompt — and it works while the KDS screen
+   * is open, which is the only time a kitchen display matters.
+   */
+  useEffect(() => {
+    const events = ['pos.qr_order.received', 'pos.order.sent_to_kds'];
+
+    const unsubscribers = events.map((event) =>
+      on(event, (payload: unknown) => {
+        void load();
+
+        const order = payload as { orderNumber?: string; customerName?: string } | undefined;
+        if (event === 'pos.qr_order.received') {
+          enqueueSnackbar(
+            `New QR order ${order?.orderNumber || ''}${order?.customerName ? ` — ${order.customerName}` : ''}`,
+            { variant: 'info', autoHideDuration: 6000 }
+          );
+          notifyKitchen();
+        }
+      })
+    );
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [on]);
 
   const pendingOrders = useMemo(
     () => orders.filter((order) => order.orderStatus === 'SENT_TO_KITCHEN').length,

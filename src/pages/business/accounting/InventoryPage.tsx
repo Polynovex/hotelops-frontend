@@ -67,8 +67,8 @@ const InventoryPage = () => {
     setError('');
     try {
       const [itemsRes, valRes] = await Promise.all([
-        fetch(`${baseUrl}/api/inventory/items`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${baseUrl}/api/inventory/valuation`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${baseUrl}/inventory/items`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${baseUrl}/inventory/valuation`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
       if (itemsRes.ok) setItems(await itemsRes.json());
       if (valRes.ok) setValuation(await valRes.json());
@@ -84,7 +84,7 @@ const InventoryPage = () => {
   const createItem = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${baseUrl}/api/inventory/items`, {
+      const res = await fetch(`${baseUrl}/inventory/items`, {
         method: 'POST',
         headers,
         body: JSON.stringify(form)
@@ -103,7 +103,7 @@ const InventoryPage = () => {
   const createTransaction = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${baseUrl}/api/inventory/transactions`, {
+      const res = await fetch(`${baseUrl}/inventory/transactions`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ ...txnForm, quantity: Number(txnForm.quantity) })

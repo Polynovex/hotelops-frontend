@@ -16,6 +16,8 @@ import {
   TextField,
   Typography
 } from '@mui/material';
+import { EmptyState } from '../../../components/premium';
+import { SavingsOutlined } from '@mui/icons-material';
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import { accountingService, Budget, ChartOfAccount } from '../../../services/api';
@@ -122,6 +124,17 @@ const BudgetsPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
+              {budgets.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6}>
+                    <EmptyState
+                      icon={<SavingsOutlined />}
+                      title="No budgets yet"
+                      description="Create a budget to track spend against plan."
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
               {budgets.map((budget) => (
                 <TableRow key={budget.id} hover>
                   <TableCell>{budget.budgetName}</TableCell>

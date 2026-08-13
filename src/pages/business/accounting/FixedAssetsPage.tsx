@@ -18,6 +18,8 @@ import {
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import { accountingService, FixedAsset } from '../../../services/api';
+import { EmptyState } from '../../../components/premium';
+import { InventoryOutlined } from '@mui/icons-material';
 
 const FixedAssetsPage = () => {
   const [loading, setLoading] = useState(true);
@@ -101,6 +103,13 @@ const FixedAssetsPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
+              {assets.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7}>
+                    <EmptyState icon={<InventoryOutlined />} title="No fixed assets" description="Register an asset to start tracking depreciation." />
+                  </TableCell>
+                </TableRow>
+              )}
               {assets.map((asset) => (
                 <TableRow key={asset.id} hover>
                   <TableCell>{asset.assetCode}</TableCell>

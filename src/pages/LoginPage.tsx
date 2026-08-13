@@ -37,6 +37,7 @@ import { useAuthStore } from '../store/authStore';
 import { authService, UserRole } from '../services/api';
 import { useColorMode } from '../theme/colorMode';
 import { LoginSchema, loginSchema } from '../validation/auth.schema';
+import BrandWordmark from '../components/branding/BrandWordmark';
 
 type LoginMode = 'USERCODE' | 'EMAIL';
 
@@ -248,29 +249,7 @@ const LoginPage: React.FC = () => {
                     </Box>
 
                     <Box>
-                      <Typography
-                        sx={{
-                          fontSize: {
-                            xs: '2.6rem',
-                            md: '4rem'
-                          },
-                          fontWeight: 800,
-                          letterSpacing: '-0.05em',
-                          lineHeight: 1
-                        }}
-                      >
-                        <Box component="span" sx={{ color: '#0F1D3D' }}>
-                          Hotel
-                        </Box>
-
-                        <Box component="span" sx={{ color: '#132349' }}>
-                          Op
-                        </Box>
-
-                        <Box component="span" sx={{ color: '#3B82F6' }}>
-                          X
-                        </Box>
-                      </Typography>
+                      <BrandWordmark fontSize={{ xs: '2.6rem', md: '4rem' }} />
 
                       <Typography
                         sx={{
@@ -437,24 +416,7 @@ const LoginPage: React.FC = () => {
                     />
                   </Box>
                   <Box>
-                    <Typography
-                      sx={{
-                        fontSize: '2.6rem',
-                        fontWeight: 800,
-                        letterSpacing: '-0.05em',
-                        lineHeight: 1
-                      }}
-                    >
-                      <Box component="span" sx={{ color: '#0F1D3D' }}>
-                        Hotel
-                      </Box>
-                      <Box component="span" sx={{ color: '#132349' }}>
-                        Op
-                      </Box>
-                      <Box component="span" sx={{ color: '#3B82F6' }}>
-                        X
-                      </Box>
-                    </Typography>
+                    <BrandWordmark fontSize="2.6rem" />
                     <Typography
                       sx={{
                         mt: 0.5,

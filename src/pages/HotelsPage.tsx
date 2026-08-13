@@ -20,6 +20,8 @@ import {
 import Layout from '../components/Layout';
 import { generateDummyHotels, mockApiResponse } from '../services/dummyData';
 import { useSnackbar } from 'notistack';
+import { EmptyState } from '../components/premium';
+import { ApartmentOutlined } from '@mui/icons-material';
 
 const hotelStatusColor = (status: string) => {
   if (status === 'ACTIVE') return 'success';
@@ -162,6 +164,17 @@ const HotelsPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
+              {hotels.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7}>
+                    <EmptyState
+                      icon={<ApartmentOutlined />}
+                      title="No businesses yet"
+                      description="Businesses you add will be listed here."
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
               {hotels.map((hotel) => (
                 <TableRow key={hotel.id} hover>
                   <TableCell>

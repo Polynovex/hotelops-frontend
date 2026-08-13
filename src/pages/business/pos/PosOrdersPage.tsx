@@ -105,8 +105,8 @@ const PosOrdersPage = () => {
       // Fetch tables and service charge config
       try {
         const [tablesRes, scRes] = await Promise.all([
-          fetch(`${baseUrl}/api/pos/tables`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${baseUrl}/api/pos/service-charge`, { headers: { Authorization: `Bearer ${token}` } })
+          fetch(`${baseUrl}/pos/tables`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${baseUrl}/pos/service-charge`, { headers: { Authorization: `Bearer ${token}` } })
         ]);
         if (tablesRes.ok) setTables(await tablesRes.json());
         if (scRes.ok) setServiceCharge(await scRes.json());

@@ -21,6 +21,8 @@ import {
 import Layout from '../components/Layout';
 import { generateDummyRooms, generateDummyBookings, mockApiResponse } from '../services/dummyData';
 import { useSnackbar } from 'notistack';
+import { EmptyState } from '../components/premium';
+import { EventBusyOutlined } from '@mui/icons-material';
 
 const BookingStatusChip = ({ status }: { status: string }) => {
   const colorMap: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
@@ -168,6 +170,17 @@ const BookingsPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
+              {filteredBookings.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7}>
+                    <EmptyState
+                      icon={<EventBusyOutlined />}
+                      title="No reservations found"
+                      description="Nothing matches the current filters. Try widening your search."
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
               {filteredBookings.map((booking) => (
                 <TableRow key={booking.id} hover>
                   <TableCell>

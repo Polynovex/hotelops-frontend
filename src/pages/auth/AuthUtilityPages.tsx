@@ -23,6 +23,7 @@ import { api } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { useColorMode } from '../../theme/colorMode';
 import LogoLoader from '../../components/LogoLoader';
+import BrandWordmark from '../../components/branding/BrandWordmark';
 
 const AuthCard = ({
   title,
@@ -159,24 +160,7 @@ export const ForgotPasswordPage = () => {
                       />
                     </Box>
                     <Box>
-                      <Typography
-                        sx={{
-                          fontSize: '2.4rem',
-                          fontWeight: 800,
-                          letterSpacing: '-0.05em',
-                          lineHeight: 1
-                        }}
-                      >
-                        <Box component="span" sx={{ color: '#0F1D3D' }}>
-                          Hotel
-                        </Box>
-                        <Box component="span" sx={{ color: '#132349' }}>
-                          Op
-                        </Box>
-                        <Box component="span" sx={{ color: '#3B82F6' }}>
-                          X
-                        </Box>
-                      </Typography>
+                      <BrandWordmark fontSize="2.4rem" />
                       <Typography
                         sx={{
                           mt: 0.5,
@@ -419,9 +403,7 @@ export const ResetPasswordPage = () => {
                     </Box>
                     <Box>
                       <Typography sx={{ fontSize: '2.4rem', fontWeight: 800, letterSpacing: '-0.05em', lineHeight: 1 }}>
-                        <Box component="span" sx={{ color: '#0F1D3D' }}>Hotel</Box>
-                        <Box component="span" sx={{ color: '#132349' }}>Op</Box>
-                        <Box component="span" sx={{ color: '#3B82F6' }}>X</Box>
+                        <BrandWordmark fontSize="inherit" />
                       </Typography>
                       <Typography sx={{ mt: 0.5, color: 'rgba(255,255,255,.68)', fontWeight: 600, fontSize: 11, letterSpacing: '.22em' }}>
                         HOSPITALITY OPERATING SYSTEM

@@ -19,6 +19,8 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import { accountingService, NightAuditHistoryRecord } from '../../../services/api';
+import { EmptyState } from '../../../components/premium';
+import { HistoryOutlined } from '@mui/icons-material';
 
 const NightAuditHistoryPage = () => {
   const navigate = useNavigate();
@@ -111,6 +113,17 @@ const NightAuditHistoryPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
+              {history.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7}>
+                    <EmptyState
+                      icon={<HistoryOutlined />}
+                      title="No audits run yet"
+                      description="Completed night audits will be listed here."
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
               {history.map((audit) => (
                 <TableRow key={audit.id} hover>
                   <TableCell>{formatDate(audit.auditDate)}</TableCell>

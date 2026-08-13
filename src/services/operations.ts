@@ -2035,7 +2035,9 @@ export const settingsOpsService = {
   async listRoles(): Promise<SettingRoleRecord[]> {
     if (!isDemoMode()) {
       try {
-        const response = await api.get('/roles');
+        // '/roles' now serves the RBAC role records; this legacy consumer wants
+        // the static UserRole catalogue, which moved to '/roles/legacy'.
+        const response = await api.get('/roles/legacy');
         const roles = toArray<Record<string, unknown>>(response.data).map((row) => {
           const backendRole = String(row.role || row.name || 'RECEPTION').toUpperCase();
           const normalizedName = backendRole === 'RECEPTION' ? 'RECEPTION' : backendRole;

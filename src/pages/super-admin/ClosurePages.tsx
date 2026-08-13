@@ -1,10 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  MetricCard,
+  PremiumCard,
+  SectionHeader,
+  StatusIndicator,
+  type StatusTone
+} from '../../components/premium';
+import {
+  BusinessRounded,
+  CheckCircleRounded,
+  PaymentsRounded,
+  TrendingUpRounded
+} from '@mui/icons-material';
+import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
+  Divider,
   Chip,
   Container,
   Grid,
@@ -104,6 +116,26 @@ const DatabaseMigrationPanel = () => {
   );
 };
 
+
+/**
+ * Maps a health string onto a status tone. Anything unrecognised is treated as
+ * inactive rather than healthy, so an unknown value never renders as green.
+ */
+const healthTone = (status?: string): StatusTone => {
+  if (status === 'ok' || status === 'healthy') return 'healthy';
+  if (status === 'degraded') return 'warning';
+  if (!status) return 'inactive';
+  return 'error';
+};
+
+const serviceTone = (status: string): StatusTone => {
+  const value = status.toLowerCase();
+  if (value === 'up' || value === 'connected' || value === 'ok') return 'healthy';
+  if (value === 'disabled' || value === 'inactive') return 'inactive';
+  if (value === 'degraded') return 'warning';
+  return 'error';
+};
+
 export const SuperAdminDashboardPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -168,41 +200,118 @@ export const SuperAdminDashboardPage = () => {
         {loading && <LogoLoader inline minHeight={140} />}
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6} md={3}><Card><CardContent><Typography color="textSecondary">Total Businesses</Typography><Typography variant="h5" sx={{ fontWeight: 700 }}>{metrics.totalBusinesses}</Typography></CardContent></Card></Grid>
-          <Grid item xs={12} sm={6} md={3}><Card><CardContent><Typography color="textSecondary">Active</Typography><Typography variant="h5" sx={{ fontWeight: 700 }}>{metrics.activeBusinesses}</Typography></CardContent></Card></Grid>
-          <Grid item xs={12} sm={6} md={3}><Card><CardContent><Typography color="textSecondary">Recent Signups</Typography><Typography variant="h5" sx={{ fontWeight: 700 }}>{metrics.recentSignups}</Typography></CardContent></Card></Grid>
-          <Grid item xs={12} sm={6} md={3}><Card><CardContent><Typography color="textSecondary">MRR</Typography><Typography variant="h5" sx={{ fontWeight: 700 }}>₦{metrics.mrr.toLocaleString()}</Typography></CardContent></Card></Grid>
+        <Grid container spacing={2.5} sx={{ mb: 3 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <MetricCard
+              label="Total Businesses"
+              value={metrics.totalBusinesses}
+              detail="All tenants on the platform"
+              icon={<BusinessRounded />}
+              variant="navy"
+              loading={loading}
+              onClick={() => navigate('/super-admin/businesses')}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <MetricCard
+              label="Active"
+              value={metrics.activeBusinesses}
+              detail={`${metrics.trialBusinesses} on trial`}
+              icon={<CheckCircleRounded />}
+              variant="tinted"
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <MetricCard
+              label="Recent Signups"
+              value={metrics.recentSignups}
+              detail="Last 30 days"
+              icon={<TrendingUpRounded />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <MetricCard
+              label="MRR"
+              value={`₦${metrics.mrr.toLocaleString()}`}
+              detail="Monthly recurring revenue"
+              icon={<PaymentsRounded />}
+              variant="navy"
+              loading={loading}
+            />
+          </Grid>
         </Grid>
 
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 2, height: 320 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>Business Distribution</Typography>
-              <ResponsiveContainer width="100%" height="88%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#1E3A8A" radius={[6, 6, 0, 0]} />
+            <PremiumCard sx={{ height: 320 }}>
+              <SectionHeader title="Business Distribution" />
+              <ResponsiveContainer width="100%" height="85%">
+                <BarChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                  {/* Vertical grid lines removed: they add noise without aiding
+                      comparison on a categorical axis. */}
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(15,34,57,0.10)" />
+                  <XAxis
+                    dataKey="name"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 12, fill: '#5A6A73' }}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    allowDecimals={false}
+                    tick={{ fontSize: 12, fill: '#5A6A73' }}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(36,59,143,0.06)' }}
+                    contentStyle={{
+                      borderRadius: 10,
+                      border: '1px solid rgba(15,34,57,0.10)',
+                      boxShadow: '0 8px 30px rgba(15,34,57,0.10)',
+                      fontSize: 13
+                    }}
+                  />
+                  <Bar dataKey="value" fill="#243B8F" radius={[8, 8, 0, 0]} maxBarSize={64} />
                 </BarChart>
               </ResponsiveContainer>
-            </Paper>
+            </PremiumCard>
           </Grid>
 
           <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 2, height: 320 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>System Health</Typography>
-              <Stack spacing={1}>
-                <Typography variant="body2"><strong>Status:</strong> {health?.status || 'unknown'}</Typography>
+            <PremiumCard sx={{ height: 320 }}>
+              <SectionHeader title="System Health" />
+              <Box sx={{ mb: 2 }}>
+                <StatusIndicator
+                  tone={healthTone(health?.status)}
+                  label={health?.status === 'ok' ? 'System Operational' : `System ${health?.status || 'unknown'}`}
+                  size={10}
+                />
+              </Box>
+              <Divider sx={{ mb: 1.5 }} />
+              <Stack spacing={1.25}>
                 {Object.entries(health?.services || {}).map(([service, status]) => (
-                  <Typography key={service} variant="body2"><strong>{service}:</strong> {status}</Typography>
+                  <Stack key={service} direction="row" alignItems="center">
+                    <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1, textTransform: 'capitalize' }}>
+                      {service.replace(/([A-Z])/g, ' $1')}
+                    </Typography>
+                    <StatusIndicator tone={serviceTone(status)} label={status} />
+                  </Stack>
                 ))}
-                <Typography variant="body2"><strong>Processed Events:</strong> {events.processedEvents}</Typography>
-                <Typography variant="body2"><strong>Pending Events:</strong> {events.pendingEvents}</Typography>
+                <Divider sx={{ my: 0.5 }} />
+                <Stack direction="row">
+                  <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>Processed events</Typography>
+                  <Typography variant="body2" fontWeight={700}>{events.processedEvents}</Typography>
+                </Stack>
+                <Stack direction="row">
+                  <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>Pending events</Typography>
+                  <Typography variant="body2" fontWeight={700} color={events.pendingEvents > 0 ? 'warning.main' : undefined}>
+                    {events.pendingEvents}
+                  </Typography>
+                </Stack>
               </Stack>
-            </Paper>
+            </PremiumCard>
           </Grid>
         </Grid>
 

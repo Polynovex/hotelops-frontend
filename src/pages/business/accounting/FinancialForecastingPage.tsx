@@ -70,8 +70,8 @@ const FinancialForecastingPage = () => {
     setError('');
     try {
       const [yoyRes, forecastRes] = await Promise.all([
-        fetch(`${baseUrl}/api/finance/year-over-year`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${baseUrl}/api/finance/forecast?yearsBack=5&yearsForward=3`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${baseUrl}/finance/year-over-year`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${baseUrl}/finance/forecast?yearsBack=5&yearsForward=3`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
       if (yoyRes.ok) setYoyData(await yoyRes.json());
       if (forecastRes.ok) setForecastData(await forecastRes.json());
@@ -86,7 +86,7 @@ const FinancialForecastingPage = () => {
 
   const downloadExcel = async (endpoint: string, filename: string) => {
     try {
-      const res = await fetch(`${baseUrl}/api/finance/export/${endpoint}`, {
+      const res = await fetch(`${baseUrl}/finance/export/${endpoint}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Export failed');

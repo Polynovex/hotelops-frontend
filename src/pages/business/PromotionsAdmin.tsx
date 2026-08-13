@@ -47,6 +47,8 @@ import {
 import { Promotion, PromotionPayload, promotionService } from '../../services/discount.service';
 import Layout from '../../components/Layout';
 import LogoLoader from '../../components/LogoLoader';
+import { EmptyState } from '../../components/premium';
+import { LocalOfferOutlined } from '@mui/icons-material';
 
 const emptyDraft: Partial<PromotionPayload> = {
   code: '',
@@ -277,6 +279,17 @@ const PromotionsAdmin: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
+                    {promos.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9}>
+                          <EmptyState
+                            icon={<LocalOfferOutlined />}
+                            title="No promotions yet"
+                            description="Create a promotion to offer discounts at the till."
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )}
                     {promos.map((p) => {
                       const live = isLive(p);
                       return (

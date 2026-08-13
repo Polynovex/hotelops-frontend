@@ -68,6 +68,18 @@ import EditRoomTypePage from './pages/business/Rooms/EditRoomType';
 import RoomStatusBoardPage from './pages/business/Rooms/RoomStatusBoard';
 import RoomCalendarPage from './pages/business/Rooms/RoomCalendar';
 import HousekeepingTaskBoardPage from './pages/business/Housekeeping/TaskBoard';
+import HousekeepingManagerDashboard from './pages/business/Housekeeping/ManagerDashboard';
+import SubscriptionPage from './pages/business/SubscriptionPage';
+import PermissionsPage from './pages/business/PermissionsPage';
+import LoyaltyPage from './pages/business/LoyaltyPage';
+import SchedulePage from './pages/business/hr/SchedulePage';
+import MyHrPortal from './pages/business/hr/MyHrPortal';
+import HrDashboard from './pages/business/hr/HrDashboard';
+import StaffManagement from './pages/business/hr/StaffManagement';
+import AttendancePage from './pages/business/hr/AttendancePage';
+import LeavePage from './pages/business/hr/LeavePage';
+import PayrollPage from './pages/business/hr/PayrollPage';
+import HousekeeperDashboard from './pages/business/Housekeeping/HousekeeperDashboard';
 import RoomStatusUpdatePage from './pages/business/Housekeeping/RoomStatusUpdate';
 import InspectionViewPage from './pages/business/Housekeeping/InspectionView';
 import LostAndFoundPage from './pages/business/Housekeeping/LostAndFound';
@@ -81,6 +93,8 @@ import BusinessAuditTrailPage from './pages/business/AuditTrail';
 import PosOutletsPage from './pages/business/pos/OutletList';
 import PosMenuManagementPage from './pages/business/pos/MenuManagementPage';
 import PosTableManagementPage from './pages/business/pos/TableManagement';
+import QrCodesPage from './pages/business/pos/QrCodesPage';
+import PublicOrderPage from './pages/public/PublicOrderPage';
 import OccupancyReportPage from './pages/business/Reports/OperationalReports/OccupancyReport';
 import RevenueReportPage from './pages/business/Reports/OperationalReports/RevenueReport';
 import HousekeepingReportPage from './pages/business/Reports/OperationalReports/HousekeepingReport';
@@ -89,6 +103,8 @@ import CustomReportBuilderPage from './pages/business/Reports/CustomReportBuilde
 import NotFoundPage from './pages/errors/NotFound';
 import DesktopOfflineIndicator from './components/DesktopOfflineIndicator';
 import ShiftGatedRoute from './components/ShiftGatedRoute';
+import DemoRequestsPage from './pages/super-admin/DemoRequests';
+import DataImportPage from './pages/super-admin/DataImport';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -310,6 +326,9 @@ function App() {
           <BrowserRouter>
             <DesktopOfflineIndicator />
             <Routes>
+              {/* Public QR ordering — intentionally unauthenticated */}
+              <Route path="/order/:code" element={<PublicOrderPage />} />
+
               <Route path="/login" element={<LoginPage />} />
               <Route path="/usercode-login" element={<UserCodeLoginPage />} />
               <Route path="/logout" element={<LogoutPage />} />
@@ -335,6 +354,23 @@ function App() {
               />
               <Route path="/mfa/setup" element={<MfaSetupPage />} />
               <Route path="/mfa/verify" element={<MfaVerifyPage />} />
+              <Route
+                path="/super-admin/data-import"
+                element={
+                  <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                    <DataImportPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/super-admin/demo-requests"
+                element={
+                  <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                    <DemoRequestsPage />
+                  </ProtectedRoute>
+                }
+              />
 
               <Route
                 path="/super-admin/businesses"
@@ -677,6 +713,118 @@ function App() {
                 }
               />
 
+              {/* Part 3: assignment & approval workflow */}
+              <Route
+                path="/business/subscription"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                    <SubscriptionPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/business/loyalty"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                    <LoyaltyPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/hr/rota"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                    <SchedulePage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/business/permissions"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                    <PermissionsPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Employee self-service — every role, including staff who have
+                  no HR admin permissions at all. */}
+              <Route
+                path="/my-hr"
+                element={
+                  <ProtectedRoute
+                    allowedRoles={[
+                      'BUSINESS_ADMIN', 'MANAGER', 'RECEPTIONIST',
+                      'POS_STAFF', 'HOUSEKEEPING', 'ACCOUNTANT'
+                    ]}
+                  >
+                    <MyHrPortal />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* HR & Payroll (Part 4) */}
+              <Route
+                path="/business/hr"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                    <HrDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/hr/staff"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                    <StaffManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/hr/attendance"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                    <AttendancePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/hr/leave"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                    <LeavePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/hr/payroll"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                    <PayrollPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/business/housekeeping/manager"
+                element={
+                  <ProtectedRoute allowedRoles={['MANAGER', 'BUSINESS_ADMIN']}>
+                    <HousekeepingManagerDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/business/housekeeping/my-tasks"
+                element={
+                  <ProtectedRoute allowedRoles={['HOUSEKEEPING', 'MANAGER', 'BUSINESS_ADMIN']}>
+                    <HousekeeperDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
               <Route
                 path="/business/housekeeping/room-status"
                 element={
@@ -727,6 +875,15 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['RECEPTIONIST', 'POS_STAFF']}>
                     <PosTableManagementPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/business/pos/qr-codes"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                    <QrCodesPage />
                   </ProtectedRoute>
                 }
               />
