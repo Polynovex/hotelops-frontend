@@ -105,6 +105,7 @@ import DesktopOfflineIndicator from './components/DesktopOfflineIndicator';
 import ShiftGatedRoute from './components/ShiftGatedRoute';
 import DemoRequestsPage from './pages/super-admin/DemoRequests';
 import DataImportPage from './pages/super-admin/DataImport';
+import TestimonialsPage from './pages/super-admin/Testimonials';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -359,6 +360,15 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
                     <DataImportPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/super-admin/testimonials"
+                element={
+                  <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                    <TestimonialsPage />
                   </ProtectedRoute>
                 }
               />

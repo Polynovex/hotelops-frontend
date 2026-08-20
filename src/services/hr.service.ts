@@ -295,3 +295,37 @@ export const myHrService = {
     return Array.isArray(data) ? data : [];
   }
 };
+
+// ---------------------------------------------------------------------------
+// Hotel performance (Occupancy / ADR / RevPAR)
+// ---------------------------------------------------------------------------
+
+export interface PerformanceMetrics {
+  roomNightsSold: number;
+  roomNightsAvailable: number;
+  roomRevenue: number;
+  occupancyRate: number;
+  adr: number;
+  revpar: number;
+  nightsInPeriod: number;
+  roomsInInventory: number;
+}
+
+export interface PerformanceResponse {
+  period: { from: string; to: string; nights: number };
+  current: PerformanceMetrics;
+  previous: PerformanceMetrics;
+  change: {
+    occupancyRate: number | null;
+    adr: number | null;
+    revpar: number | null;
+    roomRevenue: number | null;
+  };
+}
+
+export const performanceService = {
+  async get(params?: { from?: string; to?: string }): Promise<PerformanceResponse> {
+    const { data } = await api.get('/dashboard/performance', { params });
+    return data as PerformanceResponse;
+  }
+};

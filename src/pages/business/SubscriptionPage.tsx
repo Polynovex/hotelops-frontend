@@ -72,9 +72,6 @@ const COMPARISON_FEATURES: Array<[key: string, label: string]> = [
   ['INVENTORY', 'Inventory'],
   ['HOUSEKEEPING', 'Housekeeping'],
   ['ADVANCED_REPORTS', 'Advanced Reports'],
-  ['MULTI_PROPERTY', 'Multi-Property'],
-  ['CHANNEL_MANAGER', 'Channel Manager'],
-  ['DYNAMIC_PRICING', 'Dynamic Pricing'],
   ['LOYALTY', 'Loyalty Programme'],
   ['WHITE_LABEL', 'White-Label Branding'],
   ['DEDICATED_SUPPORT', 'Dedicated Account Manager']
@@ -305,7 +302,9 @@ const SubscriptionPage = () => {
                     {plan.name}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" display="block">
-                    {plan.monthlyPriceNgn > 0 ? `${formatNaira(plan.monthlyPriceNgn)}/mo` : 'Custom'}
+                    {plan.code === 'E'
+                      ? `From ${formatNaira(plan.monthlyPriceNgn)}/mo`
+                      : `${formatNaira(plan.monthlyPriceNgn)}/mo`}
                   </Typography>
                   {subscription?.plan?.code === plan.code ? (
                     <Chip size="small" label="Current" color="primary" sx={{ mt: 0.5 }} />

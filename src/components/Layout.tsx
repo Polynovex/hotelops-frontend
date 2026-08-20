@@ -101,6 +101,7 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Dashboard', icon: DashboardIcon, path: '/super-admin/dashboard' },
     { label: 'Businesses', icon: BusinessIcon, path: '/super-admin/businesses' },
     { label: 'Demo Requests', icon: PeopleIcon, path: '/super-admin/demo-requests' },
+    { label: 'Testimonials', icon: AssessmentIcon, path: '/super-admin/testimonials' },
     { label: 'Data Import', icon: BusinessIcon, path: '/super-admin/data-import' },
     { label: 'Package Configuration', icon: WorkspacePremium, path: '/super-admin/plans' },
     { label: 'System Stats', icon: AssessmentIcon, path: '/super-admin/stats' },
