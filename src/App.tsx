@@ -95,6 +95,11 @@ import PosMenuManagementPage from './pages/business/pos/MenuManagementPage';
 import PosTableManagementPage from './pages/business/pos/TableManagement';
 import QrCodesPage from './pages/business/pos/QrCodesPage';
 import PublicOrderPage from './pages/public/PublicOrderPage';
+import GuestRegistrationPage from './pages/public/GuestRegistrationPage';
+import GuestBookPage from './pages/business/guests/GuestBookPage';
+import DailyExpensesPage from './pages/business/finance/DailyExpensesPage';
+import TransactionHistoryPage from './pages/business/finance/TransactionHistoryPage';
+import GuestRegistrationLinksPage from './pages/business/guests/GuestRegistrationLinksPage';
 import OccupancyReportPage from './pages/business/Reports/OperationalReports/OccupancyReport';
 import RevenueReportPage from './pages/business/Reports/OperationalReports/RevenueReport';
 import HousekeepingReportPage from './pages/business/Reports/OperationalReports/HousekeepingReport';
@@ -330,6 +335,9 @@ function App() {
               {/* Public QR ordering — intentionally unauthenticated */}
               <Route path="/order/:code" element={<PublicOrderPage />} />
 
+              {/* Guest self-registration — also reached by scanning a printed code */}
+              <Route path="/guest/register/:code" element={<GuestRegistrationPage />} />
+
               <Route path="/login" element={<LoginPage />} />
               <Route path="/usercode-login" element={<UserCodeLoginPage />} />
               <Route path="/logout" element={<LogoutPage />} />
@@ -353,8 +361,24 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route path="/mfa/setup" element={<MfaSetupPage />} />
-              <Route path="/mfa/verify" element={<MfaVerifyPage />} />
+              {/* Requires a session but no particular role: this is where a
+                  privileged account lands before it is allowed anywhere else. */}
+              <Route
+                path="/mfa/setup"
+                element={
+                  <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'BUSINESS_ADMIN', 'MANAGER', 'RECEPTIONIST', 'FRONT_OFFICE', 'POS_STAFF', 'HOUSEKEEPING', 'ACCOUNTANT', 'SUPPORT_STAFF']}>
+                    <MfaSetupPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/mfa/verify"
+                element={
+                  <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'BUSINESS_ADMIN', 'MANAGER', 'RECEPTIONIST', 'FRONT_OFFICE', 'POS_STAFF', 'HOUSEKEEPING', 'ACCOUNTANT', 'SUPPORT_STAFF']}>
+                    <MfaVerifyPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/super-admin/data-import"
                 element={
@@ -738,6 +762,46 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
                     <LoyaltyPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Finance. The accountant records spend; approval is gated by
+                  permission on the server, not by which page you can reach. */}
+              <Route
+                path="/business/finance/expenses"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT']}>
+                    <DailyExpensesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/finance/transactions"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT']}>
+                    <TransactionHistoryPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Guest book. Front desk needs it too — they create and look up
+                  guests all day — so it is not admin-only. */}
+              <Route
+                path="/business/guests"
+                element={
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'RECEPTIONIST', 'FRONT_OFFICE']}
+                  >
+                    <GuestBookPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/guests/registration-links"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'FRONT_OFFICE']}>
+                    <GuestRegistrationLinksPage />
                   </ProtectedRoute>
                 }
               />

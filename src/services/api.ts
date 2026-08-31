@@ -27,6 +27,20 @@ api.interceptors.response.use(
       useAuthStore.getState().logout();
       window.location.href = '/login';
     }
+
+    /**
+     * The server refuses privileged roles until two-factor is enrolled. Send
+     * them to setup rather than surfacing a bare 403 on whatever screen they
+     * happened to open — the session is valid, it is only incomplete.
+     */
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.error === 'MFA_ENROLMENT_REQUIRED' &&
+      !window.location.pathname.startsWith('/mfa/setup')
+    ) {
+      window.location.href = '/mfa/setup';
+    }
+
     return Promise.reject(error);
   }
 );
@@ -1758,6 +1772,40 @@ export const posService = {
     return asArray<Outlet>(unwrapData<unknown>(response.data));
   },
 
+  /**
+   * Admin variant. Includes deactivated outlets so they can be seen and
+   * reactivated; the plain getOutlets() stays active-only for order entry.
+   */
+  getAllOutlets: async (): Promise<Outlet[]> => {
+    if (isDemoMode()) {
+      return demoOutlets;
+    }
+    const response = await api.get('/outlets', { params: { includeInactive: 'true' } });
+    return asArray<Outlet>(unwrapData<unknown>(response.data));
+  },
+
+  updateOutlet: async (
+    id: string,
+    payload: { name?: string; type?: string; isActive?: boolean }
+  ): Promise<Outlet> => {
+    if (isDemoMode()) {
+      demoOutlets = demoOutlets.map((outlet) =>
+        outlet.id === id ? { ...outlet, ...payload } : outlet
+      );
+      return demoOutlets.find((outlet) => outlet.id === id)!;
+    }
+    const response = await api.put(`/outlets/${id}`, payload);
+    return response.data;
+  },
+
+  deleteOutlet: async (id: string): Promise<void> => {
+    if (isDemoMode()) {
+      demoOutlets = demoOutlets.filter((outlet) => outlet.id !== id);
+      return;
+    }
+    await api.delete(`/outlets/${id}`);
+  },
+
   createOutlet: async (payload: { name: string; type: string }): Promise<Outlet> => {
     if (isDemoMode()) {
       const outlet: Outlet = {
@@ -1771,6 +1819,19 @@ export const posService = {
     }
     const response = await api.post('/pos/outlets', payload);
     return response.data;
+  },
+
+  /**
+   * Kitchen stations the KDS routes to. Server-defined, so the menu editor and
+   * the KDS agree on the list rather than each hardcoding its own.
+   */
+  getKitchenStations: async (): Promise<string[]> => {
+    if (isDemoMode()) {
+      return ['Grill', 'Fry', 'Cold', 'Bar', 'Pastry'];
+    }
+    const response = await api.get('/kds/stations');
+    const rows = asArray<{ name?: string; code?: string }>(unwrapData<unknown>(response.data));
+    return rows.map((row) => row.name ?? row.code ?? '').filter(Boolean);
   },
 
   getMenuCategories: async (): Promise<string[]> => {

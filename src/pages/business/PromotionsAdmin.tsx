@@ -32,6 +32,7 @@ import {
   useTheme
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
+import RowActionsMenu from '../../components/common/RowActionsMenu';
 import {
   AddRounded,
   AutorenewRounded,
@@ -361,16 +362,26 @@ const PromotionsAdmin: React.FC = () => {
                             />
                           </TableCell>
                           <TableCell align="right">
-                            <Tooltip title="Edit">
-                              <IconButton size="small" onClick={() => setEditing(p)}>
-                                <EditRounded fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Deactivate">
-                              <IconButton size="small" onClick={() => deactivate(p.id)}>
-                                <DeleteOutlineRounded fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
+                            <RowActionsMenu
+                              subject={p.code}
+                              actions={[
+                                {
+                                  key: 'edit',
+                                  label: 'Edit promotion',
+                                  icon: <EditRounded fontSize="small" />,
+                                  onClick: () => setEditing(p)
+                                },
+                                {
+                                  key: 'deactivate',
+                                  label: 'Deactivate',
+                                  icon: <DeleteOutlineRounded fontSize="small" />,
+                                  destructive: true,
+                                  disabled: !p.isActive,
+                                  disabledReason: 'Already inactive',
+                                  onClick: () => deactivate(p.id)
+                                }
+                              ]}
+                            />
                           </TableCell>
                         </TableRow>
                       );

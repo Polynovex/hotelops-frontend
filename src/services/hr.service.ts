@@ -29,6 +29,33 @@ export interface StaffMember {
   hourlyRate: number | null;
   overtimeRate: number | null;
   allowance: number;
+  userId: string | null;
+  accessLevel: StaffAccessLevel;
+}
+
+/**
+ * How much of the platform a staff member can sign in to.
+ * NONE          - no login at all
+ * SELF_SERVICE  - HR portal only (own payslips, leave, attendance)
+ * OPERATIONAL   - full role-based access to the operational modules
+ */
+export type StaffAccessLevel = 'NONE' | 'SELF_SERVICE' | 'OPERATIONAL';
+
+/** Departments whose staff do not operate the platform. Mirrors the server. */
+export const NON_OPERATIONAL_DEPARTMENTS = [
+  'SECURITY', 'LAUNDRY', 'GROUNDS', 'MAINTENANCE', 'TRANSPORT'
+];
+
+export const defaultAccessLevelFor = (department?: string | null): StaffAccessLevel => {
+  if (!department) return 'NONE';
+  return NON_OPERATIONAL_DEPARTMENTS.includes(department) ? 'SELF_SERVICE' : 'OPERATIONAL';
+};
+
+export interface StaffAccount {
+  userId: string;
+  email: string;
+  role: string;
+  accessLevel: StaffAccessLevel;
 }
 
 export interface AttendanceRecord {
@@ -108,6 +135,20 @@ export const hrService = {
   async listStaff(params?: { search?: string; status?: StaffStatus }): Promise<StaffMember[]> {
     const { data } = await api.get('/hr/staff', { params });
     return list<StaffMember>(data);
+  },
+
+  /** Grants a login to a staff member who was onboarded without one. */
+  async grantAccount(
+    staffId: string,
+    payload: { accessLevel?: StaffAccessLevel; role?: string; email?: string }
+  ): Promise<StaffAccount> {
+    const { data } = await api.post(`/hr/staff/${staffId}/account`, payload);
+    return data;
+  },
+
+  /** Removes platform access. The person stays on the HR roster. */
+  async revokeAccount(staffId: string): Promise<void> {
+    await api.delete(`/hr/staff/${staffId}/account`);
   },
 
   async getStaff(id: string) {

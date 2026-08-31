@@ -118,6 +118,15 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
     { label: 'HR & Payroll', icon: UserIcon, path: '/business/hr' },
     { label: 'Staff Rota', icon: CalendarIcon, path: '/business/hr/rota' },
+    { label: 'Daily Expenditure', icon: AssessmentIcon, path: '/business/finance/expenses' },
+    { label: 'Transaction History', icon: AssessmentIcon, path: '/business/finance/transactions' },
+    { label: 'Guest Book', icon: PeopleIcon, path: '/business/guests', module: 'pms' },
+    {
+      label: 'Guest Self-Registration',
+      icon: PosIcon,
+      path: '/business/guests/registration-links',
+      module: 'pms'
+    },
     { label: 'Loyalty', icon: WorkspacePremium, path: '/business/loyalty' },
     {
       label: 'Menu Engineering',

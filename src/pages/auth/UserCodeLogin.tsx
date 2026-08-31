@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert,
@@ -40,7 +40,13 @@ const UserCodeLogin: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const submit = async () => {
+  /**
+   * Accepts an optional form event so the same handler serves both the button
+   * click and a native form submit (Enter key). Without a <form>, Enter did
+   * nothing at all on this page.
+   */
+  const submit = async (event?: FormEvent) => {
+    event?.preventDefault();
     setError(null);
     setLoading(true);
     try {
@@ -123,7 +129,7 @@ const UserCodeLogin: React.FC = () => {
               </Alert>
             )}
 
-            <Stack spacing={2}>
+            <Stack component="form" onSubmit={submit} spacing={2}>
               {mode === 'USERCODE' ? (
                 <TextField
                   autoFocus
@@ -195,8 +201,8 @@ const UserCodeLogin: React.FC = () => {
 
               <Button
                 size="large"
+                type="submit"
                 variant="contained"
-                onClick={submit}
                 disabled={
                   loading ||
                   !identifier ||

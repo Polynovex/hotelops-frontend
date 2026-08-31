@@ -85,9 +85,13 @@ export const useAuthStore = create<AuthState>()(
 
         set({ token: current.token });
       },
-      verifyMfa: async (_code) => {
-        // Placeholder for MFA flow; backend endpoint can be wired when available.
-        return Promise.resolve();
+      verifyMfa: async (code) => {
+        // Was a placeholder that resolved without contacting the server, so any
+        // code appeared to be accepted. Enrolment now runs through
+        // mfaService against /auth/mfa/verify; this remains only for callers
+        // that still expect the store method.
+        const { mfaService } = await import('../services/mfa.service');
+        await mfaService.verify(code);
       },
       logout: () => {
         void syncAuthTokenToDesktop(null);

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -11,9 +12,9 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  CircularProgress,
   Divider,
   Grid,
-
   MenuItem,
   Paper,
   Stack,
@@ -31,8 +32,8 @@ import LogoLoader from '../../../components/LogoLoader';
 import DataTable from '../../../components/common/DataTable';
 import { useWebSocket } from '../../../hooks/useWebSocket';
 import GuestKycForm from '../../../components/forms/GuestKycForm';
+import guestService, { guestFullName, type Guest } from '../../../services/guest.service';
 import {
-  ProfileRecord,
   QRoomRecord,
   ReservationRecord,
   StayViewPayload,
@@ -351,7 +352,10 @@ export const CreateReservationPage = () => {
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [profiles, setProfiles] = useState<ProfileRecord[]>([]);
+  const [guestOptions, setGuestOptions] = useState<Guest[]>([]);
+  const [guestQuery, setGuestQuery] = useState('');
+  const [guestSearching, setGuestSearching] = useState(false);
+  const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [rooms, setRooms] = useState<Array<{ id: string; roomNumber: string; status: string; roomType?: string }>>([]);
   const [kycOpen, setKycOpen] = useState(false);
 
@@ -367,16 +371,10 @@ export const CreateReservationPage = () => {
 
   useEffect(() => {
     const load = async () => {
-      const [profileRows, roomRows] = await Promise.all([
-        profileOpsService.listProfiles({ type: 'INDIVIDUAL' }),
-        roomOpsService.listRooms()
-      ]);
-      setProfiles(profileRows);
+      const roomRows = await roomOpsService.listRooms();
       setRooms(roomRows);
-      if (profileRows[0]) {
-        setGuestId(profileRows[0].id);
-        setGuestName(profileRows[0].name);
-      }
+      // Deliberately no default guest. Pre-selecting whoever happened to sort
+      // first made it far too easy to book a room against the wrong person.
       if (roomRows[0]) {
         setRoomId(roomRows[0].id);
         setRequestedRoomType((roomRows[0] as any).roomType ?? '');
@@ -385,10 +383,52 @@ export const CreateReservationPage = () => {
     void load();
   }, []);
 
-  const handleGuestSelect = (id: string) => {
-    setGuestId(id);
-    const p = profiles.find((pr) => pr.id === id);
-    setGuestName(p?.name ?? '');
+  /**
+   * Search the guest book as the receptionist types. Debounced so a name is one
+   * request rather than one per keystroke, and the in-flight request is marked
+   * stale on unmount so a slow response cannot overwrite a newer one.
+   */
+  useEffect(() => {
+    const term = guestQuery.trim();
+    if (term.length < 2) {
+      setGuestOptions([]);
+      setGuestSearching(false);
+      return;
+    }
+
+    let active = true;
+    setGuestSearching(true);
+
+    const timer = setTimeout(() => {
+      guestService
+        .search(term)
+        .then((rows) => {
+          if (active) {
+            setGuestOptions(rows);
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setGuestOptions([]);
+          }
+        })
+        .finally(() => {
+          if (active) {
+            setGuestSearching(false);
+          }
+        });
+    }, 300);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [guestQuery]);
+
+  const handleGuestSelect = (guest: Guest | null) => {
+    setSelectedGuest(guest);
+    setGuestId(guest?.id ?? '');
+    setGuestName(guest ? guestFullName(guest) : '');
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -429,26 +469,88 @@ export const CreateReservationPage = () => {
           <Box component="form" onSubmit={submit}>
             <Stack spacing={2}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="flex-end">
-                <TextField
-                  select
-                  label="Guest Profile *"
-                  value={guestId}
-                  onChange={(e) => handleGuestSelect(e.target.value)}
-                  required
+                <Autocomplete
                   fullWidth
-                >
-                  {profiles.map((p) => (
-                    <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
-                  ))}
-                </TextField>
+                  options={guestOptions}
+                  value={selectedGuest}
+                  onChange={(_e, value) => handleGuestSelect(value)}
+                  onInputChange={(_e, value, reason) => {
+                    // Ignore the input change that fires when a value is picked,
+                    // otherwise selecting a guest kicks off another search.
+                    if (reason === 'input') {
+                      setGuestQuery(value);
+                    }
+                  }}
+                  loading={guestSearching}
+                  // The server already ranks and caps the results; re-filtering
+                  // locally would hide matches it deliberately returned.
+                  filterOptions={(options) => options}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  getOptionLabel={(option) => guestFullName(option)}
+                  noOptionsText={
+                    guestQuery.trim().length < 2
+                      ? 'Type at least 2 characters to search'
+                      : 'No matching guest — use + New Guest'
+                  }
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props} key={option.id}>
+                      <Stack sx={{ width: '100%' }}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="body2" fontWeight={600}>
+                            {guestFullName(option)}
+                          </Typography>
+                          {option.isBlacklisted && (
+                            <Chip size="small" color="error" label="Blacklisted" />
+                          )}
+                          {option.guestType === 'REGULAR' && !option.isBlacklisted && (
+                            <Chip size="small" color="success" label="Regular" />
+                          )}
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary">
+                          {[option.phone, option.email].filter(Boolean).join(' · ')}
+                        </Typography>
+                      </Stack>
+                    </Box>
+                  )}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Guest Profile *"
+                      required
+                      placeholder="Search by name, phone, or email"
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {guestSearching && <CircularProgress color="inherit" size={18} />}
+                            {params.InputProps.endAdornment}
+                          </>
+                        )
+                      }}
+                    />
+                  )}
+                />
                 <Button variant="outlined" onClick={() => setKycOpen(true)} sx={{ whiteSpace: 'nowrap', minWidth: 140 }}>
                   + New Guest
                 </Button>
               </Stack>
 
-              {guestName && (
+              {selectedGuest?.isBlacklisted && (
+                <Alert severity="error">
+                  <strong>{guestName}</strong> is blacklisted.
+                  {selectedGuest.blacklistReason
+                    ? ` Reason: ${selectedGuest.blacklistReason}`
+                    : ''}{' '}
+                  Check with a manager before taking this booking.
+                </Alert>
+              )}
+
+              {guestName && !selectedGuest?.isBlacklisted && (
                 <Alert severity="info" sx={{ py: 0.5 }}>
                   Guest: <strong>{guestName}</strong>
+                  {selectedGuest?.guestType === 'REGULAR'
+                    ? ` · Regular guest, ${selectedGuest.stayCount} previous stay${selectedGuest.stayCount === 1 ? '' : 's'}`
+                    : ''}
                 </Alert>
               )}
 
@@ -490,10 +592,20 @@ export const CreateReservationPage = () => {
           open={kycOpen}
           onClose={() => setKycOpen(false)}
           onCreated={(g) => {
-            const newProfile: ProfileRecord = { id: g.id, name: `${g.firstName} ${g.lastName}`, profileType: 'INDIVIDUAL', hotelId: '', createdAt: '' } as any;
-            setProfiles((prev) => [newProfile, ...prev]);
-            setGuestId(g.id);
-            setGuestName(`${g.firstName} ${g.lastName}`);
+            // A guest created here is brand new, so they are a one-time guest
+            // with no stays and no blacklist history until proven otherwise.
+            const created = {
+              ...(g as Partial<Guest>),
+              id: g.id,
+              firstName: g.firstName,
+              lastName: g.lastName,
+              guestType: 'ONE_TIME',
+              stayCount: 0,
+              isBlacklisted: false
+            } as Guest;
+
+            setGuestOptions((prev) => [created, ...prev]);
+            handleGuestSelect(created);
             setKycOpen(false);
           }}
         />
@@ -511,14 +623,21 @@ export const ReservationDetailPage = () => {
   const [assignOpen, setAssignOpen] = useState(false);
   const [guestPhotoUrl, setGuestPhotoUrl] = useState<string | null>(null);
 
-  const load = async () => {
+  /**
+   * `background` skips the full-page spinner. Realtime events refresh this page
+   * frequently, and flipping `loading` on every one made it look as though the
+   * page never finished loading.
+   */
+  const load = async (background = false) => {
     if (!id) {
       setError('Reservation ID missing');
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (!background) {
+      setLoading(true);
+    }
     setError('');
     try {
       const result = await reservationOpsService.getReservation(id);
@@ -578,10 +697,10 @@ export const ReservationDetailPage = () => {
 
   useEffect(() => {
     const unsubscribers = [
-      on('hotel.reservation.updated', () => void load()),
-      on('hotel.reservation.checked_in', () => void load()),
-      on('hotel.reservation.checked_out', () => void load()),
-      on('hotel.room.updated', () => void load())
+      on('hotel.reservation.updated', () => void load(true)),
+      on('hotel.reservation.checked_in', () => void load(true)),
+      on('hotel.reservation.checked_out', () => void load(true)),
+      on('hotel.room.updated', () => void load(true))
     ];
 
     return () => {

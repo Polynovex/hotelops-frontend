@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -96,6 +96,12 @@ const LoginPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  /** Form submit wrapper so the Enter key logs in, as on the email tab. */
+  const handleUsercodeSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    void handleUsercodeLogin();
   };
 
   const handleUsercodeLogin = async () => {
@@ -469,7 +475,7 @@ const LoginPage: React.FC = () => {
                 )}
 
                 {mode === 'USERCODE' ? (
-                  <Stack spacing={2.5}>
+                  <Stack component="form" onSubmit={handleUsercodeSubmit} spacing={2.5}>
                     <Box>
                       <Stack
                         direction="row"
@@ -583,8 +589,8 @@ const LoginPage: React.FC = () => {
                       startIcon={
                         loading ? <CircularProgress size={18} color="inherit" /> : <LoginRounded />
                       }
+                      type="submit"
                       disabled={loading || !target || target.length < (pinRequired ? 4 : 5)}
-                      onClick={() => void handleUsercodeLogin()}
                     >
                       {pinRequired ? 'Verify PIN' : 'Continue'}
                     </Button>

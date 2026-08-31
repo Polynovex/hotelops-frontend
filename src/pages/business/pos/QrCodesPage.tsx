@@ -11,7 +11,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  IconButton,
   MenuItem,
   Paper,
   Snackbar,
@@ -23,7 +22,6 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Tooltip,
   Typography
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -32,6 +30,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import AddIcon from '@mui/icons-material/Add';
+import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import {
   qrOrderingService,
   type QrCodeRecord,
@@ -297,52 +296,40 @@ const QrCodesPage = () => {
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
-                    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                      <Tooltip title="Download QR image">
-                        <span>
-                          <IconButton
-                            size="small"
-                            onClick={() => void downloadImage(qr)}
-                            disabled={!qr.qrImageUrl}
-                            aria-label={`Download QR code for ${qr.outlet.name}`}
-                          >
-                            <DownloadIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip title="Copy order link">
-                        <IconButton
-                          size="small"
-                          onClick={() => void copyUrl(qr.orderUrl)}
-                          aria-label={`Copy order link for ${qr.outlet.name}`}
-                        >
-                          <ContentCopyIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {qr.isActive ? (
-                        <Tooltip title="Deactivate">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => setPendingDeactivate(qr)}
-                            aria-label={`Deactivate QR code ${qr.code}`}
-                          >
-                            <BlockIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      ) : (
-                        <Tooltip title="Reactivate">
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => void handleReactivate(qr)}
-                            aria-label={`Reactivate QR code ${qr.code}`}
-                          >
-                            <RestartAltIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Stack>
+                    <RowActionsMenu
+                      subject={`QR code ${qr.code}`}
+                      actions={[
+                        {
+                          key: 'download',
+                          label: 'Download QR image',
+                          icon: <DownloadIcon fontSize="small" />,
+                          disabled: !qr.qrImageUrl,
+                          disabledReason: 'No image has been generated yet',
+                          onClick: () => void downloadImage(qr)
+                        },
+                        {
+                          key: 'copy',
+                          label: 'Copy order link',
+                          icon: <ContentCopyIcon fontSize="small" />,
+                          onClick: () => void copyUrl(qr.orderUrl)
+                        },
+                        {
+                          key: 'reactivate',
+                          label: 'Reactivate',
+                          icon: <RestartAltIcon fontSize="small" />,
+                          hidden: qr.isActive,
+                          onClick: () => void handleReactivate(qr)
+                        },
+                        {
+                          key: 'deactivate',
+                          label: 'Deactivate',
+                          icon: <BlockIcon fontSize="small" />,
+                          destructive: true,
+                          hidden: !qr.isActive,
+                          onClick: () => setPendingDeactivate(qr)
+                        }
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

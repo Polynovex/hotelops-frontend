@@ -13,7 +13,6 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
-  IconButton,
   InputAdornment,
   MenuItem,
   Paper,
@@ -26,7 +25,6 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Tooltip,
   Typography
 } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -35,12 +33,18 @@ import EditIcon from '@mui/icons-material/Edit';
 import PersonOffIcon from '@mui/icons-material/PersonOff';
 import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
+import KeyIcon from '@mui/icons-material/VpnKey';
+import KeyOffIcon from '@mui/icons-material/NoEncryptionGmailerrorred';
+import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import {
   formatNaira,
   hrService,
   STAFF_STATUS_COLOR,
   type StaffMember,
-  type StaffStatus
+  type StaffStatus,
+  defaultAccessLevelFor,
+  NON_OPERATIONAL_DEPARTMENTS,
+  type StaffAccessLevel
 } from '../../../services/hr.service';
 
 /**
@@ -74,6 +78,26 @@ const DEPARTMENTS = Object.keys(JOB_TITLES_BY_DEPARTMENT);
 
 const humanise = (value: string) =>
   value.split('_').map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
+const ACCESS_LABEL: Record<string, string> = {
+  NONE: 'No login',
+  SELF_SERVICE: 'HR self-service',
+  OPERATIONAL: 'Full access'
+};
+
+const ACCESS_COLOR: Record<string, 'default' | 'info' | 'success'> = {
+  NONE: 'default',
+  SELF_SERVICE: 'info',
+  OPERATIONAL: 'success'
+};
+
+const ACCESS_HELP: Record<StaffAccessLevel, string> = {
+  NONE: 'No account is created. HR manages their record on their behalf.',
+  SELF_SERVICE:
+    'Signs in only to the HR portal: their own payslips, attendance, and leave. No access to reservations, POS, finance, or audits.',
+  OPERATIONAL:
+    'Full role-based access to the modules their department works in.'
+};
+
 const EMPLOYMENT_TYPES = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'CASUAL'];
 const SALARY_TYPES = ['MONTHLY', 'WEEKLY', 'HOURLY'];
 
@@ -82,6 +106,7 @@ type FormState = Partial<StaffMember> & { clockPin?: string };
 const emptyForm: FormState = {
   firstName: '',
   lastName: '',
+  accessLevel: 'NONE',
   employmentType: 'FULL_TIME',
   salaryType: 'MONTHLY',
   status: 'ACTIVE',
@@ -102,6 +127,11 @@ const StaffManagement = () => {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [pendingTerminate, setPendingTerminate] = useState<StaffMember | null>(null);
+  const [pendingAccess, setPendingAccess] = useState<StaffMember | null>(null);
+  const [pendingRevoke, setPendingRevoke] = useState<StaffMember | null>(null);
+  const [accessLevel, setAccessLevel] = useState<StaffAccessLevel>('SELF_SERVICE');
+  const [accessEmail, setAccessEmail] = useState('');
+  const [accessSaving, setAccessSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -159,6 +189,11 @@ const StaffManagement = () => {
       ) as FormState;
 
       if (editing) {
+        // Access changes go through the explicit grant/revoke actions so they
+        // are always deliberate and audited. Never let an ordinary detail edit
+        // silently re-assert them.
+        delete payload.accessLevel;
+        delete payload.userId;
         await hrService.updateStaff(editing.id, payload);
         setToast('Staff record updated');
       } else {
@@ -173,6 +208,56 @@ const StaffManagement = () => {
       setError(response?.data?.issues?.[0]?.message || response?.data?.error || 'Failed to save staff record');
     } finally {
       setSaving(false);
+    }
+  };
+
+  /** Opens the access dialog pre-filled with the department's default. */
+  const openAccessDialog = (member: StaffMember) => {
+    setAccessLevel(defaultAccessLevelFor(member.department) === 'OPERATIONAL'
+      ? 'OPERATIONAL'
+      : 'SELF_SERVICE');
+    setAccessEmail(member.email ?? '');
+    setPendingAccess(member);
+  };
+
+  const handleGrantAccess = async () => {
+    if (!pendingAccess) {
+      return;
+    }
+
+    setAccessSaving(true);
+    try {
+      await hrService.grantAccount(pendingAccess.id, {
+        accessLevel,
+        email: accessEmail.trim() || undefined
+      });
+      setToast(
+        `Login created for ${pendingAccess.firstName}. Their sign-in details have been emailed to them.`
+      );
+      setPendingAccess(null);
+      await load();
+    } catch (err) {
+      const message = (err as { response?: { data?: { error?: string } } })
+        .response?.data?.error;
+      setError(message || 'Failed to create the login');
+    } finally {
+      setAccessSaving(false);
+    }
+  };
+
+  const handleRevokeAccess = async () => {
+    if (!pendingRevoke) {
+      return;
+    }
+
+    try {
+      await hrService.revokeAccount(pendingRevoke.id);
+      setToast(`${pendingRevoke.firstName} can no longer sign in`);
+      await load();
+    } catch {
+      setError('Failed to revoke access');
+    } finally {
+      setPendingRevoke(null);
     }
   };
 
@@ -258,6 +343,7 @@ const StaffManagement = () => {
               <TableCell>Type</TableCell>
               <TableCell align="right">Base salary</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell>Platform access</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -315,25 +401,52 @@ const StaffManagement = () => {
                       color={STAFF_STATUS_COLOR[member.status]}
                     />
                   </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      variant={member.accessLevel === 'NONE' ? 'outlined' : 'filled'}
+                      label={ACCESS_LABEL[member.accessLevel] ?? 'No login'}
+                      color={ACCESS_COLOR[member.accessLevel] ?? 'default'}
+                    />
+                  </TableCell>
                   <TableCell align="right">
-                    <Tooltip title="Edit">
-                      <IconButton size="small" onClick={() => openEdit(member)} aria-label={`Edit ${member.firstName}`}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Terminate">
-                      <span>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          disabled={member.status === 'TERMINATED'}
-                          onClick={() => setPendingTerminate(member)}
-                          aria-label={`Terminate ${member.firstName}`}
-                        >
-                          <PersonOffIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
+                    <RowActionsMenu
+                      subject={`${member.firstName} ${member.lastName}`}
+                      actions={[
+                        {
+                          key: 'edit',
+                          label: 'Edit details',
+                          icon: <EditIcon fontSize="small" />,
+                          onClick: () => openEdit(member)
+                        },
+                        {
+                          key: 'grant',
+                          label: 'Give platform access',
+                          icon: <KeyIcon fontSize="small" />,
+                          hidden: member.accessLevel !== 'NONE',
+                          disabled: member.status === 'TERMINATED',
+                          disabledReason: 'Terminated staff cannot be given a login',
+                          onClick: () => openAccessDialog(member)
+                        },
+                        {
+                          key: 'revoke',
+                          label: 'Revoke platform access',
+                          icon: <KeyOffIcon fontSize="small" />,
+                          hidden: member.accessLevel === 'NONE',
+                          destructive: true,
+                          onClick: () => setPendingRevoke(member)
+                        },
+                        {
+                          key: 'terminate',
+                          label: 'Terminate',
+                          icon: <PersonOffIcon fontSize="small" />,
+                          destructive: true,
+                          disabled: member.status === 'TERMINATED',
+                          disabledReason: 'Already terminated',
+                          onClick: () => setPendingTerminate(member)
+                        }
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -375,7 +488,14 @@ const StaffManagement = () => {
               label="Department"
               value={form.department || ''}
               options={DEPARTMENTS}
-              onChange={(v) => setField('department', v)}
+              onChange={(v) => {
+                setField('department', v);
+                // Propose the access level the department implies. Still fully
+                // overridable below — this only sets the starting point.
+                if (!editing) {
+                  setField('accessLevel', defaultAccessLevelFor(v));
+                }
+              }}
             />
             <SelectField
               label="Employment type"
@@ -383,6 +503,35 @@ const StaffManagement = () => {
               options={EMPLOYMENT_TYPES}
               onChange={(v) => setField('employmentType', v)}
             />
+            {!editing && (
+              <>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    select
+                    label="Platform access"
+                    value={form.accessLevel || 'NONE'}
+                    onChange={(e) => setField('accessLevel', e.target.value)}
+                    fullWidth
+                    size="small"
+                  >
+                    <MenuItem value="NONE">No login</MenuItem>
+                    <MenuItem value="SELF_SERVICE">HR self-service only</MenuItem>
+                    <MenuItem value="OPERATIONAL">Full access for their department</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid item xs={12}>
+                  <Alert
+                    severity={form.accessLevel === 'OPERATIONAL' ? 'warning' : 'info'}
+                    sx={{ py: 0.5 }}
+                  >
+                    {ACCESS_HELP[(form.accessLevel as StaffAccessLevel) || 'NONE']}
+                    {form.accessLevel !== 'NONE' && !form.email && (
+                      <strong> An email address is required to create a login.</strong>
+                    )}
+                  </Alert>
+                </Grid>
+              </>
+            )}
             <SelectField
               label="Salary type"
               value={form.salaryType || 'MONTHLY'}
@@ -443,6 +592,84 @@ const StaffManagement = () => {
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={() => void handleSave()} disabled={saving}>
             {saving ? 'Saving…' : editing ? 'Save changes' : 'Add staff'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(pendingAccess)}
+        onClose={() => setPendingAccess(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          Give {pendingAccess?.firstName} {pendingAccess?.lastName} platform access
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ pt: 1 }}>
+            <TextField
+              label="Work email"
+              type="email"
+              fullWidth
+              required
+              value={accessEmail}
+              onChange={(e) => setAccessEmail(e.target.value)}
+              helperText="Their sign-in details are sent here. They must set a new password on first login."
+            />
+
+            <TextField
+              select
+              label="Level of access"
+              fullWidth
+              value={accessLevel}
+              onChange={(e) => setAccessLevel(e.target.value as StaffAccessLevel)}
+            >
+              <MenuItem value="SELF_SERVICE">HR self-service only</MenuItem>
+              <MenuItem value="OPERATIONAL">Full access for their department</MenuItem>
+            </TextField>
+
+            <Alert severity={accessLevel === 'OPERATIONAL' ? 'warning' : 'info'}>
+              {ACCESS_HELP[accessLevel]}
+            </Alert>
+
+            {pendingAccess?.department
+              && NON_OPERATIONAL_DEPARTMENTS.includes(pendingAccess.department)
+              && accessLevel === 'OPERATIONAL' && (
+              <Alert severity="error">
+                {humanise(pendingAccess.department)} staff do not normally operate the
+                platform. Granting full access lets them into the modules their
+                department works in.
+              </Alert>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setPendingAccess(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={accessSaving || !accessEmail.trim()}
+            onClick={() => void handleGrantAccess()}
+          >
+            {accessSaving ? 'Creating…' : 'Create login'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(pendingRevoke)} onClose={() => setPendingRevoke(null)}>
+        <DialogTitle>Revoke platform access?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            <strong>
+              {pendingRevoke?.firstName} {pendingRevoke?.lastName}
+            </strong>{' '}
+            will no longer be able to sign in. They stay on the HR roster, and their
+            payroll, attendance, and audit history is kept.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setPendingRevoke(null)}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={() => void handleRevokeAccess()}>
+            Revoke access
           </Button>
         </DialogActions>
       </Dialog>
