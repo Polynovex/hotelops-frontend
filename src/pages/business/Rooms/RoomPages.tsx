@@ -5,7 +5,6 @@ import {
   Button,
   Chip,
   Container,
-
   MenuItem,
   Paper,
   Stack,
@@ -17,6 +16,17 @@ import {
   TextField,
   Typography
 } from '@mui/material';
+import {
+  BuildOutlined,
+  CheckCircleOutline,
+  CleaningServicesOutlined,
+  ErrorOutline,
+  HotelOutlined,
+  MeetingRoomOutlined,
+  Refresh,
+  Search,
+  Tune
+} from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
@@ -30,6 +40,8 @@ import {
   roomOpsService
 } from '../../../services/operations';
 
+
+/** MUI Chip colour for a room status. Used by the list and detail pages. */
 const roomStatusColor = (status: string) => {
   if (status === 'AVAILABLE' || status === 'READY') return 'success';
   if (status === 'OCCUPIED') return 'info';
@@ -38,6 +50,915 @@ const roomStatusColor = (status: string) => {
   if (status === 'RESERVED') return 'secondary';
   return 'default';
 };
+
+export const RoomStatusBoardPage = () => {
+  const { on } = useWebSocket();
+
+  const [rooms, setRooms] = useState<RoomRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('ALL');
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const data = await roomOpsService.listRooms();
+      setRooms(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribers = [
+      on('hotel.room.updated', () => void load()),
+      on('hotel.stay_view.updated', () => void load())
+    ];
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [on]);
+
+  const setStatus = async (roomId: string, status: string) => {
+    try {
+      await roomOpsService.updateRoomStatus(roomId, status);
+      await load();
+    } catch (error) {
+      console.error('Failed to update room status', error);
+    }
+  };
+
+  const counts = useMemo(() => {
+    return {
+      total: rooms.length,
+      available: rooms.filter(
+        (room) => room.status === 'AVAILABLE' || room.status === 'READY'
+      ).length,
+      occupied: rooms.filter((room) => room.status === 'OCCUPIED').length,
+      cleaning: rooms.filter((room) => room.status === 'CLEANING').length,
+      maintenance: rooms.filter(
+        (room) => room.status === 'MAINTENANCE'
+      ).length,
+      reserved: rooms.filter((room) => room.status === 'RESERVED').length
+    };
+  }, [rooms]);
+
+  const filteredRooms = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return rooms.filter((room) => {
+      const matchesSearch =
+        !query ||
+        room.roomNumber.toLowerCase().includes(query) ||
+        room.roomType.toLowerCase().includes(query);
+
+      const matchesFilter =
+        filter === 'ALL' ||
+        (filter === 'AVAILABLE' &&
+          (room.status === 'AVAILABLE' || room.status === 'READY')) ||
+        room.status === filter;
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [rooms, search, filter]);
+
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'AVAILABLE':
+      case 'READY':
+        return {
+          label: status === 'READY' ? 'READY' : 'AVAILABLE',
+          color: '#16805c',
+          background: '#e8f7f1',
+          border: '#b8e5d4',
+          icon: <CheckCircleOutline sx={{ fontSize: 18 }} />
+        };
+
+      case 'OCCUPIED':
+        return {
+          label: 'OCCUPIED',
+          color: '#2457a6',
+          background: '#edf4ff',
+          border: '#c8dcff',
+          icon: <HotelOutlined sx={{ fontSize: 18 }} />
+        };
+
+      case 'CLEANING':
+        return {
+          label: 'CLEANING',
+          color: '#a86600',
+          background: '#fff7e6',
+          border: '#f3d79e',
+          icon: <CleaningServicesOutlined sx={{ fontSize: 18 }} />
+        };
+
+      case 'MAINTENANCE':
+        return {
+          label: 'OUT OF ORDER',
+          color: '#c0392b',
+          background: '#fff0ef',
+          border: '#f0c5c1',
+          icon: <BuildOutlined sx={{ fontSize: 18 }} />
+        };
+
+      case 'RESERVED':
+        return {
+          label: 'RESERVED',
+          color: '#7154a5',
+          background: '#f4effb',
+          border: '#d9ccef',
+          icon: <MeetingRoomOutlined sx={{ fontSize: 18 }} />
+        };
+
+      default:
+        return {
+          label: status,
+          color: '#64748b',
+          background: '#f1f5f9',
+          border: '#dce3ea',
+          icon: <ErrorOutline sx={{ fontSize: 18 }} />
+        };
+    }
+  };
+
+  const statCards = [
+    {
+      label: 'Total Rooms',
+      value: counts.total,
+      icon: <MeetingRoomOutlined />,
+      accent: '#12304d'
+    },
+    {
+      label: 'Available',
+      value: counts.available,
+      icon: <CheckCircleOutline />,
+      accent: '#16805c'
+    },
+    {
+      label: 'Occupied',
+      value: counts.occupied,
+      icon: <HotelOutlined />,
+      accent: '#2457a6'
+    },
+    {
+      label: 'Cleaning',
+      value: counts.cleaning,
+      icon: <CleaningServicesOutlined />,
+      accent: '#b77714'
+    },
+    {
+      label: 'Maintenance',
+      value: counts.maintenance,
+      icon: <BuildOutlined />,
+      accent: '#c0392b'
+    }
+  ];
+
+  return (
+    <Layout>
+      <Box
+        sx={{
+          minHeight: '100%',
+          background: '#f4f7fb',
+          py: { xs: 2.5, md: 4 }
+        }}
+      >
+        <Container maxWidth="xl">
+
+          {/* =========================================================
+              PAGE HEADER
+          ========================================================= */}
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: 3,
+              border: '1px solid #e2e8f0',
+              background:
+                'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+              p: { xs: 2.5, md: 3.5 },
+              mb: 2.5
+            }}
+          >
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              justifyContent="space-between"
+              alignItems={{ xs: 'flex-start', md: 'center' }}
+              spacing={2}
+            >
+              <Box>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  sx={{ mb: 0.8 }}
+                >
+                  <Box
+                    sx={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: '50%',
+                      background: '#20a66a',
+                      boxShadow: '0 0 0 4px rgba(32,166,106,0.12)'
+                    }}
+                  />
+
+                  <Typography
+                    sx={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                      color: '#16805c'
+                    }}
+                  >
+                    Live Operations
+                  </Typography>
+                </Stack>
+
+                <Typography
+                  sx={{
+                    fontSize: { xs: 26, md: 32 },
+                    fontWeight: 800,
+                    letterSpacing: '-0.025em',
+                    color: '#172330'
+                  }}
+                >
+                  Room Status Board
+                </Typography>
+
+                <Typography
+                  sx={{
+                    mt: 0.6,
+                    color: '#64748b',
+                    fontSize: 14
+                  }}
+                >
+                  Monitor room readiness and update housekeeping status
+                  in real time.
+                </Typography>
+              </Box>
+
+              <Button
+                variant="outlined"
+                startIcon={<Refresh />}
+                onClick={() => void load()}
+                disabled={loading}
+                sx={{
+                  minWidth: 120,
+                  height: 42,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  borderColor: '#d7dee7',
+                  color: '#12304d',
+                  backgroundColor: '#fff',
+                  '&:hover': {
+                    borderColor: '#12304d',
+                    backgroundColor: '#f8fafc'
+                  }
+                }}
+              >
+                Refresh
+              </Button>
+            </Stack>
+          </Paper>
+
+          {/* =========================================================
+              SUMMARY CARDS
+          ========================================================= */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                lg: 'repeat(5, 1fr)'
+              },
+              gap: 1.8,
+              mb: 3
+            }}
+          >
+            {statCards.map((stat) => (
+              <Paper
+                key={stat.label}
+                elevation={0}
+                sx={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  p: 2.2,
+                  borderRadius: 2.5,
+                  border: '1px solid #e2e8f0',
+                  background: '#ffffff',
+                  transition: 'all 180ms ease',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 12px 28px rgba(15, 34, 52, 0.08)',
+                    borderColor: '#d4dce5'
+                  }
+                }}
+              >
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 4,
+                    background: stat.accent
+                  }}
+                />
+
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <Box>
+                    <Typography
+                      sx={{
+                        fontSize: 12,
+                        color: '#64748b',
+                        fontWeight: 700,
+                        mb: 0.8
+                      }}
+                    >
+                      {stat.label}
+                    </Typography>
+
+                    <Typography
+                      sx={{
+                        fontSize: 28,
+                        lineHeight: 1,
+                        fontWeight: 800,
+                        color: '#172330'
+                      }}
+                    >
+                      {stat.value}
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 1.8,
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: stat.accent,
+                      backgroundColor: `${stat.accent}12`
+                    }}
+                  >
+                    {stat.icon}
+                  </Box>
+                </Stack>
+              </Paper>
+            ))}
+          </Box>
+
+          {/* =========================================================
+              ROOM BOARD
+          ========================================================= */}
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: 3,
+              border: '1px solid #e2e8f0',
+              background: '#ffffff',
+              overflow: 'hidden'
+            }}
+          >
+
+            {/* Board toolbar */}
+            <Box
+              sx={{
+                p: { xs: 2, md: 2.5 },
+                borderBottom: '1px solid #edf1f5'
+              }}
+            >
+              <Stack
+                direction={{ xs: 'column', lg: 'row' }}
+                spacing={2}
+                justifyContent="space-between"
+              >
+                <Box>
+                  <Typography
+                    sx={{
+                      fontWeight: 800,
+                      color: '#172330',
+                      fontSize: 17
+                    }}
+                  >
+                    Room Operations
+                  </Typography>
+
+                  <Typography
+                    sx={{
+                      color: '#718096',
+                      fontSize: 13,
+                      mt: 0.4
+                    }}
+                  >
+                    Select a room to update its operational status.
+                  </Typography>
+                </Box>
+
+                <TextField
+                  size="small"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search room or room type..."
+                  sx={{
+                    width: { xs: '100%', lg: 300 },
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: '#f8fafc'
+                    }
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <Search
+                        sx={{
+                          mr: 1,
+                          color: '#94a3b8',
+                          fontSize: 20
+                        }}
+                      />
+                    )
+                  }}
+                />
+              </Stack>
+
+              {/* Filters */}
+              <Stack
+                direction="row"
+                spacing={1}
+                flexWrap="wrap"
+                useFlexGap
+                sx={{ mt: 2 }}
+              >
+                <Button
+                  size="small"
+                  startIcon={<Tune sx={{ fontSize: 17 }} />}
+                  onClick={() => setFilter('ALL')}
+                  sx={{
+                    borderRadius: 1.8,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    px: 1.5,
+                    backgroundColor:
+                      filter === 'ALL' ? '#12304d' : '#f1f5f9',
+                    color: filter === 'ALL' ? '#fff' : '#526273',
+                    '&:hover': {
+                      backgroundColor:
+                        filter === 'ALL' ? '#0d263d' : '#e8edf3'
+                    }
+                  }}
+                >
+                  All Rooms ({counts.total})
+                </Button>
+
+                <Button
+                  size="small"
+                  onClick={() => setFilter('AVAILABLE')}
+                  sx={{
+                    borderRadius: 1.8,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    backgroundColor:
+                      filter === 'AVAILABLE' ? '#e8f7f1' : '#f8fafc',
+                    color:
+                      filter === 'AVAILABLE' ? '#16805c' : '#526273'
+                  }}
+                >
+                  Available ({counts.available})
+                </Button>
+
+                <Button
+                  size="small"
+                  onClick={() => setFilter('OCCUPIED')}
+                  sx={{
+                    borderRadius: 1.8,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    backgroundColor:
+                      filter === 'OCCUPIED' ? '#edf4ff' : '#f8fafc',
+                    color:
+                      filter === 'OCCUPIED' ? '#2457a6' : '#526273'
+                  }}
+                >
+                  Occupied ({counts.occupied})
+                </Button>
+
+                <Button
+                  size="small"
+                  onClick={() => setFilter('CLEANING')}
+                  sx={{
+                    borderRadius: 1.8,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    backgroundColor:
+                      filter === 'CLEANING' ? '#fff7e6' : '#f8fafc',
+                    color:
+                      filter === 'CLEANING' ? '#a86600' : '#526273'
+                  }}
+                >
+                  Cleaning ({counts.cleaning})
+                </Button>
+
+                <Button
+                  size="small"
+                  onClick={() => setFilter('MAINTENANCE')}
+                  sx={{
+                    borderRadius: 1.8,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    backgroundColor:
+                      filter === 'MAINTENANCE' ? '#fff0ef' : '#f8fafc',
+                    color:
+                      filter === 'MAINTENANCE' ? '#c0392b' : '#526273'
+                  }}
+                >
+                  Maintenance ({counts.maintenance})
+                </Button>
+              </Stack>
+            </Box>
+
+            {/* Room grid */}
+            <Box sx={{ p: { xs: 2, md: 2.5 } }}>
+              {loading ? (
+                <Box
+                  sx={{
+                    py: 8,
+                    textAlign: 'center',
+                    color: '#64748b'
+                  }}
+                >
+                  <Typography fontWeight={700}>
+                    Loading room operations...
+                  </Typography>
+                </Box>
+              ) : filteredRooms.length === 0 ? (
+                <Box
+                  sx={{
+                    py: 8,
+                    textAlign: 'center'
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 56,
+                      height: 56,
+                      mx: 'auto',
+                      mb: 1.5,
+                      borderRadius: '50%',
+                      display: 'grid',
+                      placeItems: 'center',
+                      backgroundColor: '#f1f5f9',
+                      color: '#64748b'
+                    }}
+                  >
+                    <HotelOutlined />
+                  </Box>
+
+                  <Typography
+                    sx={{
+                      fontWeight: 800,
+                      color: '#172330'
+                    }}
+                  >
+                    No rooms found
+                  </Typography>
+
+                  <Typography
+                    sx={{
+                      mt: 0.5,
+                      color: '#718096',
+                      fontSize: 13
+                    }}
+                  >
+                    Try changing your search or status filter.
+                  </Typography>
+                </Box>
+              ) : (
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: {
+                      xs: '1fr',
+                      sm: 'repeat(2, minmax(0, 1fr))',
+                      md: 'repeat(3, minmax(0, 1fr))',
+                      lg: 'repeat(4, minmax(0, 1fr))',
+                      xl: 'repeat(5, minmax(0, 1fr))'
+                    },
+                    gap: 2
+                  }}
+                >
+                  {filteredRooms.map((room) => {
+                    const config = getStatusConfig(room.status);
+
+                    return (
+                      <Paper
+                        key={room.id}
+                        elevation={0}
+                        sx={{
+                          position: 'relative',
+                          overflow: 'hidden',
+                          borderRadius: 2.5,
+                          border: '1px solid #e1e7ee',
+                          background: '#fff',
+                          transition:
+                            'transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
+                          '&:hover': {
+                            transform: 'translateY(-3px)',
+                            borderColor: '#cdd7e2',
+                            boxShadow:
+                              '0 14px 32px rgba(15, 34, 52, 0.09)'
+                          }
+                        }}
+                      >
+                        {/* Status bar */}
+                        <Box
+                          sx={{
+                            height: 5,
+                            background: config.color
+                          }}
+                        />
+
+                        <Box sx={{ p: 2 }}>
+                          {/* Room heading */}
+                          <Stack
+                            direction="row"
+                            justifyContent="space-between"
+                            alignItems="flex-start"
+                          >
+                            <Box>
+                              <Typography
+                                sx={{
+                                  fontSize: 25,
+                                  lineHeight: 1,
+                                  fontWeight: 850,
+                                  color: '#172330',
+                                  letterSpacing: '-0.02em'
+                                }}
+                              >
+                                {room.roomNumber}
+                              </Typography>
+
+                              <Typography
+                                sx={{
+                                  mt: 0.7,
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  color: '#64748b'
+                                }}
+                              >
+                                {room.roomType}
+                              </Typography>
+                            </Box>
+
+                            <Box
+                              sx={{
+                                width: 38,
+                                height: 38,
+                                borderRadius: 1.8,
+                                display: 'grid',
+                                placeItems: 'center',
+                                color: config.color,
+                                backgroundColor: config.background
+                              }}
+                            >
+                              {config.icon}
+                            </Box>
+                          </Stack>
+
+                          {/* Room metadata */}
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{ mt: 1.7 }}
+                          >
+                            <Chip
+                              label={`Floor ${room.floor}`}
+                              size="small"
+                              sx={{
+                                height: 26,
+                                borderRadius: 1.3,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: '#526273',
+                                backgroundColor: '#f1f5f9'
+                              }}
+                            />
+
+                            <Chip
+                              label={config.label}
+                              size="small"
+                              icon={config.icon}
+                              sx={{
+                                height: 26,
+                                borderRadius: 1.3,
+                                fontSize: 10,
+                                fontWeight: 800,
+                                color: config.color,
+                                backgroundColor: config.background,
+                                border: `1px solid ${config.border}`,
+                                '& .MuiChip-icon': {
+                                  color: config.color
+                                }
+                              }}
+                            />
+                          </Stack>
+
+                          {/* Divider */}
+                          <Box
+                            sx={{
+                              height: 1,
+                              backgroundColor: '#edf1f5',
+                              my: 1.8
+                            }}
+                          />
+
+                          {/* Room rate */}
+                          <Stack
+                            direction="row"
+                            justifyContent="space-between"
+                            alignItems="center"
+                            sx={{ mb: 1.5 }}
+                          >
+                            <Typography
+                              sx={{
+                                fontSize: 12,
+                                color: '#718096'
+                              }}
+                            >
+                              Room rate
+                            </Typography>
+
+                            <Typography
+                              sx={{
+                                fontWeight: 800,
+                                fontSize: 14,
+                                color: '#172330'
+                              }}
+                            >
+                              ₦{room.rate.toLocaleString()}
+                            </Typography>
+                          </Stack>
+
+                          {/* Actions */}
+                          <Stack spacing={1}>
+                            <Button
+                              fullWidth
+                              size="small"
+                              variant="contained"
+                              startIcon={<CheckCircleOutline />}
+                              onClick={() =>
+                                void setStatus(room.id, 'AVAILABLE')
+                              }
+                              sx={{
+                                height: 36,
+                                borderRadius: 1.7,
+                                textTransform: 'none',
+                                fontWeight: 750,
+                                backgroundColor: '#12304d',
+                                boxShadow: 'none',
+                                '&:hover': {
+                                  backgroundColor: '#0c263e',
+                                  boxShadow: 'none'
+                                }
+                              }}
+                            >
+                              Mark Ready
+                            </Button>
+
+                            <Stack direction="row" spacing={1}>
+                              <Button
+                                fullWidth
+                                size="small"
+                                variant="outlined"
+                                startIcon={<CleaningServicesOutlined />}
+                                onClick={() =>
+                                  void setStatus(room.id, 'CLEANING')
+                                }
+                                sx={{
+                                  height: 34,
+                                  minWidth: 0,
+                                  px: 1,
+                                  borderRadius: 1.6,
+                                  textTransform: 'none',
+                                  fontWeight: 700,
+                                  fontSize: 12,
+                                  // "Out of Order" is long enough to wrap at
+                                  // half-card width, which pushed the label off
+                                  // centre inside the fixed height.
+                                  whiteSpace: 'nowrap',
+                                  // A smaller, tighter icon leaves room for the
+                                  // label instead of squeezing it.
+                                  '& .MuiButton-startIcon': {
+                                    mr: 0.6,
+                                    ml: 0,
+                                    '& > *:first-of-type': { fontSize: 16 }
+                                  },
+                                  color: '#a86600',
+                                  borderColor: '#efd49f',
+                                  backgroundColor: '#fffaf0',
+                                  '&:hover': {
+                                    borderColor: '#d9b66f',
+                                    backgroundColor: '#fff6df'
+                                  }
+                                }}
+                              >
+                                Cleaning
+                              </Button>
+
+                              <Button
+                                fullWidth
+                                size="small"
+                                variant="outlined"
+                                startIcon={<BuildOutlined />}
+                                onClick={() =>
+                                  void setStatus(
+                                    room.id,
+                                    'MAINTENANCE'
+                                  )
+                                }
+                                sx={{
+                                  height: 34,
+                                  minWidth: 0,
+                                  px: 1,
+                                  borderRadius: 1.6,
+                                  textTransform: 'none',
+                                  fontWeight: 700,
+                                  fontSize: 12,
+                                  // "Out of Order" is long enough to wrap at
+                                  // half-card width, which pushed the label off
+                                  // centre inside the fixed height.
+                                  whiteSpace: 'nowrap',
+                                  // A smaller, tighter icon leaves room for the
+                                  // label instead of squeezing it.
+                                  '& .MuiButton-startIcon': {
+                                    mr: 0.6,
+                                    ml: 0,
+                                    '& > *:first-of-type': { fontSize: 16 }
+                                  },
+                                  color: '#c0392b',
+                                  borderColor: '#efc5c1',
+                                  backgroundColor: '#fff8f7',
+                                  '&:hover': {
+                                    borderColor: '#dca09a',
+                                    backgroundColor: '#fff1ef'
+                                  }
+                                }}
+                              >
+                                Out of Order
+                              </Button>
+                            </Stack>
+                          </Stack>
+                        </Box>
+                      </Paper>
+                    );
+                  })}
+                </Box>
+              )}
+            </Box>
+
+            {/* Footer */}
+            {!loading && filteredRooms.length > 0 && (
+              <Box
+                sx={{
+                  px: { xs: 2, md: 2.5 },
+                  py: 1.5,
+                  borderTop: '1px solid #edf1f5',
+                  backgroundColor: '#fafbfd'
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: 12,
+                    color: '#718096'
+                  }}
+                >
+                  Showing{' '}
+                  <strong>{filteredRooms.length}</strong> of{' '}
+                  <strong>{rooms.length}</strong> rooms
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+        </Container>
+      </Box>
+    </Layout>
+  );
+};
+
+
 
 export const RoomListPage = () => {
   const navigate = useNavigate();
@@ -442,60 +1363,6 @@ export const EditRoomTypePage = () => {
             navigate('/business/rooms/types');
           }}
         />
-      </Container>
-    </Layout>
-  );
-};
-
-export const RoomStatusBoardPage = () => {
-  const { on } = useWebSocket();
-  const [rooms, setRooms] = useState<RoomRecord[]>([]);
-
-  const load = async () => setRooms(await roomOpsService.listRooms());
-
-  useEffect(() => {
-    void load();
-  }, []);
-
-  useEffect(() => {
-    const unsubscribers = [
-      on('hotel.room.updated', () => void load()),
-      on('hotel.stay_view.updated', () => void load())
-    ];
-    return () => {
-      unsubscribers.forEach((unsubscribe) => unsubscribe());
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [on]);
-
-  const setStatus = async (roomId: string, status: string) => {
-    await roomOpsService.updateRoomStatus(roomId, status);
-    await load();
-  };
-
-  return (
-    <Layout>
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>Room Status Board</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Housekeeping/reception board for rapid room status transitions.
-        </Typography>
-
-        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-          {rooms.map((room) => (
-            <Paper key={room.id} sx={{ p: 2, width: 230 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>{room.roomNumber}</Typography>
-              <Typography variant="body2" color="text.secondary">{room.roomType}</Typography>
-              <Chip sx={{ mt: 1.2 }} label={room.status} color={roomStatusColor(room.status) as 'default'} />
-              <Stack spacing={1} sx={{ mt: 1.5 }}>
-                <Button size="small" onClick={() => void setStatus(room.id, 'CLEANING')}>Mark Dirty</Button>
-                <Button size="small" onClick={() => void setStatus(room.id, 'CLEANING')}>Cleaning</Button>
-                <Button size="small" onClick={() => void setStatus(room.id, 'AVAILABLE')}>Mark Ready</Button>
-                <Button size="small" color="error" onClick={() => void setStatus(room.id, 'MAINTENANCE')}>Out Of Order</Button>
-              </Stack>
-            </Paper>
-          ))}
-        </Stack>
       </Container>
     </Layout>
   );
