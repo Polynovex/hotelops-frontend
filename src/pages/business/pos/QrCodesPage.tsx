@@ -142,8 +142,31 @@ const QrCodesPage = () => {
     }
 
     try {
+      /**
+       * Binary, so this stays on plain fetch rather than apiFetch — but the
+       * status must still be checked. The uploads bucket is private, so a
+       * refused request returns an XML error document, and blob() would happily
+       * save that as a file named .png. The user gets a corrupt image with no
+       * indication anything went wrong.
+       */
       const response = await fetch(qr.qrImageUrl);
+      if (!response.ok) {
+        setToast(
+          response.status === 403
+            ? 'That image is not publicly readable. Use the QR shown on screen instead.'
+            : `Could not download the image (HTTP ${response.status})`
+        );
+        return;
+      }
+
       const blob = await response.blob();
+
+      // An error page would still be a blob; only an image is worth saving.
+      if (!blob.type.startsWith('image/')) {
+        setToast('The stored file is not an image. Regenerate this QR code.');
+        return;
+      }
+
       const objectUrl = URL.createObjectURL(blob);
 
       const anchor = document.createElement('a');

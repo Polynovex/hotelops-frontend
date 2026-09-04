@@ -328,6 +328,10 @@ function App() {
           vertical: 'top',
           horizontal: 'right'
         }}
+        // Errors are dismissible on click: a message that disappears before it
+        // has been read is barely better than no message.
+        preventDuplicate
+        dense
       >
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>

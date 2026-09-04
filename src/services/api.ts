@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
+import { getApiErrorMessage } from '../utils/apiError';
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/$/, '');
 
@@ -18,6 +19,16 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    /**
+     * Replace axios's own message with the server's explanation.
+     *
+     * `error.message` is "Request failed with status code 409", which tells a
+     * user nothing. Every handler in the app falls back to it somewhere, so
+     * normalising here fixes them all at once rather than editing each — and a
+     * handler that reads `response.data.error` still gets the code it expects.
+     */
+    error.message = getApiErrorMessage(error, error.message);
+
     const token = useAuthStore.getState().token;
     const isDemo = token?.startsWith('demo-token');
     const isAuthEndpoint =

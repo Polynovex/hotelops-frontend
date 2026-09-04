@@ -38,6 +38,7 @@ import { authService, UserRole } from '../services/api';
 import { useColorMode } from '../theme/colorMode';
 import { LoginSchema, loginSchema } from '../validation/auth.schema';
 import BrandWordmark from '../components/branding/BrandWordmark';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type LoginMode = 'USERCODE' | 'EMAIL';
 
@@ -114,7 +115,7 @@ const LoginPage: React.FC = () => {
         return;
       }
 
-      setError(response?.message || response?.error || err?.message || 'Login failed');
+      setError(getApiErrorMessage(err, 'Login failed'));
     } finally {
       setLoading(false);
     }
@@ -152,7 +153,7 @@ const LoginPage: React.FC = () => {
           'No PIN has been set for this code yet. Use the Email tab above to sign '
           + 'in, then set a PIN under Security.'
       };
-      setError(map[code] || err?.response?.data?.message || err?.message || 'Login failed');
+      setError(map[code] || getApiErrorMessage(err, 'Login failed'));
 
       // Switch to the method that will actually work.
       if (code === 'PIN_NOT_SET') {

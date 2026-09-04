@@ -79,6 +79,7 @@ import DesktopUpdateBanner from './DesktopUpdateBanner';
 import { useNotificationStore } from '../store/notificationStore';
 import { usePermissionStore } from '../store/permissionStore';
 import TenantLogo from './branding/TenantLogo';
+import { getApiErrorMessage } from '../utils/apiError';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -395,7 +396,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
-      setPwError(err?.response?.data?.error || err?.message || 'Failed to change password.');
+      setPwError(getApiErrorMessage(err, 'Failed to change password.'));
     } finally {
       setPwLoading(false);
     }
@@ -414,7 +415,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       const result = await authService.resetUserCode(resetCodeUserId.trim());
       setResetCodeResult(result.userCode);
     } catch (err: any) {
-      setResetCodeError(err?.response?.data?.error || err?.message || 'Failed to reset usercode.');
+      setResetCodeError(getApiErrorMessage(err, 'Failed to reset usercode.'));
     } finally {
       setResetCodeLoading(false);
     }
