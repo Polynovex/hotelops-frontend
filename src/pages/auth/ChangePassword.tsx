@@ -16,6 +16,7 @@ import { LockRounded, Visibility, VisibilityOff } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { api } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 const routeAfterChange = (role: string, mustReset: boolean) => {
   if (mustReset) {
@@ -75,7 +76,7 @@ const ChangePasswordPage = () => {
         else navigate(-1);
       }, 1200);
     } catch (err: any) {
-      setError(err?.response?.data?.error || err?.message || 'Failed to change password');
+      setError(getApiErrorMessage(err, 'Failed to change password'));
     } finally {
       setLoading(false);
     }

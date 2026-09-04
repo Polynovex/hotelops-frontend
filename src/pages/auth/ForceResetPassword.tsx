@@ -28,6 +28,7 @@ import { useAuthStore } from '../../store/authStore';
 import { api } from '../../services/api';
 import { useColorMode } from '../../theme/colorMode';
 import BrandWordmark from '../../components/branding/BrandWordmark';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 const ForceResetPasswordPage = () => {
   const navigate = useNavigate();
@@ -81,7 +82,7 @@ const ForceResetPasswordPage = () => {
       else if (role === 'BUSINESS_ADMIN' || role === 'MANAGER') navigate('/business/dashboard', { replace: true });
       else navigate('/shift', { replace: true });
     } catch (err: any) {
-      setError(err?.response?.data?.error || err?.message || 'Failed to change password.');
+      setError(getApiErrorMessage(err, 'Failed to change password.'));
     } finally {
       setLoading(false);
     }

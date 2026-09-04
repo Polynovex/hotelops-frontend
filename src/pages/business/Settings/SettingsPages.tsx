@@ -43,6 +43,7 @@ import { apiClient } from '../../../api/client';
 import { useAuthStore } from '../../../store/authStore';
 import { useSnackbar } from 'notistack';
 import RowActionsMenu from '../../../components/common/RowActionsMenu';
+import { getApiErrorMessage } from '../../../utils/apiError';
 
 export const BusinessProfileSettingsPage = () => {
   const { setUser } = useAuthStore();
@@ -80,7 +81,7 @@ export const BusinessProfileSettingsPage = () => {
       }
       setSaveSuccess(true);
     } catch (err: any) {
-      setSaveError(err?.response?.data?.error || err?.message || 'Failed to save');
+      setSaveError(getApiErrorMessage(err, 'Failed to save'));
     } finally {
       setSaving(false);
     }
@@ -197,7 +198,7 @@ export const UsersSettingsPage = () => {
         setIssuedCode({ user: { ...created, userCode }, userCode });
       }
     } catch (err: any) {
-      setError(err?.response?.data?.error || err?.message || 'Failed to create user');
+      setError(getApiErrorMessage(err, 'Failed to create user'));
     } finally {
       setBusy(false);
     }

@@ -19,6 +19,7 @@ import {
 import { BadgeOutlined, LockOutlined, MailOutline } from '@mui/icons-material';
 import { useAuthStore } from '../../store/authStore';
 import { authService, UserRole } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 type LoginMode = 'USERCODE' | 'PASSWORD';
 
@@ -79,7 +80,7 @@ const UserCodeLogin: React.FC = () => {
           'No PIN has been set for this code yet. Sign in with your email and '
           + 'password, then set a PIN under Security.'
       };
-      setError(msg[code] || e?.response?.data?.message || e?.response?.data?.error || e.message || 'Login failed');
+      setError(msg[code] || getApiErrorMessage(e, 'Login failed'));
       setNeedsEmailLogin(code === 'PIN_NOT_SET');
     } finally {
       setLoading(false);

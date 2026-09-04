@@ -32,6 +32,8 @@ import {
 import { useAuthStore } from '../../../store/authStore';
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
+import { apiFetch } from '../../../utils/apiFetch';
+import { getApiErrorMessage } from '../../../utils/apiError';
 
 interface YoyMonth {
   month: string;
@@ -69,28 +71,28 @@ const FinancialForecastingPage = () => {
     setLoading(true);
     setError('');
     try {
-      const [yoyRes, forecastRes] = await Promise.all([
-        fetch(`${baseUrl}/finance/year-over-year`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${baseUrl}/finance/forecast?yearsBack=5&yearsForward=3`, { headers: { Authorization: `Bearer ${token}` } })
-      ]);
       /**
-       * A non-OK response used to be discarded silently, leaving the previous
-       * (or empty) state on screen with no explanation — a chart of zeros that
-       * reads as placeholder output rather than a failed request.
+       * apiFetch throws on a non-2xx carrying the server's explanation. Plain
+       * fetch resolves on 4xx and 5xx, so the earlier code discarded failures
+       * silently and left a chart of zeros that read as placeholder output
+       * rather than a failed request.
        */
-      if (!yoyRes.ok || !forecastRes.ok) {
-        const failed = await (yoyRes.ok ? forecastRes : yoyRes).json().catch(() => null);
-        throw new Error(
-          failed?.message
-          ?? failed?.error
-          ?? `Could not load financial data (HTTP ${yoyRes.ok ? forecastRes.status : yoyRes.status})`
-        );
-      }
+      const headers = { Authorization: `Bearer ${token}` };
+      const [yoy, forecast] = await Promise.all([
+        apiFetch<typeof yoyData>(`${baseUrl}/finance/year-over-year`, {
+          headers,
+          fallbackMessage: 'Could not load the year-over-year comparison'
+        }),
+        apiFetch<typeof forecastData>(`${baseUrl}/finance/forecast?yearsBack=5&yearsForward=3`, {
+          headers,
+          fallbackMessage: 'Could not load the revenue forecast'
+        })
+      ]);
 
-      setYoyData(await yoyRes.json());
-      setForecastData(await forecastRes.json());
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to load financial data');
+      setYoyData(yoy);
+      setForecastData(forecast);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to load financial data'));
     } finally {
       setLoading(false);
     }
@@ -103,15 +105,27 @@ const FinancialForecastingPage = () => {
       const res = await fetch(`${baseUrl}/finance/export/${endpoint}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error('Export failed');
+      /**
+       * Binary download, so this stays on plain fetch — but a failure returns a
+       * JSON error body, not a spreadsheet. Surfacing the server's reason beats
+       * a bare "Export failed", which could equally mean a permission problem
+       * or an empty date range.
+       */
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null);
+        throw new Error(
+          detail?.message ?? detail?.error ?? `Export failed (HTTP ${res.status})`
+        );
+      }
+
       const buffer = await res.arrayBuffer();
       await downloadFile(
         buffer,
         filename,
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       );
-    } catch (err: any) {
-      setError(err.message ?? 'Export failed');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Export failed'));
     }
   };
 

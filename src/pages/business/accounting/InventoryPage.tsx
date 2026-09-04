@@ -25,6 +25,8 @@ import { useAuthStore } from '../../../store/authStore';
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import DataTable from '../../../components/common/DataTable';
+import { apiFetch } from '../../../utils/apiFetch';
+import { getApiErrorMessage } from '../../../utils/apiError';
 
 interface InventoryItem {
   id: string;
@@ -84,17 +86,17 @@ const InventoryPage = () => {
   const createItem = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${baseUrl}/inventory/items`, {
+      await apiFetch(`${baseUrl}/inventory/items`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(form)
+        body: JSON.stringify(form),
+        fallbackMessage: 'Could not add the inventory item'
       });
-      if (!res.ok) throw new Error((await res.json()).error ?? 'Failed');
       setOpenAdd(false);
       setForm({ sku: '', name: '', unit: 'pcs', costPrice: 0, reorderLevel: 0, isConsumable: false });
       await load();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not add the inventory item'));
     } finally {
       setSaving(false);
     }
@@ -103,17 +105,17 @@ const InventoryPage = () => {
   const createTransaction = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${baseUrl}/inventory/transactions`, {
+      await apiFetch(`${baseUrl}/inventory/transactions`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ ...txnForm, quantity: Number(txnForm.quantity) })
+        body: JSON.stringify({ ...txnForm, quantity: Number(txnForm.quantity) }),
+        fallbackMessage: 'Could not record the stock movement'
       });
-      if (!res.ok) throw new Error((await res.json()).error ?? 'Failed');
       setOpenTxn(false);
       setTxnForm({ itemId: '', type: 'RECEIVE', quantity: 1, notes: '' });
       await load();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not record the stock movement'));
     } finally {
       setSaving(false);
     }

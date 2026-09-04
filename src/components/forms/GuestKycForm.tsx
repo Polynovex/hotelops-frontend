@@ -21,6 +21,8 @@ import { CameraAlt, UploadFile } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { useAuthStore } from '../../store/authStore';
 import { desktopBridge } from '../../services/desktopBridge';
+import { apiFetch } from '../../utils/apiFetch';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 export interface GuestFormData {
   firstName: string;
@@ -150,13 +152,20 @@ const GuestKycForm = ({ open, onClose, onCreated }: Props) => {
     try {
       const fd = new FormData();
       fd.append('file', idFile);
-      await fetch(`${baseUrl}/guests/${id}/id-document`, {
+      // fetch does not reject on 4xx/5xx, and nothing checked res.ok — so a
+      // rejected document (wrong type, too large) reported success and the
+      // guest was left with no ID on file.
+      await apiFetch(`${baseUrl}/guests/${id}/id-document`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
-        body: fd
+        body: fd,
+        fallbackMessage: 'The ID document could not be uploaded'
       });
-    } catch {
-      enqueueSnackbar('ID document upload failed — guest was still created.', { variant: 'warning' });
+    } catch (err) {
+      enqueueSnackbar(
+        `${getApiErrorMessage(err, 'ID document upload failed')} — the guest was still created.`,
+        { variant: 'warning' }
+      );
     } finally {
       setUploadingDoc(false);
     }
@@ -166,24 +175,24 @@ const GuestKycForm = ({ open, onClose, onCreated }: Props) => {
     setError('');
     setSaving(true);
     try {
-      const res = await fetch(`${baseUrl}/guests`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(form)
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        const msg = data?.issues?.[0]?.message ?? data?.error ?? 'Failed to create guest';
-        setError(msg);
-        return;
-      }
+      const data = await apiFetch<{ id: string; firstName: string; lastName: string }>(
+        `${baseUrl}/guests`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(form),
+          fallbackMessage: 'Failed to create guest'
+        }
+      );
+
       setGuestId(data.id);
       if (idFile) await uploadDoc(data.id);
       enqueueSnackbar('Guest profile created', { variant: 'success' });
       onCreated({ id: data.id, firstName: data.firstName, lastName: data.lastName });
       handleClose();
-    } catch (err: any) {
-      setError(err.message ?? 'Network error');
+    } catch (err) {
+      // apiFetch already resolved the server's explanation into `message`.
+      setError(getApiErrorMessage(err, 'Failed to create guest'));
     } finally {
       setSaving(false);
     }
