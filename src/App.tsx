@@ -39,6 +39,7 @@ import LogoutPage from './pages/auth/Logout';
 import ForgotPasswordPage from './pages/auth/ForgotPassword';
 import ResetPasswordPage from './pages/auth/ResetPassword';
 import ChangePasswordPage from './pages/auth/ChangePassword';
+import SecuritySettingsPage from './pages/settings/SecuritySettings';
 import MfaSetupPage from './pages/auth/MfaSetup';
 import MfaVerifyPage from './pages/auth/MfaVerify';
 import SuperAdminDashboardPage from './pages/super-admin/Dashboard';
@@ -358,6 +359,16 @@ function App() {
                     ]}
                   >
                     <ChangePasswordPage />
+                  </ProtectedRoute>
+                }
+              />
+              {/* Personal credentials. Every role has these, so the list mirrors
+                  /mfa/setup rather than the narrower change-password list. */}
+              <Route
+                path="/settings/security"
+                element={
+                  <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'BUSINESS_ADMIN', 'MANAGER', 'RECEPTIONIST', 'FRONT_OFFICE', 'POS_STAFF', 'HOUSEKEEPING', 'ACCOUNTANT', 'SUPPORT_STAFF']}>
+                    <SecuritySettingsPage />
                   </ProtectedRoute>
                 }
               />

@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  Box,
   Button,
   Card,
   CardContent,
@@ -233,46 +234,16 @@ const DailyExpensesPage = () => {
     }
   };
 
-  return (
-    <Layout>
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Typography variant="h4" fontWeight={700} sx={{ mb: 1 }}>Daily Expenditure</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Record what the business spends each day. Entries stay pending until someone
-          else approves them, so no single person can both spend and sign off.
-        </Typography>
-
-        {error && (
-          <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          {[
-            { label: 'Pending approval', value: totals.pending, color: 'warning.main' },
-            { label: 'Approved', value: totals.approved, color: 'success.main' },
-            { label: 'Total for period', value: totals.net, color: 'text.primary' }
-          ].map((card) => (
-            <Grid item xs={12} sm={4} key={card.label}>
-              <Card>
-                <CardContent>
-                  <Typography variant="body2" color="text.secondary">{card.label}</Typography>
-                  <Typography variant="h5" fontWeight={700} sx={{ color: card.color }}>
-                    {formatNaira(card.value)}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
-            {editing ? `Edit ${editing.reference}` : 'Record an expense'}
-          </Typography>
-          <form onSubmit={submit}>
-            <Grid container spacing={2}>
+  /**
+   * The field set, shared by the inline create form and the edit dialog.
+   *
+   * Editing used to reuse the same card at the top of the page, so the only
+   * signal you were amending an existing entry rather than recording a new one
+   * was a changed heading well above the fields — easy to miss, and easy to
+   * overwrite an expense by accident.
+   */
+  const expenseFields = (
+    <Grid container spacing={2}>
               <Grid item xs={12} sm={6} md={2}>
                 <TextField
                   label="Date"
@@ -350,30 +321,79 @@ const DailyExpensesPage = () => {
                   fullWidth
                 />
               </Grid>
-              <Grid item xs={12} md={2}>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    fullWidth
-                    disabled={saving}
-                    sx={{ height: 56 }}
-                  >
-                    {saving ? 'Saving…' : editing ? 'Save' : 'Record'}
-                  </Button>
-                  {editing && (
-                    <Button
-                      onClick={() => { setEditing(null); setForm(emptyForm()); }}
-                      sx={{ height: 56 }}
-                    >
-                      Cancel
-                    </Button>
-                  )}
-                </Stack>
-              </Grid>
+    </Grid>
+  );
+  return (
+    <Layout>
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Typography variant="h4" fontWeight={700} sx={{ mb: 1 }}>Daily Expenditure</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Record what the business spends each day. Entries stay pending until someone
+          else approves them, so no single person can both spend and sign off.
+        </Typography>
+
+        {error && (
+          <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          {[
+            { label: 'Pending approval', value: totals.pending, color: 'warning.main' },
+            { label: 'Approved', value: totals.approved, color: 'success.main' },
+            { label: 'Total for period', value: totals.net, color: 'text.primary' }
+          ].map((card) => (
+            <Grid item xs={12} sm={4} key={card.label}>
+              <Card>
+                <CardContent>
+                  <Typography variant="body2" color="text.secondary">{card.label}</Typography>
+                  <Typography variant="h5" fontWeight={700} sx={{ color: card.color }}>
+                    {formatNaira(card.value)}
+                  </Typography>
+                </CardContent>
+              </Card>
             </Grid>
+          ))}
+        </Grid>
+
+        {/* Recording is inline; editing opens a dialog so an amendment can never
+            be mistaken for a new entry. */}
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
+            Record an expense
+          </Typography>
+          <form onSubmit={submit}>
+            {expenseFields}
+            <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+              <Button type="submit" variant="contained" disabled={saving}>
+                {saving ? 'Saving…' : 'Record'}
+              </Button>
+            </Stack>
           </form>
         </Paper>
+
+        <Dialog
+          open={Boolean(editing)}
+          onClose={() => { setEditing(null); setForm(emptyForm()); }}
+          fullWidth
+          maxWidth="md"
+        >
+          <DialogTitle>Edit {editing?.reference}</DialogTitle>
+          <DialogContent>
+            <Box component="form" id="edit-expense-form" onSubmit={submit} sx={{ pt: 1 }}>
+              {expenseFields}
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => { setEditing(null); setForm(emptyForm()); }}>
+              Cancel
+            </Button>
+            <Button type="submit" form="edit-expense-form" variant="contained" disabled={saving}>
+              {saving ? 'Saving…' : 'Save changes'}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <Paper sx={{ p: 2, mb: 2 }}>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>

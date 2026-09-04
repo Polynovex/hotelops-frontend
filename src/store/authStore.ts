@@ -18,6 +18,9 @@ interface User {
   financeEnabled?: boolean;
   mustResetPassword?: boolean;
   userCode?: string | null;
+  /** Whether a sign-in PIN exists. The PIN itself never reaches the client. */
+  hasPin?: boolean;
+  mfaEnabled?: boolean;
 }
 
 interface AuthState {

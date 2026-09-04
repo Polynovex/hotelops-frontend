@@ -154,8 +154,10 @@ export interface CreateBusinessPayload {
   posEnabled?: boolean;
   financeEnabled?: boolean;
   subscriptionTier?: string;
-  adminPassword: string;
-  adminUserCode: string;
+  /** Optional — the server generates one when omitted, as staff creation does. */
+  adminPassword?: string;
+  /** Optional — the server allocates an unused 5-digit code when omitted. */
+  adminUserCode?: string;
   adminFirstName?: string;
   adminLastName?: string;
 }
@@ -1405,6 +1407,15 @@ export const superAdminService = {
     }
     const response = await api.delete(`/admin/plans/${id}`);
     return unwrapData<PlanSummary>(response.data);
+  },
+
+  /**
+   * Brings a deactivated plan back into use. Deactivation is reversible —
+   * businesses still reference the plan, so it is switched off, not removed.
+   */
+  activatePlan: async (id: string) => {
+    const response = await api.post(`/admin/plans/${id}/activate`);
+    return response.data;
   },
 
   getPlanBusinesses: async (planId: string): Promise<BusinessSummary[]> => {
@@ -2865,5 +2876,30 @@ export const accountingService = {
       params: { limit }
     });
     return asArray<NightAuditHistoryRecord>(unwrapData<unknown>(response.data));
+  }
+};
+
+/**
+ * Kitchen stations, backed by the database.
+ *
+ * These previously lived in localStorage with a hardcoded default list, so the
+ * set differed per browser, was lost when site data was cleared, and never
+ * matched what the KDS actually routed to.
+ */
+export const kitchenStationService = {
+  async list(): Promise<Array<{ id: string; code: string; name: string; sortOrder: number }>> {
+    const response = await api.get('/kds/stations');
+    return asArray(unwrapData<unknown>(response.data));
+  },
+
+  async create(name: string) {
+    const response = await api.post('/pos/kitchen-stations', { name });
+    return response.data;
+  },
+
+  /** Deactivates rather than deletes, so existing menu routing still resolves. */
+  async remove(id: string): Promise<{ menuItemsAffected: number }> {
+    const response = await api.delete(`/pos/kitchen-stations/${id}`);
+    return response.data;
   }
 };

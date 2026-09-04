@@ -33,6 +33,7 @@ import {
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
+import { useSnackbar } from 'notistack';
 import {
   AddRounded,
   AutorenewRounded,
@@ -122,6 +123,8 @@ const StatTile: React.FC<{
 
 const PromotionsAdmin: React.FC = () => {
   const theme = useTheme();
+  const { enqueueSnackbar } = useSnackbar();
+  const [pendingDeactivate, setPendingDeactivate] = useState<{ id: string; code: string } | null>(null);
   const [promos, setPromos] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -184,10 +187,23 @@ const PromotionsAdmin: React.FC = () => {
     }
   };
 
-  const deactivate = async (id: string) => {
-    if (!window.confirm('Deactivate this promotion? It will no longer apply at the POS.')) return;
-    await promotionService.deactivate(id);
-    await load();
+  const runDeactivate = async (promotion: { id: string; code: string }) => {
+    try {
+      await promotionService.deactivate(promotion.id);
+      enqueueSnackbar(`${promotion.code} deactivated`, { variant: 'success' });
+      await load();
+    } catch (err) {
+      // Previously unhandled, so a failure looked identical to success.
+      enqueueSnackbar(
+        (err as { response?: { data?: { message?: string; error?: string } } })
+          .response?.data?.message
+          ?? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+          ?? 'Could not deactivate this promotion',
+        { variant: 'error' }
+      );
+    } finally {
+      setPendingDeactivate(null);
+    }
   };
 
   const copyCode = async (code: string) => {
@@ -378,7 +394,7 @@ const PromotionsAdmin: React.FC = () => {
                                   destructive: true,
                                   disabled: !p.isActive,
                                   disabledReason: 'Already inactive',
-                                  onClick: () => deactivate(p.id)
+                                  onClick: () => setPendingDeactivate(p)
                                 }
                               ]}
                             />
@@ -554,6 +570,28 @@ const PromotionsAdmin: React.FC = () => {
               startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
             >
               {editing?.id ? 'Save changes' : 'Create promotion'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+        {/* Replaces window.confirm, which cannot be themed and is suppressed
+            entirely in some embedded webviews — where the action then silently
+            did nothing. */}
+        <Dialog open={Boolean(pendingDeactivate)} onClose={() => setPendingDeactivate(null)}>
+          <DialogTitle>Deactivate this promotion?</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">
+              <strong>{pendingDeactivate?.code}</strong> will stop applying at the POS
+              immediately. Orders already placed with it are unaffected.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setPendingDeactivate(null)}>Cancel</Button>
+            <Button
+              color="error"
+              variant="contained"
+              onClick={() => pendingDeactivate && void runDeactivate(pendingDeactivate)}
+            >
+              Deactivate
             </Button>
           </DialogActions>
         </Dialog>

@@ -24,6 +24,7 @@ import Layout from '../../components/Layout';
 import LogoLoader from '../../components/LogoLoader';
 import DataTable from '../../components/common/DataTable';
 import { PlanPayload, PlanSummary, superAdminService } from '../../services/api';
+import RowActionsMenu from '../../components/common/RowActionsMenu';
 
 const blankPlan: PlanPayload = {
   code: '',
@@ -127,6 +128,22 @@ const PlansPage = () => {
       await load();
     } catch (err: unknown) {
       enqueueSnackbar(err instanceof Error ? err.message : 'Failed to save plan', { variant: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const activatePlan = async (plan: { id: string; name: string }) => {
+    setSaving(true);
+    try {
+      await superAdminService.activatePlan(plan.id);
+      enqueueSnackbar(`${plan.name} reactivated`, { variant: 'success' });
+      await load();
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { message?: string } } })
+        .response?.data?.message
+        ?? (err instanceof Error ? err.message : 'Failed to reactivate plan');
+      enqueueSnackbar(message, { variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -265,13 +282,31 @@ const PlansPage = () => {
               label: 'Actions',
               minWidth: 190,
               render: (plan) => (
-                <Stack direction="row" spacing={1}>
-                  <Button size="small" onClick={() => openEdit(plan)}>Edit</Button>
-                  {plan.isActive ? (
-                    <Button size="small" color="error" onClick={() => void deactivatePlan(plan.id)}>Deactivate</Button>
-                  ) : (
-                    <Chip size="small" label="Inactive" color="default" />
-                  )}
+                <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
+                  {!plan.isActive && <Chip size="small" label="Inactive" />}
+                  <RowActionsMenu
+                    subject={plan.name}
+                    actions={[
+                      {
+                        key: 'edit',
+                        label: 'Edit plan',
+                        onClick: () => openEdit(plan)
+                      },
+                      {
+                        key: 'activate',
+                        label: 'Reactivate plan',
+                        hidden: plan.isActive,
+                        onClick: () => void activatePlan(plan)
+                      },
+                      {
+                        key: 'deactivate',
+                        label: 'Deactivate plan',
+                        destructive: true,
+                        hidden: !plan.isActive,
+                        onClick: () => void deactivatePlan(plan.id)
+                      }
+                    ]}
+                  />
                 </Stack>
               )
             }

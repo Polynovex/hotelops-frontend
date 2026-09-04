@@ -141,14 +141,13 @@ const GuestRegistrationPage = () => {
     <Container maxWidth="sm" sx={{ py: { xs: 3, sm: 6 } }}>
       <Paper sx={{ p: { xs: 2.5, sm: 4 } }}>
         <Stack spacing={1} sx={{ mb: 3, textAlign: 'center' }}>
-          {context?.logoUrl && (
-            <Box
-              component="img"
-              src={context.logoUrl}
-              alt={context.hotelName}
-              sx={{ height: 56, objectFit: 'contain', mx: 'auto', mb: 1 }}
-            />
-          )}
+          {/* Platform branding; the hotel name below identifies who is asking. */}
+          <Box
+            component="img"
+            src="/logo.png"
+            alt="HotelOpX"
+            sx={{ height: 44, objectFit: 'contain', mx: 'auto', mb: 1 }}
+          />
           <Typography variant="h5" fontWeight={700}>
             {context?.hotelName}
           </Typography>

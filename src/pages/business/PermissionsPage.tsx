@@ -21,6 +21,8 @@ import {
   Paper,
   Snackbar,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography
 } from '@mui/material';
@@ -37,6 +39,7 @@ import {
   type RoleSummary
 } from '../../services/permission.service';
 import { EmptyState, PageHeader } from '../../components/premium';
+import StaffPermissionsPanel from './StaffPermissionsPanel';
 
 /**
  * Permission matrix (Part 2).
@@ -46,6 +49,7 @@ import { EmptyState, PageHeader } from '../../components/premium';
  * request, so a half-applied permission set is never written.
  */
 const PermissionsPage = () => {
+  const [tab, setTab] = useState(0);
   const [roles, setRoles] = useState<RoleSummary[]>([]);
   const [catalogue, setCatalogue] = useState<PermissionDef[]>([]);
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
@@ -226,11 +230,13 @@ const PermissionsPage = () => {
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <PageHeader
         title="Roles & Permissions"
-        subtitle="Control exactly what each role can do. Changes apply within a minute."
+        subtitle="Roles set the default for each department; individual staff can then be adjusted."
         actions={
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-            New Role
-          </Button>
+          tab === 0 ? (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+              New Role
+            </Button>
+          ) : undefined
         }
       />
 
@@ -240,6 +246,15 @@ const PermissionsPage = () => {
         </Alert>
       )}
 
+      <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ mb: 2 }}>
+        <Tab label="Roles" />
+        <Tab label="Individual staff" />
+      </Tabs>
+
+      {/* Per-person adjustments layered on whatever the role grants. */}
+      {tab === 1 && <StaffPermissionsPanel />}
+
+      {tab === 0 && (
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="flex-start">
         <Paper variant="outlined" sx={{ borderRadius: 2, width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
           <Typography variant="subtitle2" fontWeight={700} sx={{ p: 2, pb: 1 }}>
@@ -383,6 +398,7 @@ const PermissionsPage = () => {
           )}
         </Box>
       </Stack>
+      )}
 
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>New role</DialogTitle>

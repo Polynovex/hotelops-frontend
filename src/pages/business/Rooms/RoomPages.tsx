@@ -5,6 +5,10 @@ import {
   Button,
   Chip,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   MenuItem,
   Paper,
   Stack,
@@ -31,6 +35,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import DataTable from '../../../components/common/DataTable';
+import RowActionsMenu from '../../../components/common/RowActionsMenu';
+import { useSnackbar } from 'notistack';
 import { useWebSocket } from '../../../hooks/useWebSocket';
 import {
   ReservationRecord,
@@ -1154,11 +1160,19 @@ export const RoomDetailPage = () => {
   );
 };
 
+/** Pulls the server's explanation out of an axios error, with a fallback. */
+const actionError = (err: unknown, fallback: string) =>
+  (err as { response?: { data?: { message?: string } } }).response?.data?.message
+  ?? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+  ?? (err instanceof Error ? err.message : fallback);
+
 export const RoomTypeListPage = () => {
   const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
   const [rows, setRows] = useState<RoomTypeRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [pendingDelete, setPendingDelete] = useState<RoomTypeRecord | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -1176,14 +1190,45 @@ export const RoomTypeListPage = () => {
     void load();
   }, []);
 
+  /**
+   * These previously ran as `void toggle(row)` with no catch, so a rejected
+   * request disappeared and the buttons simply appeared to do nothing. Every
+   * outcome is now reported.
+   */
   const toggle = async (row: RoomTypeRecord) => {
-    await roomOpsService.updateRoomType(row.id, { isActive: !row.isActive });
-    await load();
+    try {
+      await roomOpsService.updateRoomType(row.id, { isActive: !row.isActive });
+      enqueueSnackbar(
+        `${row.name} ${row.isActive ? 'deactivated' : 'activated'}`,
+        { variant: 'success' }
+      );
+      await load();
+    } catch (err) {
+      enqueueSnackbar(actionError(err, 'Could not change the room type status'), {
+        variant: 'error'
+      });
+    }
   };
 
-  const remove = async (roomTypeId: string) => {
-    await roomOpsService.deleteRoomType(roomTypeId);
-    await load();
+  const confirmRemove = async () => {
+    if (!pendingDelete) {
+      return;
+    }
+
+    try {
+      await roomOpsService.deleteRoomType(pendingDelete.id);
+      enqueueSnackbar(`${pendingDelete.name} deleted`, { variant: 'success' });
+      await load();
+    } catch (err) {
+      // Deleting a type that rooms still reference fails at the database; the
+      // server explains why, so show that rather than a generic message.
+      enqueueSnackbar(
+        actionError(err, 'Could not delete this room type. Rooms may still be using it.'),
+        { variant: 'error' }
+      );
+    } finally {
+      setPendingDelete(null);
+    }
   };
 
   return (
@@ -1229,17 +1274,53 @@ export const RoomTypeListPage = () => {
             {
               key: 'actions',
               label: 'Action',
-              minWidth: 240,
+              minWidth: 90,
               render: (row) => (
-                <Stack direction="row" spacing={1}>
-                  <Button size="small" onClick={() => navigate(`/business/rooms/types/${row.id}/edit`)}>Edit</Button>
-                  <Button size="small" onClick={() => void toggle(row)}>{row.isActive ? 'Deactivate' : 'Activate'}</Button>
-                  <Button size="small" color="error" onClick={() => void remove(row.id)}>Delete</Button>
-                </Stack>
+                <RowActionsMenu
+                  subject={row.name}
+                  actions={[
+                    {
+                      key: 'edit',
+                      label: 'Edit room type',
+                      onClick: () => navigate(`/business/rooms/types/${row.id}/edit`)
+                    },
+                    {
+                      key: 'toggle',
+                      label: row.isActive ? 'Deactivate' : 'Activate',
+                      destructive: row.isActive,
+                      onClick: () => void toggle(row)
+                    },
+                    {
+                      key: 'delete',
+                      label: 'Delete permanently',
+                      destructive: true,
+                      onClick: () => setPendingDelete(row)
+                    }
+                  ]}
+                />
               )
             }
           ]}
         />
+
+        <Dialog open={Boolean(pendingDelete)} onClose={() => setPendingDelete(null)}>
+          <DialogTitle>Delete this room type?</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">
+              <strong>{pendingDelete?.name}</strong> will be removed permanently.
+            </Typography>
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Rooms already assigned to it will block the delete. To stop using it
+              for new bookings while keeping its history, deactivate it instead.
+            </Alert>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setPendingDelete(null)}>Cancel</Button>
+            <Button color="error" variant="contained" onClick={() => void confirmRemove()}>
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </Layout>
   );

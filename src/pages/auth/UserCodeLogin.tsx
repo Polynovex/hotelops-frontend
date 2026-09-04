@@ -39,6 +39,8 @@ const UserCodeLogin: React.FC = () => {
   const [pinRequired, setPinRequired] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Offers the way forward when this sign-in method is unavailable. */
+  const [needsEmailLogin, setNeedsEmailLogin] = useState(false);
 
   /**
    * Accepts an optional form event so the same handler serves both the button
@@ -69,9 +71,16 @@ const UserCodeLogin: React.FC = () => {
       const code = e?.response?.data?.error;
       const msg: Record<string, string> = {
         LOCKED: 'Account temporarily locked. Try again later.',
-        MODULE_DISABLED: 'This module is disabled for your hotel.'
+        MODULE_DISABLED: 'This module is disabled for your hotel.',
+        // The server no longer adopts whatever PIN is first submitted, so an
+        // account without one cannot be signed into this way. Say what to do
+        // rather than leaving "login failed" as the only clue.
+        PIN_NOT_SET:
+          'No PIN has been set for this code yet. Sign in with your email and '
+          + 'password, then set a PIN under Security.'
       };
-      setError(msg[code] || e?.response?.data?.error || e.message || 'Login failed');
+      setError(msg[code] || e?.response?.data?.message || e?.response?.data?.error || e.message || 'Login failed');
+      setNeedsEmailLogin(code === 'PIN_NOT_SET');
     } finally {
       setLoading(false);
     }
@@ -128,6 +137,16 @@ const UserCodeLogin: React.FC = () => {
                 {error}
               </Alert>
             )}
+          {needsEmailLogin && (
+            <Button
+              fullWidth
+              variant="outlined"
+              sx={{ mt: 1 }}
+              onClick={() => navigate('/login')}
+            >
+              Sign in with email instead
+            </Button>
+          )}
 
             <Stack component="form" onSubmit={submit} spacing={2}>
               {mode === 'USERCODE' ? (

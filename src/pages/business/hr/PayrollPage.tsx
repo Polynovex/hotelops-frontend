@@ -302,14 +302,13 @@ const PayrollPage = () => {
                     </Typography>
                   )}
                 </Box>
-                {payslip.business.logoUrl && (
-                  <Box
-                    component="img"
-                    src={payslip.business.logoUrl}
-                    alt=""
-                    sx={{ height: 44, maxWidth: 140, objectFit: 'contain' }}
-                  />
-                )}
+                {/* Platform branding, not per-business. */}
+                <Box
+                  component="img"
+                  src="/logo.png"
+                  alt="HotelOpX"
+                  sx={{ height: 44, maxWidth: 140, objectFit: 'contain' }}
+                />
               </Stack>
 
               <Divider sx={{ mb: 2 }} />

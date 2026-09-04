@@ -73,8 +73,22 @@ const FinancialForecastingPage = () => {
         fetch(`${baseUrl}/finance/year-over-year`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${baseUrl}/finance/forecast?yearsBack=5&yearsForward=3`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
-      if (yoyRes.ok) setYoyData(await yoyRes.json());
-      if (forecastRes.ok) setForecastData(await forecastRes.json());
+      /**
+       * A non-OK response used to be discarded silently, leaving the previous
+       * (or empty) state on screen with no explanation — a chart of zeros that
+       * reads as placeholder output rather than a failed request.
+       */
+      if (!yoyRes.ok || !forecastRes.ok) {
+        const failed = await (yoyRes.ok ? forecastRes : yoyRes).json().catch(() => null);
+        throw new Error(
+          failed?.message
+          ?? failed?.error
+          ?? `Could not load financial data (HTTP ${yoyRes.ok ? forecastRes.status : yoyRes.status})`
+        );
+      }
+
+      setYoyData(await yoyRes.json());
+      setForecastData(await forecastRes.json());
     } catch (err: any) {
       setError(err.message ?? 'Failed to load financial data');
     } finally {
@@ -107,6 +121,16 @@ const FinancialForecastingPage = () => {
         ...forecastData.forecast.map((f) => ({ year: f.year, actual: null, forecast: f.predictedRevenue }))
       ]
     : [];
+
+  /**
+   * A forecast needs something to extrapolate from. With no completed
+   * transactions the regression fits a flat line through zeros and reports an
+   * R² that means nothing — which looks like invented output. Say there is no
+   * data instead of drawing a confident-looking chart of nothing.
+   */
+  const hasRevenueHistory = Boolean(
+    forecastData?.historical?.some((year) => year.revenue > 0)
+  );
 
   return (
     <Layout>
@@ -232,7 +256,21 @@ const FinancialForecastingPage = () => {
           </>
         )}
 
-        {tab === 1 && forecastData && (
+        {tab === 1 && forecastData && !hasRevenueHistory && (
+          <Alert severity="info" sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Not enough revenue history to forecast
+            </Typography>
+            <Typography variant="body2">
+              A forecast is extrapolated from completed transactions, and none have
+              been recorded yet. Once payments start flowing through the system this
+              page will project forward from them. Nothing is shown in the meantime
+              rather than a trend line fitted to zeros.
+            </Typography>
+          </Alert>
+        )}
+
+        {tab === 1 && forecastData && hasRevenueHistory && (
           <>
             <Stack direction="row" spacing={2} mb={3} flexWrap="wrap">
               <Chip

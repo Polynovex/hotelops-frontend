@@ -141,3 +141,52 @@ export const CATEGORY_LABEL: Record<PermissionCategory, string> = {
   HR: 'HR',
   INVENTORY: 'Inventory'
 };
+
+/**
+ * How a single permission resolves for one person: what the role grants, what
+ * has been individually adjusted, and the result.
+ */
+export interface UserPermissionRow {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  category: string;
+  /** Granted by the assigned role. */
+  viaRole: boolean;
+  /** null = follow the role, true = added for this person, false = removed. */
+  override: boolean | null;
+  effective: boolean;
+}
+
+export interface UserPermissionMatrix {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    roleName: string | null;
+    /** Role has unrestricted access; individual overrides do nothing. */
+    implicitAll: boolean;
+  };
+  permissions: UserPermissionRow[];
+}
+
+export const userPermissionService = {
+  async getMatrix(userId: string): Promise<UserPermissionMatrix> {
+    const { data } = await api.get(`/users/${userId}/permissions`);
+    return data;
+  },
+
+  /**
+   * Replaces the individual adjustments for a user.
+   *
+   * Only genuine departures from the role are sent — a permission that simply
+   * follows its role is absent from both lists, which is different from being
+   * explicitly revoked and matters when the role's own permissions change later.
+   */
+  async setOverrides(userId: string, granted: string[], revoked: string[]) {
+    const { data } = await api.put(`/users/${userId}/permissions`, { granted, revoked });
+    return data;
+  }
+};

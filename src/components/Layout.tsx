@@ -1,35 +1,36 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Box,
+  Alert,
   AppBar,
-  Toolbar,
+  Avatar,
+  Badge,
+  Box,
+  Button,
+  Chip,
+  Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
   Drawer,
+  IconButton,
+  InputAdornment,
   List,
+  ListItemButton,
   ListItemIcon,
   ListItemText,
-  ListItemButton,
-  IconButton,
   Menu,
   MenuItem,
-  Avatar,
+  Paper,
+  Popover,
+  Stack,
+  TextField,
+  Toolbar,
+  Tooltip,
   Typography,
   useMediaQuery,
-  useTheme,
-  Badge,
-  Chip,
-  Divider,
-  Paper,
-  Stack,
-  Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Alert,
-  InputAdornment,
-  Popover
+  useTheme
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
@@ -62,6 +63,9 @@ import {
   AutoAwesomeRounded,
   TrendingUpRounded,
   PersonOutlineRounded,
+  BadgeRounded,
+  ExpandLessRounded,
+  ExpandMoreRounded,
   LockOutlined,
   Visibility,
   VisibilityOff
@@ -89,12 +93,30 @@ type NavRole =
   | 'ACCOUNTANT'
   | 'MANAGER';
 
-interface NavItem {
+/** A navigable destination. */
+interface NavLink {
   label: string;
   icon: React.ElementType;
   path: string;
   module?: 'pms' | 'pos' | 'finance';
 }
+
+/**
+ * A collapsible heading holding related destinations.
+ *
+ * The business admin menu had grown to 24 flat entries, several of which were
+ * obviously related but sat apart from one another. Grouping keeps the list
+ * scannable without hiding anything.
+ */
+interface NavGroup {
+  label: string;
+  icon: React.ElementType;
+  children: NavLink[];
+}
+
+type NavItem = NavLink | NavGroup;
+
+const isGroup = (item: NavItem): item is NavGroup => 'children' in item;
 
 const navigationConfig: Record<NavRole, NavItem[]> = {
   SUPER_ADMIN: [
@@ -116,16 +138,33 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Menu Configuration', icon: MenuBookIcon, path: '/business/menu', module: 'pos' },
     { label: 'QR Ordering', icon: PosIcon, path: '/business/pos/qr-codes', module: 'pos' },
     { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
-    { label: 'HR & Payroll', icon: UserIcon, path: '/business/hr' },
-    { label: 'Staff Rota', icon: CalendarIcon, path: '/business/hr/rota' },
+    {
+      label: 'HR & Payroll',
+      icon: UserIcon,
+      children: [
+        { label: 'HR Dashboard', icon: UserIcon, path: '/business/hr' },
+        { label: 'Payroll', icon: ReceiptIcon, path: '/business/hr/payroll' },
+        { label: 'Staff Rota', icon: CalendarIcon, path: '/business/hr/rota' }
+      ]
+    },
     { label: 'Daily Expenditure', icon: AssessmentIcon, path: '/business/finance/expenses' },
     { label: 'Transaction History', icon: AssessmentIcon, path: '/business/finance/transactions' },
-    { label: 'Guest Book', icon: PeopleIcon, path: '/business/guests', module: 'pms' },
     {
-      label: 'Guest Self-Registration',
-      icon: PosIcon,
-      path: '/business/guests/registration-links',
-      module: 'pms'
+      label: 'Guest Portal',
+      icon: PeopleIcon,
+      children: [
+        { label: 'Guest Book', icon: PeopleIcon, path: '/business/guests', module: 'pms' },
+        {
+          label: 'Guest Self-Registration',
+          icon: PosIcon,
+          path: '/business/guests/registration-links',
+          module: 'pms'
+        },
+        // Not a duplicate of Guest Book: this covers company and travel-agent
+        // records, plus merge and blacklist. The old "Profiles (View)" label
+        // undersold it and read like a lesser copy of the guest list.
+        { label: 'Profile Management', icon: PeopleIcon, path: '/business/profiles', module: 'pms' }
+      ]
     },
     { label: 'Loyalty', icon: WorkspacePremium, path: '/business/loyalty' },
     {
@@ -136,7 +175,6 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     },
     { label: 'Promotions', icon: WorkspacePremium, path: '/business/promotions', module: 'pos' },
     { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
-    { label: 'Profiles (View)', icon: PeopleIcon, path: '/business/profiles', module: 'pms' },
     {
       label: 'Inventory',
       icon: ReceiptIcon,
@@ -269,7 +307,8 @@ const drawerWidth = 304;
 const moduleMeta = {
   pms: { label: 'PMS', icon: NightShelterRounded },
   pos: { label: 'POS', icon: RestaurantRounded },
-  finance: { label: 'Finance', icon: AccountBalanceWalletRounded }
+  finance: { label: 'Finance', icon: AccountBalanceWalletRounded },
+  hr: { label: 'HR', icon: BadgeRounded }
 } as const;
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
@@ -293,6 +332,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [notifAnchorEl, setNotifAnchorEl] = useState<null | HTMLElement>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
+  /**
+   * Groups the user has explicitly toggled. Absent means "follow the active
+   * route", so navigating into a group opens it without overriding a
+   * deliberate collapse.
+   */
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [resetCodeOpen, setResetCodeOpen] = useState(false);
   const [resetCodeUserId, setResetCodeUserId] = useState('');
   const [resetCodeResult, setResetCodeResult] = useState<string | null>(null);
@@ -311,7 +356,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isDark = mode === 'dark';
 
   const isSuperAdmin = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
-  const logoSrc = isSuperAdmin ? '/logo.png' : user?.logoUrl || '/logo.png';
+  // The HotelOpX mark is used platform-wide; per-business logos are not
+  // supported, and the server refuses uploads that would set one.
+  const logoSrc = '/logo.png';
   const brandName = isSuperAdmin ? 'HotelOpX' : user?.hotelName || 'HotelOpX';
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -385,7 +432,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     MANAGER: 'MANAGER'
   };
   const role = roleMap[normalizedRole] || 'BUSINESS_ADMIN';
-  const isModuleEnabled = (module: 'pms' | 'pos' | 'finance') => {
+  const isModuleEnabled = (module: keyof typeof moduleMeta) => {
     if (normalizedRole === 'SUPER_ADMIN') {
       return true;
     }
@@ -395,6 +442,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
     if (module === 'pos') {
       return user?.posEnabled !== false;
+    }
+    if (module === 'hr') {
+      // HR is gated by plan feature rather than a per-hotel toggle, so there is
+      // no flag on the user to consult. Shown by default; the server refuses
+      // the routes if the plan does not include it.
+      return true;
     }
     return user?.financeEnabled !== false;
   };
@@ -410,16 +463,39 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return map[r] ?? r.replace(/_/g, ' ');
   };
 
-  const menuItems = (navigationConfig[role] || []).filter((item) => {
-    if (!item.module) {
-      return true;
+  /**
+   * Module gating applies to links, and to a group's children individually —
+   * a group whose every child is gated away disappears rather than leaving an
+   * empty heading behind.
+   */
+  const menuItems = (navigationConfig[role] || []).reduce<NavItem[]>((acc, item) => {
+    if (isGroup(item)) {
+      const children = item.children.filter(
+        (child) => !child.module || isModuleEnabled(child.module)
+      );
+      if (children.length > 0) {
+        acc.push({ ...item, children });
+      }
+      return acc;
     }
-    return isModuleEnabled(item.module);
-  });
+
+    if (!item.module || isModuleEnabled(item.module)) {
+      acc.push(item);
+    }
+    return acc;
+  }, []);
+
+  const matchesPath = (path: string) =>
+    location.pathname === path || location.pathname.startsWith(`${path}/`);
+
+  /** Flattened links, used for the header title and the active highlight. */
+  const flatLinks = menuItems.flatMap((item) => (isGroup(item) ? item.children : [item]));
+
   const activeItem =
-    menuItems.find(
-      (item) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
-    ) || menuItems[0];
+    // Longest match wins, so /business/hr/rota does not resolve to /business/hr.
+    [...flatLinks]
+      .filter((link) => matchesPath(link.path))
+      .sort((a, b) => b.path.length - a.path.length)[0] || flatLinks[0];
   const enabledModules = (Object.keys(moduleMeta) as Array<keyof typeof moduleMeta>).map(
     (moduleKey) => ({
       ...moduleMeta[moduleKey],
@@ -477,31 +553,96 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </Box>
       <List sx={{ mt: 0, px: 2 }}>
         {menuItems.map((item) => {
-          const isActive =
-            location.pathname === item.path || location.pathname.startsWith(item.path + '/');
-          return (
-            <ListItemButton
-              key={item.label}
-              selected={isActive}
-              onClick={() => {
-                navigate(item.path);
-                if (isMobile) setDrawerOpen(false);
-              }}
-              sx={{
-                mb: 0.75,
-                color: isActive ? theme.palette.secondary.light : 'rgba(248,244,236,0.84)',
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.06)'
-                }
-              }}
-            >
-              <ListItemIcon
-                sx={{ color: isActive ? theme.palette.secondary.light : 'rgba(248,244,236,0.6)' }}
+          if (!isGroup(item)) {
+            const isActive = matchesPath(item.path);
+            return (
+              <ListItemButton
+                key={item.label}
+                selected={isActive}
+                onClick={() => {
+                  navigate(item.path);
+                  if (isMobile) setDrawerOpen(false);
+                }}
+                sx={{
+                  mb: 0.75,
+                  color: isActive ? theme.palette.secondary.light : 'rgba(248,244,236,0.84)',
+                  '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.06)' }
+                }}
               >
-                <item.icon />
-              </ListItemIcon>
-              <ListItemText primary={item.label} />
-            </ListItemButton>
+                <ListItemIcon
+                  sx={{ color: isActive ? theme.palette.secondary.light : 'rgba(248,244,236,0.6)' }}
+                >
+                  <item.icon />
+                </ListItemIcon>
+                <ListItemText primary={item.label} />
+              </ListItemButton>
+            );
+          }
+
+          const holdsActive = item.children.some((child) => matchesPath(child.path));
+          // Open if the user opened it, or if the page they are on lives inside
+          // it — so a deep link never lands on a collapsed group.
+          const open = openGroups[item.label] ?? holdsActive;
+
+          return (
+            <Box key={item.label}>
+              <ListItemButton
+                onClick={() =>
+                  setOpenGroups((prev) => ({ ...prev, [item.label]: !open }))
+                }
+                aria-expanded={open}
+                sx={{
+                  mb: 0.75,
+                  color: holdsActive ? theme.palette.secondary.light : 'rgba(248,244,236,0.84)',
+                  '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.06)' }
+                }}
+              >
+                <ListItemIcon
+                  sx={{ color: holdsActive ? theme.palette.secondary.light : 'rgba(248,244,236,0.6)' }}
+                >
+                  <item.icon />
+                </ListItemIcon>
+                <ListItemText primary={item.label} />
+                {open ? <ExpandLessRounded fontSize="small" /> : <ExpandMoreRounded fontSize="small" />}
+              </ListItemButton>
+
+              <Collapse in={open} timeout="auto" unmountOnExit>
+                <List disablePadding>
+                  {item.children.map((child) => {
+                    const isActive = matchesPath(child.path);
+                    return (
+                      <ListItemButton
+                        key={child.label}
+                        selected={isActive}
+                        onClick={() => {
+                          navigate(child.path);
+                          if (isMobile) setDrawerOpen(false);
+                        }}
+                        sx={{
+                          mb: 0.5,
+                          pl: 4,
+                          color: isActive ? theme.palette.secondary.light : 'rgba(248,244,236,0.72)',
+                          '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.06)' }
+                        }}
+                      >
+                        <ListItemIcon
+                          sx={{
+                            minWidth: 34,
+                            color: isActive ? theme.palette.secondary.light : 'rgba(248,244,236,0.5)'
+                          }}
+                        >
+                          <child.icon fontSize="small" />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={child.label}
+                          primaryTypographyProps={{ fontSize: '0.9rem' }}
+                        />
+                      </ListItemButton>
+                    );
+                  })}
+                </List>
+              </Collapse>
+            </Box>
           );
         })}
       </List>
@@ -684,7 +825,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <MenuItem
               onClick={() => {
                 handleProfileMenuClose();
-                setSecurityOpen(true);
+                // The full Security page covers password, sign-in PIN and
+                // two-factor. The inline dialog below only ever handled the
+                // password, which left the PIN with nowhere to be set.
+                navigate('/settings/security');
               }}
             >
               <LockOutlined sx={{ mr: 1 }} fontSize="small" />
@@ -743,7 +887,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   { label: 'First Name', value: user?.firstName },
                   { label: 'Last Name', value: user?.lastName },
                   { label: 'Role', value: displayRole(normalizedRole) },
-                  { label: 'Business', value: user?.hotelName || '—' },
+                  // A super admin operates the platform and creates businesses
+                  // rather than belonging to one, so showing a business here was
+                  // misleading — it named whichever tenant they happened to be
+                  // scoped to at the time.
+                  ...(normalizedRole === 'SUPER_ADMIN'
+                    ? []
+                    : [{ label: 'Business', value: user?.hotelName || '—' }]),
                   { label: 'Usercode', value: user?.userCode || '—' }
                 ].map(({ label, value }) => (
                   <Box key={label}>
