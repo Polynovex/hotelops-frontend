@@ -1029,9 +1029,20 @@ const buildDemoModuleStatus = (businessId: string): BusinessModuleStatus => {
 };
 
 export const authService = {
+  /**
+   * Signs in with email and password, and a TOTP code when one is required.
+   *
+   * The server answers a login that needs a second factor with
+   * `{ error: 'MFA code required', mfaRequired: true }` and no token. Callers
+   * must surface that as a prompt rather than an error — without the third
+   * argument there was no way to complete sign-in at all once MFA was enrolled.
+   *
+   * A recovery code is accepted in the same field.
+   */
   login: async (
     email: string,
-    password: string
+    password: string,
+    mfaCode?: string
   ): Promise<{ token: string; refreshToken?: string; user: AuthUser }> => {
     const demoUser = DEMO_MODE_ENABLED
       ? DEMO_USERS.find((entry) => entry.email === email && entry.password === password)
@@ -1052,7 +1063,11 @@ export const authService = {
       };
     }
 
-    const response = await api.post('/auth/login', { email, password });
+    const response = await api.post('/auth/login', {
+      email,
+      password,
+      ...(mfaCode ? { mfaCode: mfaCode.trim() } : {})
+    });
     const token = response.data.accessToken || response.data.token;
     if (!token) {
       throw new Error('No access token returned from login endpoint');
