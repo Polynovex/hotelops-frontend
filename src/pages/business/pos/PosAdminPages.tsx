@@ -24,7 +24,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import Layout from '../../../components/Layout';
 import DataTable from '../../../components/common/DataTable';
 import RowActionsMenu from '../../../components/common/RowActionsMenu';
-import { Outlet, PosMenuItem, PosOrder, posService } from '../../../services/api';
+import { Outlet, PosMenuItem, PosOrder, posService, kitchenStationService } from '../../../services/api';
 import { posAdminOpsService, PosTableRecord } from '../../../services/posAdminOps';
 
 const OUTLET_TYPES = [
@@ -463,12 +463,27 @@ export const PosMenuManagementPage = () => {
     }
   };
 
-  const addStation = () => {
-    if (!newStation.trim()) {
+  /**
+   * Persists the station rather than holding it in component state.
+   *
+   * Stations used to live only in this component (and localStorage elsewhere),
+   * so a newly added one vanished on reload unless a menu item happened to be
+   * saved against it, and other terminals never saw it at all.
+   */
+  const addStation = async () => {
+    const name = newStation.trim();
+    if (!name) {
       return;
     }
-    setStations((prev) => Array.from(new Set([...prev, newStation.trim()])));
-    setNewStation('');
+
+    try {
+      await kitchenStationService.create(name);
+      setToast(`Station "${name}" added`);
+      setNewStation('');
+      await load();
+    } catch (err) {
+      setError(errorMessage(err, 'Could not add the station'));
+    }
   };
 
   const visibleItems = useMemo(() => {
@@ -602,11 +617,10 @@ export const PosMenuManagementPage = () => {
                 <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Kitchen Stations</Typography>
                 <Stack direction="row" spacing={1}>
                   <TextField size="small" label="New Station" value={newStation} onChange={(event) => setNewStation(event.target.value)} fullWidth />
-                  <Button variant="outlined" onClick={addStation}>Add</Button>
+                  <Button variant="outlined" onClick={() => void addStation()}>Add</Button>
                 </Stack>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  A new station becomes permanent once you save a menu item against it.
-                  Until then it is only available in this session.
+                  Stations are shared across every terminal in this business.
                 </Typography>
               </Paper>
             </Stack>

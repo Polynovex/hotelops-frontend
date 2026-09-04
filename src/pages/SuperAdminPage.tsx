@@ -159,14 +159,29 @@ const SuperAdminPage: React.FC = () => {
     void loadData();
   }, []);
 
+  /**
+   * Top 3 businesses by monthly revenue.
+   *
+   * This previously took the first 8 in whatever order the API returned, so it
+   * was neither "top" nor stable — and with more than a handful of businesses
+   * the bars became unreadable. Sorting first means the chart answers the
+   * question it appears to ask, and stays legible as the tenant list grows.
+   */
+  const TOP_BUSINESS_COUNT = 3;
+
   const chartData = useMemo(() => {
-    return businesses.slice(0, 8).map((business) => {
-      const planPrice = business.plan?.monthlyPriceNgn || 0;
-      return {
-        name: business.name.slice(0, 14),
-        mrr: planPrice
-      };
-    });
+    return [...businesses]
+      .map((business) => ({
+        name: business.name,
+        mrr: business.plan?.monthlyPriceNgn || 0
+      }))
+      .sort((a, b) => b.mrr - a.mrr)
+      .slice(0, TOP_BUSINESS_COUNT)
+      .map((row) => ({
+        ...row,
+        // Truncated only for the axis label; the tooltip shows the full name.
+        name: row.name.length > 16 ? `${row.name.slice(0, 15)}…` : row.name
+      }));
   }, [businesses]);
 
   const updateBusinessLocally = (id: string, patch: Partial<BusinessSummary>) => {
@@ -303,16 +318,18 @@ const SuperAdminPage: React.FC = () => {
       return;
     }
 
-    if (!newBusiness.adminPassword || newBusiness.adminPassword.length < 6) {
-      enqueueSnackbar('Business admin password is required and must be at least 6 characters.', {
+    // Both are optional now — the server generates them when left blank, the
+    // same way staff accounts work. Only validate what was actually typed.
+    if (newBusiness.adminPassword && newBusiness.adminPassword.length < 6) {
+      enqueueSnackbar('If you set a password it must be at least 6 characters.', {
         variant: 'warning'
       });
       return;
     }
 
     const trimmedUserCode = newBusiness.adminUserCode.trim();
-    if (!trimmedUserCode || !/^\d{5,6}$/.test(trimmedUserCode)) {
-      enqueueSnackbar('Business admin usercode is required and must be 5 or 6 digits.', {
+    if (trimmedUserCode && !/^\d{5,6}$/.test(trimmedUserCode)) {
+      enqueueSnackbar('If you set a sign-in code it must be 5 or 6 digits.', {
         variant: 'warning'
       });
       return;
@@ -322,8 +339,9 @@ const SuperAdminPage: React.FC = () => {
     try {
       const payload = {
         ...newBusiness,
-        adminPassword: newBusiness.adminPassword,
-        adminUserCode: trimmedUserCode,
+        // Omitted entirely when blank so the server generates them.
+        adminPassword: newBusiness.adminPassword || undefined,
+        adminUserCode: trimmedUserCode || undefined,
         adminFirstName: newBusiness.adminFirstName.trim() || 'Business',
         adminLastName: newBusiness.adminLastName.trim() || 'Admin',
         pmsEnabled: true,
@@ -345,12 +363,29 @@ const SuperAdminPage: React.FC = () => {
         adminFirstName: 'Business',
         adminLastName: 'Admin'
       });
-      enqueueSnackbar('Business created and business admin credentials prepared.', {
-        variant: 'success'
-      });
+      // Surface the generated sign-in code — it is not shown anywhere else, and
+      // the welcome email may not arrive if SES is not yet configured.
+      const generatedCode = (created as { adminUser?: { userCode?: string } })?.adminUser?.userCode;
+      enqueueSnackbar(
+        generatedCode
+          ? `Business created. Admin sign-in code: ${generatedCode}`
+          : 'Business created and admin credentials prepared.',
+        { variant: 'success', autoHideDuration: 12000 }
+      );
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to create business';
-      enqueueSnackbar(message, { variant: 'error' });
+      // The server now names the actual cause (duplicate email, taken sign-in
+      // code, missing plan). Prefer that over the axios message, which is
+      // always the useless "Request failed with status code 500".
+      const response = (err as {
+        response?: { data?: { message?: string; error?: string } };
+      }).response;
+
+      enqueueSnackbar(
+        response?.data?.message
+          ?? response?.data?.error
+          ?? (err instanceof Error ? err.message : 'Failed to create business'),
+        { variant: 'error', autoHideDuration: 10000 }
+      );
     } finally {
       setSaving(false);
     }
@@ -455,9 +490,21 @@ const SuperAdminPage: React.FC = () => {
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} md={7}>
             <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                MRR by Business
-              </Typography>
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="baseline"
+                sx={{ mb: 2 }}
+              >
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  Top {TOP_BUSINESS_COUNT} by MRR
+                </Typography>
+                {businesses.length > TOP_BUSINESS_COUNT && (
+                  <Typography variant="caption" color="text.secondary">
+                    of {businesses.length} businesses
+                  </Typography>
+                )}
+              </Stack>
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -831,17 +878,17 @@ const SuperAdminPage: React.FC = () => {
               />
             </Stack>
             <TextField
-              label="Admin Password"
+              label="Admin Password (optional)"
               type="password"
               value={newBusiness.adminPassword}
               onChange={(event) =>
                 setNewBusiness((prev) => ({ ...prev, adminPassword: event.target.value }))
               }
-              helperText="Required. Minimum 6 characters."
+              helperText="Leave blank to generate one automatically. Minimum 6 characters if set."
               fullWidth
             />
             <TextField
-              label="Admin Usercode"
+              label="Admin Sign-in Code (optional)"
               value={newBusiness.adminUserCode}
               onChange={(event) =>
                 setNewBusiness((prev) => ({
@@ -849,7 +896,7 @@ const SuperAdminPage: React.FC = () => {
                   adminUserCode: event.target.value.replace(/\D/g, '').slice(0, 6)
                 }))
               }
-              helperText="Required. 5–6 digits. This is the Business Admin login code."
+              helperText="Leave blank to generate one. 5–6 digits. The Business Admin sign-in code."
               fullWidth
             />
           </Stack>

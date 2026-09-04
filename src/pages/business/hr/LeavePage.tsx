@@ -8,10 +8,6 @@ import {
   Chip,
   CircularProgress,
   Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   MenuItem,
   Paper,
   Snackbar,
@@ -25,47 +21,32 @@ import {
   TextField,
   Typography
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
 import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import {
   hrService,
   LEAVE_STATUS_COLOR,
   type LeaveRequestRecord,
-  type LeaveStatus,
-  type LeaveType,
-  type StaffMember
+  type LeaveStatus
 } from '../../../services/hr.service';
-
-const LEAVE_TYPES: LeaveType[] = ['ANNUAL', 'SICK', 'PERSONAL', 'MATERNITY', 'OTHER'];
 
 const LeavePage = () => {
   const [requests, setRequests] = useState<LeaveRequestRecord[]>([]);
-  const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [statusFilter, setStatusFilter] = useState<LeaveStatus | ''>('');
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({
-    staffId: '',
-    type: 'ANNUAL' as LeaveType,
-    startDate: '',
-    endDate: '',
-    reason: ''
-  });
-  const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [leave, staffList] = await Promise.all([
-        hrService.listLeave(statusFilter ? { status: statusFilter } : undefined),
-        hrService.listStaff({ status: 'ACTIVE' })
-      ]);
+      // Only the requests are needed now: the staff list existed to populate
+      // the create form's picker, which has moved to the staff portal.
+      const leave = await hrService.listLeave(
+        statusFilter ? { status: statusFilter } : undefined
+      );
       setRequests(leave);
-      setStaff(staffList);
       setError('');
     } catch (err: unknown) {
       const response = (err as { response?: { data?: { error?: string; message?: string } } }).response;
@@ -82,33 +63,6 @@ const LeavePage = () => {
   useEffect(() => {
     void load();
   }, [load]);
-
-  const handleSubmit = async () => {
-    if (!form.staffId || !form.startDate || !form.endDate) {
-      setError('Staff member and both dates are required');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await hrService.requestLeave({
-        staffId: form.staffId,
-        type: form.type,
-        startDate: form.startDate,
-        endDate: form.endDate,
-        reason: form.reason.trim() || undefined
-      });
-      setToast('Leave request submitted');
-      setDialogOpen(false);
-      setForm({ staffId: '', type: 'ANNUAL', startDate: '', endDate: '', reason: '' });
-      await load();
-    } catch (err: unknown) {
-      const response = (err as { response?: { data?: { error?: string; issues?: Array<{ message: string }> } } }).response;
-      setError(response?.data?.issues?.[0]?.message || response?.data?.error || 'Failed to submit request');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const review = async (request: LeaveRequestRecord, approve: boolean) => {
     setBusyId(request.id);
@@ -141,9 +95,9 @@ const LeavePage = () => {
             Requests, approvals, and balances.
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-          New Request
-        </Button>
+        {/* Staff raise their own requests from My HR. Creating one on their
+            behalf here made the requester and the approver the same person,
+            and left no record on the staff member's own portal. */}
       </Stack>
 
       {error && (
@@ -258,82 +212,6 @@ const LeavePage = () => {
         </Table>
       </TableContainer>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>New leave request</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2.5} sx={{ mt: 1 }}>
-            <TextField
-              select
-              label="Employee"
-              value={form.staffId}
-              onChange={(event) => setForm((f) => ({ ...f, staffId: event.target.value }))}
-              fullWidth
-              required
-            >
-              {staff.length === 0 && (
-                <MenuItem disabled value="">
-                  No active staff
-                </MenuItem>
-              )}
-              {staff.map((member) => (
-                <MenuItem key={member.id} value={member.id}>
-                  {member.firstName} {member.lastName}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <TextField
-              select
-              label="Leave type"
-              value={form.type}
-              onChange={(event) => setForm((f) => ({ ...f, type: event.target.value as LeaveType }))}
-              fullWidth
-            >
-              {LEAVE_TYPES.map((type) => (
-                <MenuItem key={type} value={type}>
-                  {type}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <Stack direction="row" spacing={2}>
-              <TextField
-                label="Start date"
-                type="date"
-                value={form.startDate}
-                onChange={(event) => setForm((f) => ({ ...f, startDate: event.target.value }))}
-                fullWidth
-                required
-                InputLabelProps={{ shrink: true }}
-              />
-              <TextField
-                label="End date"
-                type="date"
-                value={form.endDate}
-                onChange={(event) => setForm((f) => ({ ...f, endDate: event.target.value }))}
-                fullWidth
-                required
-                InputLabelProps={{ shrink: true }}
-              />
-            </Stack>
-
-            <TextField
-              label="Reason (optional)"
-              value={form.reason}
-              onChange={(event) => setForm((f) => ({ ...f, reason: event.target.value }))}
-              fullWidth
-              multiline
-              minRows={2}
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={() => void handleSubmit()} disabled={saving}>
-            {saving ? 'Submitting…' : 'Submit'}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <Snackbar
         open={Boolean(toast)}

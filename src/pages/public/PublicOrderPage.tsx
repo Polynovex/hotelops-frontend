@@ -213,18 +213,20 @@ const PublicOrderPage = () => {
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', pb: 12 }}>
       <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
         <Toolbar sx={{ gap: 2 }}>
-          {menu.business.logoUrl ? (
-            <Box
-              component="img"
-              src={menu.business.logoUrl}
-              alt={menu.business.name}
-              sx={{ height: 40, maxWidth: 160, objectFit: 'contain' }}
-            />
-          ) : (
-            <Typography variant="h6" fontWeight={700} noWrap>
-              {menu.business.name}
-            </Typography>
-          )}
+          {/*
+            Platform branding throughout. The outlet's own name still leads,
+            so a guest knows whose menu they are looking at — only the mark is
+            HotelOpX.
+          */}
+          <Box
+            component="img"
+            src="/logo.png"
+            alt="HotelOpX"
+            sx={{ height: 32, objectFit: 'contain' }}
+          />
+          <Typography variant="h6" fontWeight={700} noWrap>
+            {menu.business.name}
+          </Typography>
 
           <Box sx={{ flexGrow: 1 }} />
 

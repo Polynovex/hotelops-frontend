@@ -63,8 +63,19 @@ const ForceResetPasswordPage = () => {
 
     setLoading(true);
     try {
-      await api.post('/auth/change-password', { currentPassword, newPassword });
-      setUser({ mustResetPassword: false });
+      // Same as ChangePassword: adopt the session the server hands back, or the
+      // client keeps a refresh token that was just revoked.
+      const { data } = await api.post('/auth/change-password', { currentPassword, newPassword });
+
+      if (data?.accessToken) {
+        useAuthStore.getState().setAuth(
+          { ...(user as NonNullable<typeof user>), mustResetPassword: false },
+          data.accessToken,
+          data.refreshToken ?? null
+        );
+      } else {
+        setUser({ mustResetPassword: false });
+      }
       const role = user?.role || '';
       if (role === 'SUPER_ADMIN') navigate('/super-admin/dashboard', { replace: true });
       else if (role === 'BUSINESS_ADMIN' || role === 'MANAGER') navigate('/business/dashboard', { replace: true });

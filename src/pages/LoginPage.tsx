@@ -123,9 +123,19 @@ const LoginPage: React.FC = () => {
       const code = err?.response?.data?.error;
       const map: Record<string, string> = {
         INVALID_CREDENTIALS: 'Invalid usercode or PIN.',
-        LOCKED: 'Account locked. Try again later.'
+        LOCKED: 'Account locked. Try again later.',
+        // An account with no PIN cannot sign in this way. Point at the email
+        // tab, which is the only route in until a PIN exists.
+        PIN_NOT_SET:
+          'No PIN has been set for this code yet. Use the Email tab above to sign '
+          + 'in, then set a PIN under Security.'
       };
-      setError(map[code] || err?.message || 'Login failed');
+      setError(map[code] || err?.response?.data?.message || err?.message || 'Login failed');
+
+      // Switch to the method that will actually work.
+      if (code === 'PIN_NOT_SET') {
+        setMode('EMAIL');
+      }
     } finally {
       setLoading(false);
     }

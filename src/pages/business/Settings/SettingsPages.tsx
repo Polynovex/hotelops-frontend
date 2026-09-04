@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Avatar,
@@ -27,8 +27,7 @@ import {
   CheckCircleRounded,
   ContentCopyRounded,
   KeyRounded,
-  PersonAddAlt1Rounded,
-  UploadFileRounded
+  PersonAddAlt1Rounded
 } from '@mui/icons-material';
 import Layout from '../../../components/Layout';
 import DataTable from '../../../components/common/DataTable';
@@ -42,9 +41,11 @@ import {
 import { maskUserCode, markUserCodeCopied, isUserCodeCopied } from '../../../utils/userCode';
 import { apiClient } from '../../../api/client';
 import { useAuthStore } from '../../../store/authStore';
+import { useSnackbar } from 'notistack';
+import RowActionsMenu from '../../../components/common/RowActionsMenu';
 
 export const BusinessProfileSettingsPage = () => {
-  const { user, setUser } = useAuthStore();
+  const { setUser } = useAuthStore();
   const profile = settingsOpsService.getBusinessProfile();
 
   const [name, setName] = useState(profile.name);
@@ -53,19 +54,10 @@ export const BusinessProfileSettingsPage = () => {
   const [address, setAddress] = useState(profile.address || '');
   const [timezone, setTimezone] = useState(profile.timezone);
   const [currency, setCurrency] = useState(profile.currency);
-  const [logoPreview, setLogoPreview] = useState<string | null>(user?.logoUrl || null);
-  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setLogoFile(file);
-    setLogoPreview(URL.createObjectURL(file));
-  };
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -76,15 +68,15 @@ export const BusinessProfileSettingsPage = () => {
       // Always save local profile fields
       settingsOpsService.updateBusinessProfile({ name, email, phone, address, timezone, currency });
 
-      // If there's a logo or businessName change, hit the real API
-      if (logoFile || name) {
+      // Business name still goes to the branding endpoint; the logo no longer
+      // does, since it is fixed platform-wide.
+      if (name) {
         const formData = new FormData();
         formData.append('businessName', name);
-        if (logoFile) formData.append('logo', logoFile);
         const { data } = await apiClient.put('/settings/branding', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
-        setUser({ hotelName: data.businessName || data.name, logoUrl: data.logoUrl });
+        setUser({ hotelName: data.businessName || data.name });
       }
       setSaveSuccess(true);
     } catch (err: any) {
@@ -108,26 +100,25 @@ export const BusinessProfileSettingsPage = () => {
               {saveError && <Alert severity="error" onClose={() => setSaveError(null)}>{saveError}</Alert>}
               {saveSuccess && <Alert severity="success" onClose={() => setSaveSuccess(false)}>Saved successfully</Alert>}
 
-              {/* Logo upload */}
+              {/*
+                Branding is fixed to the HotelOpX mark across every business, so
+                the upload control is gone. The logo is shown read-only rather
+                than removed entirely — businesses still need to see what appears
+                on their payslips, invoices and guest-facing pages.
+              */}
               <Stack direction="row" spacing={2} alignItems="center">
                 <Box
                   component="img"
-                  src={logoPreview || '/logo.png'}
-                  alt="Business logo"
+                  src="/logo.png"
+                  alt="HotelOpX"
                   sx={{ width: 72, height: 72, borderRadius: 2, objectFit: 'contain', border: '1px solid', borderColor: 'divider', p: 0.5 }}
                 />
                 <Stack spacing={0.5}>
-                  <Typography variant="subtitle2">Company Logo</Typography>
-                  <Typography variant="caption" color="text.secondary">PNG, JPG or WebP · max 5 MB</Typography>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<UploadFileRounded />}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    {logoPreview ? 'Change logo' : 'Upload logo'}
-                  </Button>
-                  <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleLogoChange} />
+                  <Typography variant="subtitle2">Branding</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    The HotelOpX logo is applied across the platform and on documents
+                    issued to your staff and guests.
+                  </Typography>
                 </Stack>
               </Stack>
 
@@ -150,7 +141,15 @@ export const BusinessProfileSettingsPage = () => {
   );
 };
 
+/** Prefers the server's explanation over axios's generic status message. */
+const userActionError = (err: unknown, fallback: string) =>
+  (err as { response?: { data?: { message?: string } } }).response?.data?.message
+  ?? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+  ?? (err instanceof Error ? err.message : fallback);
+
 export const UsersSettingsPage = () => {
+  const { enqueueSnackbar } = useSnackbar();
+  const [pendingRotate, setPendingRotate] = useState<SettingUserRecord | null>(null);
   const theme = useTheme();
   const [rows, setRows] = useState<SettingUserRecord[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -204,21 +203,47 @@ export const UsersSettingsPage = () => {
     }
   };
 
-  const toggle = async (userId: string) => {
-    await settingsOpsService.toggleUserActive(userId);
-    await reload();
+  /**
+   * Ran as `void toggle(id)` with no catch, so a rejected request left the row
+   * unchanged and produced no message — the button simply appeared dead.
+   */
+  const toggle = async (user: SettingUserRecord) => {
+    try {
+      await settingsOpsService.toggleUserActive(user.id);
+      enqueueSnackbar(
+        `${user.name} ${user.isActive ? 'deactivated' : 'reactivated'}`,
+        { variant: 'success' }
+      );
+      await reload();
+    } catch (err) {
+      enqueueSnackbar(userActionError(err, 'Could not change this user\'s status'), {
+        variant: 'error'
+      });
+    }
   };
 
-  const rotateCode = async (user: SettingUserRecord) => {
-    if (
-      user.userCode &&
-      !window.confirm(`Rotate ${user.name}'s usercode? They will be signed out and need to use the new code.`)
-    ) {
+  const runRotate = async (user: SettingUserRecord) => {
+    try {
+      const issued = await settingsOpsService.assignUserCode(user.id);
+      await reload();
+      setIssuedCode({ user: { ...user, userCode: issued.userCode }, userCode: issued.userCode });
+      enqueueSnackbar(`New sign-in code issued for ${user.name}`, { variant: 'success' });
+    } catch (err) {
+      enqueueSnackbar(userActionError(err, 'Could not issue a sign-in code'), {
+        variant: 'error'
+      });
+    } finally {
+      setPendingRotate(null);
+    }
+  };
+
+  /** Issuing a first code is harmless; rotating an existing one signs them out. */
+  const rotateCode = (user: SettingUserRecord) => {
+    if (user.userCode) {
+      setPendingRotate(user);
       return;
     }
-    const issued = await settingsOpsService.assignUserCode(user.id);
-    await reload();
-    setIssuedCode({ user: { ...user, userCode: issued.userCode }, userCode: issued.userCode });
+    void runRotate(user);
   };
 
   const copyCode = async (code: string) => {
@@ -374,27 +399,53 @@ export const UsersSettingsPage = () => {
             {
               key: 'action',
               label: 'Actions',
-              minWidth: 260,
+              minWidth: 90,
               render: (row) => (
-                <Stack direction="row" spacing={1}>
-                  <Tooltip title={row.userCode ? 'Rotate usercode' : 'Issue usercode'}>
-                    <Button
-                      size="small"
-                      variant={row.userCode ? 'text' : 'outlined'}
-                      startIcon={<KeyRounded fontSize="small" />}
-                      onClick={() => void rotateCode(row)}
-                    >
-                      {row.userCode ? 'Rotate' : 'Issue code'}
-                    </Button>
-                  </Tooltip>
-                  <Button size="small" onClick={() => void toggle(row.id)}>
-                    {row.isActive ? 'Deactivate' : 'Activate'}
-                  </Button>
-                </Stack>
+                <RowActionsMenu
+                  subject={row.name}
+                  actions={[
+                    {
+                      key: 'code',
+                      label: row.userCode ? 'Rotate sign-in code' : 'Issue sign-in code',
+                      icon: <KeyRounded fontSize="small" />,
+                      destructive: Boolean(row.userCode),
+                      onClick: () => rotateCode(row)
+                    },
+                    {
+                      key: 'toggle',
+                      label: row.isActive ? 'Deactivate user' : 'Reactivate user',
+                      destructive: row.isActive,
+                      onClick: () => void toggle(row)
+                    }
+                  ]}
+                />
               )
             }
           ]}
         />
+
+        {/* Replaces window.confirm — a browser dialog cannot be styled, is not
+            accessible to the app's theme, and is blocked outright in some
+            embedded webviews, which made the action appear to do nothing. */}
+        <Dialog open={Boolean(pendingRotate)} onClose={() => setPendingRotate(null)}>
+          <DialogTitle>Rotate this sign-in code?</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">
+              <strong>{pendingRotate?.name}</strong> will be signed out and must use
+              the new code from then on. Their existing code stops working immediately.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setPendingRotate(null)}>Cancel</Button>
+            <Button
+              color="error"
+              variant="contained"
+              onClick={() => pendingRotate && void runRotate(pendingRotate)}
+            >
+              Rotate code
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Create user dialog */}
         <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="sm">

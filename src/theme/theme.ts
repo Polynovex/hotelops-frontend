@@ -330,8 +330,23 @@ export const createAppTheme = (mode: PaletteMode) => {
           },
           containedPrimary: {
             background: `linear-gradient(135deg, ${brand.navy} 0%, ${brand.navyTint} 100%)`,
+            // Stated explicitly rather than inherited. The `background`
+            // shorthand below outranks the grey background-color MUI applies
+            // when disabled, so without this the button kept its blue fill
+            // while the label turned near-black — unreadable, and the reason
+            // "Choose CSV file", "Turn on Two Factor" and the various "Add
+            // Item" buttons looked broken before anything was filled in.
+            color: '#FFFFFF',
             '&:hover': {
               background: `linear-gradient(135deg, ${brand.navyTint} 0%, #2E5C8E 100%)`
+            },
+            '&.Mui-disabled': {
+              // Keep the fill and the white label, and signal "not yet" through
+              // opacity instead. Returns to full strength once the form is valid.
+              background: `linear-gradient(135deg, ${brand.navy} 0%, ${brand.navyTint} 100%)`,
+              color: '#FFFFFF',
+              opacity: 0.45,
+              boxShadow: 'none'
             }
           },
           containedSecondary: {
@@ -339,14 +354,33 @@ export const createAppTheme = (mode: PaletteMode) => {
             color: brand.ink,
             '&:hover': {
               background: `linear-gradient(135deg, ${brand.goldDark} 0%, ${brand.gold} 100%)`
+            },
+            '&.Mui-disabled': {
+              background: `linear-gradient(135deg, ${brand.gold} 0%, ${brand.goldLight} 100%)`,
+              color: brand.ink,
+              opacity: 0.45,
+              boxShadow: 'none'
             }
           },
           containedSuccess: {
             background: `linear-gradient(135deg, ${brand.emerald} 0%, ${brand.emeraldLight} 100%)`,
+            // Same reasoning as containedPrimary: the gradient shorthand
+            // survives the disabled state, so the label must be pinned too.
+            color: '#FFFFFF',
             '&:hover': {
               background: `linear-gradient(135deg, ${brand.emeraldDark} 0%, ${brand.emerald} 100%)`
+            },
+            '&.Mui-disabled': {
+              background: `linear-gradient(135deg, ${brand.emerald} 0%, ${brand.emeraldLight} 100%)`,
+              color: '#FFFFFF',
+              opacity: 0.45,
+              boxShadow: 'none'
             }
           },
+          // Variants without a gradient override resolve contrastText correctly;
+          // they need only the shared disabled treatment.
+          containedError: { '&.Mui-disabled': { opacity: 0.45, boxShadow: 'none' } },
+          containedInfo: { '&.Mui-disabled': { opacity: 0.45, boxShadow: 'none' } },
           outlined: {
             color: palette?.text?.primary,
             borderColor: isDark ? alpha('#F6F2EA', 0.16) : alpha(brand.ink, 0.14),

@@ -20,10 +20,7 @@ import {
   Chip,
   Container,
   Grid,
-  MenuItem,
-  Paper,
   Stack,
-  TextField,
   Typography
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -31,7 +28,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import Layout from '../../components/Layout';
 import LogoLoader from '../../components/LogoLoader';
 import DataTable from '../../components/common/DataTable';
-import { superAdminService, api, SystemEventsSnapshot, SystemMetrics } from '../../services/api';
+import { superAdminService, SystemEventsSnapshot, SystemMetrics } from '../../services/api';
 
 const defaultMetrics: SystemMetrics = {
   totalBusinesses: 0,
@@ -45,82 +42,7 @@ const defaultMetrics: SystemMetrics = {
 
 const eventStatusColor = (processed?: boolean) => (processed ? 'success' : 'warning');
 
-const DatabaseMigrationPanel = () => {
-  const [sourceUrl, setSourceUrl] = useState('');
-  const [sourceType, setSourceType] = useState('generic');
-  const [saving, setSaving] = useState(false);
-  const [result, setResult] = useState<{ message: string; migrated?: number } | null>(null);
-  const [error, setError] = useState('');
-
-  const runMigration = async () => {
-    if (!sourceUrl.trim()) { setError('Source database URL is required'); return; }
-    setSaving(true);
-    setError('');
-    setResult(null);
-    try {
-      const response = await api.post('/admin/migrate/sync', { sourceUrl: sourceUrl.trim(), sourceType });
-      const data = response.data as { message?: string; migrated?: number };
-      setResult({ message: data.message || 'Migration started successfully', migrated: data.migrated });
-      setSourceUrl('');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Migration failed');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Paper sx={{ p: 3, mt: 3 }}>
-      <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>Database Migration & Sync</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Import data from an existing hotel database or booking website into HotelOpX. Only Super Admins can perform this action.
-      </Typography>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {result && <Alert severity="success" sx={{ mb: 2 }}>{result.message}{result.migrated !== undefined ? ` (${result.migrated} records migrated)` : ''}</Alert>}
-      <Stack spacing={2}>
-        <TextField
-          select
-          label="Source System Type"
-          value={sourceType}
-          onChange={(e) => setSourceType(e.target.value)}
-          size="small"
-          sx={{ maxWidth: 320 }}
-        >
-          {[
-            { value: 'generic', label: 'Generic / Custom Database' },
-            { value: 'opera', label: 'Oracle Opera PMS' },
-            { value: 'protel', label: 'Protel PMS' },
-            { value: 'cloudbeds', label: 'Cloudbeds' },
-            { value: 'mews', label: 'Mews PMS' },
-            { value: 'booking_com', label: 'Booking.com Export' },
-            { value: 'website_api', label: 'Hotel Website API' },
-          ].map((opt) => (
-            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          label="Source Database URL / API Endpoint"
-          value={sourceUrl}
-          onChange={(e) => setSourceUrl(e.target.value)}
-          placeholder="https://old-system.example.com/api/export  or  postgres://user:pass@host/db"
-          fullWidth
-          size="small"
-        />
-        <Box>
-          <Button variant="contained" onClick={() => void runMigration()} disabled={saving || !sourceUrl.trim()}>
-            {saving ? 'Running Migration…' : 'Start Migration / Sync'}
-          </Button>
-        </Box>
-      </Stack>
-    </Paper>
-  );
-};
-
-
-/**
- * Maps a health string onto a status tone. Anything unrecognised is treated as
- * inactive rather than healthy, so an unknown value never renders as green.
- */
+/** Maps an overall health string to the shared status palette. */
 const healthTone = (status?: string): StatusTone => {
   if (status === 'ok' || status === 'healthy') return 'healthy';
   if (status === 'degraded') return 'warning';
@@ -128,6 +50,7 @@ const healthTone = (status?: string): StatusTone => {
   return 'error';
 };
 
+/** Same, for an individual dependency's reported state. */
 const serviceTone = (status: string): StatusTone => {
   const value = status.toLowerCase();
   if (value === 'up' || value === 'connected' || value === 'ok') return 'healthy';
@@ -342,7 +265,6 @@ export const SuperAdminDashboardPage = () => {
           />
         </Box>
 
-        <DatabaseMigrationPanel />
       </Container>
     </Layout>
   );

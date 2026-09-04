@@ -5,10 +5,11 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   Container,
   Grid,
-
   Paper,
+  Stack,
   Typography
 } from '@mui/material';
 import Layout from '../../components/Layout';
@@ -56,7 +57,38 @@ const SystemHealthPage = () => {
     void load();
   }, []);
 
-  const services = (health.services || {}) as Record<string, string>;
+  /**
+   * The server reports { database, cache, eventBus }. This page read
+   * `services.rabbitmq`, which does not exist in that payload, so the queue row
+   * always rendered "unknown" regardless of the real state — the metric looked
+   * broken when the reporting was simply reading the wrong key.
+   */
+  const services = (health.services || {}) as {
+    database?: string;
+    cache?: string;
+    eventBus?: string;
+  };
+
+  /**
+   * "disabled" is a legitimate state, not a fault: the cache and event bus are
+   * optional dependencies, and the app degrades deliberately when they are
+   * absent. Showing that distinctly avoids reading a supported configuration as
+   * an outage.
+   */
+  const dependencyTone = (status?: string) => {
+    const value = (status || '').toLowerCase();
+    if (['up', 'ok', 'connected', 'healthy'].includes(value)) return 'success' as const;
+    if (['disabled', 'inactive'].includes(value)) return 'default' as const;
+    if (value === 'degraded') return 'warning' as const;
+    if (!value) return 'default' as const;
+    return 'error' as const;
+  };
+
+  const dependencyLabel = (status?: string) => {
+    if (!status) return 'Not reported';
+    if (status === 'disabled') return 'Not configured';
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  };
 
   return (
     <Layout>
@@ -90,10 +122,36 @@ const SystemHealthPage = () => {
         <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={12} md={4}>
             <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>Dependencies</Typography>
-              <Typography variant="body2">Database: {services.database || 'unknown'}</Typography>
-              <Typography variant="body2">Cache: {services.cache || 'unknown'}</Typography>
-              <Typography variant="body2">Queue: {services.rabbitmq || 'unknown'}</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>Dependencies</Typography>
+              <Stack spacing={1.25}>
+                {([
+                  { label: 'Database', status: services.database, required: true },
+                  { label: 'Cache (Redis)', status: services.cache, required: false },
+                  { label: 'Queue (RabbitMQ)', status: services.eventBus, required: false }
+                ]).map((dependency) => (
+                  <Stack
+                    key={dependency.label}
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <Box>
+                      <Typography variant="body2">{dependency.label}</Typography>
+                      {!dependency.required && dependency.status === 'disabled' && (
+                        <Typography variant="caption" color="text.secondary">
+                          Optional — the platform falls back in-process
+                        </Typography>
+                      )}
+                    </Box>
+                    <Chip
+                      size="small"
+                      label={dependencyLabel(dependency.status)}
+                      color={dependencyTone(dependency.status)}
+                      variant={dependencyTone(dependency.status) === 'default' ? 'outlined' : 'filled'}
+                    />
+                  </Stack>
+                ))}
+              </Stack>
             </Paper>
           </Grid>
           <Grid item xs={12} md={8}>

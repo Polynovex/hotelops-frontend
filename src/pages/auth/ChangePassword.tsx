@@ -50,8 +50,24 @@ const ChangePasswordPage = () => {
 
     setLoading(true);
     try {
-      await api.post('/auth/change-password', { currentPassword: isForcedReset ? current : current, newPassword: newPass });
-      setUser({ mustResetPassword: false });
+      // The server revokes every session on a password change and returns a
+      // fresh pair for this device. Ignoring them left the client holding a
+      // refresh token that no longer existed, which surfaced as a 401 shortly
+      // after changing the password.
+      const { data } = await api.post('/auth/change-password', {
+        currentPassword: current,
+        newPassword: newPass
+      });
+
+      if (data?.accessToken) {
+        useAuthStore.getState().setAuth(
+          { ...(user as NonNullable<typeof user>), mustResetPassword: false },
+          data.accessToken,
+          data.refreshToken ?? null
+        );
+      } else {
+        setUser({ mustResetPassword: false });
+      }
       setSuccess(true);
       setTimeout(() => {
         const dest = routeAfterChange(user?.role || '', isForcedReset);
