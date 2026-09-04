@@ -56,6 +56,9 @@ const LoginPage: React.FC = () => {
   const isDark = colorMode === 'dark';
 
   const [mode, setMode] = useState<LoginMode>('USERCODE');
+  /** Shown once the server says this account needs a second factor. */
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
   const [usercode, setUsercode] = useState('');
   const [pin, setPin] = useState('');
   const [pinRequired, setPinRequired] = useState(false);
@@ -88,11 +91,30 @@ const LoginPage: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const auth = await authService.login(data.email, data.password);
+      const auth = await authService.login(data.email, data.password, mfaCode || undefined);
       useAuthStore.getState().setAuth(auth.user, auth.token, auth.refreshToken);
       completeLogin(auth.user.role, auth.user.mustResetPassword);
     } catch (err: any) {
-      setError(err?.message || err?.response?.data?.error || 'Login failed');
+      const response = err?.response?.data;
+
+      /**
+       * A login needing a second factor is a prompt, not a failure.
+       *
+       * The server replies with `mfaRequired` and no token; treating that as an
+       * error left an enrolled user with no way to complete sign-in, because
+       * nothing ever asked for the code.
+       */
+      if (response?.mfaRequired) {
+        setMfaRequired(true);
+        setError(
+          mfaCode
+            ? 'That code was not accepted. Check your authenticator and try the current one.'
+            : ''
+        );
+        return;
+      }
+
+      setError(response?.message || response?.error || err?.message || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -646,6 +668,21 @@ const LoginPage: React.FC = () => {
                         }}
                         {...register('password')}
                       />
+
+                      {/* Appears only once the server has asked for a second
+                          factor, so an ordinary sign-in is unchanged. */}
+                      {mfaRequired && (
+                        <TextField
+                          label="Authentication code"
+                          value={mfaCode}
+                          onChange={(e) => setMfaCode(e.target.value.trim())}
+                          fullWidth
+                          autoFocus
+                          inputProps={{ inputMode: 'text', autoComplete: 'one-time-code' }}
+                          helperText="Six digits from your authenticator app, or one of your recovery codes."
+                        />
+                      )}
+
                       <Button
                         size="large"
                         type="submit"
@@ -657,9 +694,9 @@ const LoginPage: React.FC = () => {
                             <LoginRounded />
                           )
                         }
-                        disabled={loading}
+                        disabled={loading || (mfaRequired && !mfaCode)}
                       >
-                        Sign in
+                        {mfaRequired ? 'Verify and sign in' : 'Sign in'}
                       </Button>
                       <Button
                         type="button"
