@@ -217,7 +217,8 @@ const resolveModuleFallbackPath = (user: ModuleAwareUser) => {
     return '/business/audit-trail';
   }
 
-  if (role === 'RECEPTIONIST') {
+  // FRONT_OFFICE is the canonical alias for RECEPTIONIST.
+  if (role === 'RECEPTIONIST' || role === 'FRONT_OFFICE') {
     if (pmsEnabled) {
       return '/business/reservations/arrivals';
     }
@@ -240,10 +241,23 @@ const resolveModuleFallbackPath = (user: ModuleAwareUser) => {
 
 const ProtectedRoute = ({
   children,
-  allowedRoles
+  allowedRoles,
+  anyPermission
 }: {
   children: JSX.Element;
   allowedRoles: string[];
+  /**
+   * An alternative way in, for access granted by the RBAC layer rather than by
+   * the legacy role.
+   *
+   * An HR Manager holds the SUPPORT_STAFF role on purpose — so it inherits no
+   * operational authority — and its HR access comes entirely from permissions.
+   * Without this the client refused routes the server was willing to serve.
+   *
+   * Holding any one of the listed codes admits the user. This is a routing
+   * decision only; the API re-checks permissions on every request.
+   */
+  anyPermission?: string[];
 }) => {
   const user = useAuthStore((state) => state.user);
   const location = useLocation();
@@ -252,7 +266,13 @@ const ProtectedRoute = ({
     return <Navigate to="/login" />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(normalizeRouteRole(user.role))) {
+  const permissions = user.permissions ?? [];
+  const permitted =
+    anyPermission?.some(
+      (code) => permissions.includes('*') || permissions.includes(code)
+    ) ?? false;
+
+  if (allowedRoles && !allowedRoles.includes(normalizeRouteRole(user.role)) && !permitted) {
     return <Navigate to="/" />;
   }
 
@@ -297,7 +317,11 @@ function App() {
           pmsEnabled: me.pmsEnabled,
           posEnabled: me.posEnabled,
           financeEnabled: me.financeEnabled,
-          userCode: me.userCode
+          userCode: me.userCode,
+          // Drives which navigation the layout offers; the server still checks
+          // permissions on every guarded route.
+          permissions: me.permissions,
+          roleName: me.roleName
         });
       } catch (_error) {
         // ignore sync failures and continue with current session context
@@ -357,6 +381,7 @@ function App() {
                       'BUSINESS_ADMIN',
                       'MANAGER',
                       'RECEPTIONIST',
+                      'FRONT_OFFICE',
                       'POS_STAFF',
                       'HOUSEKEEPING',
                       'ACCOUNTANT'
@@ -470,7 +495,8 @@ function App() {
                 path="/business/dashboard"
                 element={
                   <ProtectedRoute
-                    allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT', 'RECEPTIONIST']}
+                    allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT', 'RECEPTIONIST',
+                      'FRONT_OFFICE']}
                   >
                     <ShiftGatedRoute>
                       <DashboardPage />
@@ -488,6 +514,7 @@ function App() {
                       'MANAGER',
                       'POS_STAFF',
                       'RECEPTIONIST',
+                      'FRONT_OFFICE',
                       'ACCOUNTANT'
                     ]}
                   >
@@ -517,7 +544,8 @@ function App() {
               <Route
                 path="/business/reservations"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER']}>
                     <ReservationListPage />
                   </ProtectedRoute>
                 }
@@ -527,7 +555,8 @@ function App() {
                 path="/business/profiles"
                 element={
                   <ProtectedRoute
-                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'ACCOUNTANT']}
+                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER', 'ACCOUNTANT']}
                   >
                     <ProfileListPage />
                   </ProtectedRoute>
@@ -538,7 +567,8 @@ function App() {
                 path="/business/profiles/individual"
                 element={
                   <ProtectedRoute
-                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'ACCOUNTANT']}
+                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER', 'ACCOUNTANT']}
                   >
                     <ProfileListPage />
                   </ProtectedRoute>
@@ -548,7 +578,8 @@ function App() {
               <Route
                 path="/business/profiles/individual/create"
                 element={
-                  <ProtectedRoute allowedRoles={['RECEPTIONIST']}>
+                  <ProtectedRoute allowedRoles={['RECEPTIONIST',
+                      'FRONT_OFFICE']}>
                     <CreateProfilePage />
                   </ProtectedRoute>
                 }
@@ -558,7 +589,8 @@ function App() {
                 path="/business/profiles/:id"
                 element={
                   <ProtectedRoute
-                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'ACCOUNTANT']}
+                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER', 'ACCOUNTANT']}
                   >
                     <ProfileDetailPage />
                   </ProtectedRoute>
@@ -595,7 +627,8 @@ function App() {
               <Route
                 path="/business/profiles/group"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST']}>
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
+                      'FRONT_OFFICE']}>
                     <GroupProfilesPage />
                   </ProtectedRoute>
                 }
@@ -604,7 +637,8 @@ function App() {
               <Route
                 path="/business/reservations/stay-view"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER']}>
                     <StayViewPage />
                   </ProtectedRoute>
                 }
@@ -613,7 +647,8 @@ function App() {
               <Route
                 path="/business/reservations/create"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER']}>
                     <ShiftGatedRoute>
                       <CreateReservationPage />
                     </ShiftGatedRoute>
@@ -624,7 +659,8 @@ function App() {
               <Route
                 path="/business/reservations/:id"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER']}>
                     <ReservationDetailPage />
                   </ProtectedRoute>
                 }
@@ -633,7 +669,8 @@ function App() {
               <Route
                 path="/business/reservations/arrivals"
                 element={
-                  <ProtectedRoute allowedRoles={['RECEPTIONIST', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER']}>
                     <ArrivalsPage />
                   </ProtectedRoute>
                 }
@@ -642,7 +679,8 @@ function App() {
               <Route
                 path="/business/reservations/departures"
                 element={
-                  <ProtectedRoute allowedRoles={['RECEPTIONIST', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER']}>
                     <DeparturesPage />
                   </ProtectedRoute>
                 }
@@ -651,7 +689,8 @@ function App() {
               <Route
                 path="/business/reservations/in-house"
                 element={
-                  <ProtectedRoute allowedRoles={['RECEPTIONIST', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER']}>
                     <InHousePage />
                   </ProtectedRoute>
                 }
@@ -660,7 +699,8 @@ function App() {
               <Route
                 path="/business/reservations/q-room"
                 element={
-                  <ProtectedRoute allowedRoles={['RECEPTIONIST', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER']}>
                     <QRoomPage />
                   </ProtectedRoute>
                 }
@@ -669,7 +709,8 @@ function App() {
               <Route
                 path="/business/reservations/checkin"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER']}>
                     <CheckInPage />
                   </ProtectedRoute>
                 }
@@ -678,7 +719,8 @@ function App() {
               <Route
                 path="/business/reservations/checkout"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER']}>
                     <CheckOutPage />
                   </ProtectedRoute>
                 }
@@ -688,7 +730,8 @@ function App() {
                 path="/business/rooms"
                 element={
                   <ProtectedRoute
-                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'HOUSEKEEPING']}
+                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER', 'HOUSEKEEPING']}
                   >
                     <RoomListPage />
                   </ProtectedRoute>
@@ -726,7 +769,8 @@ function App() {
                 path="/business/rooms/:id"
                 element={
                   <ProtectedRoute
-                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER', 'HOUSEKEEPING']}
+                    allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER', 'HOUSEKEEPING']}
                   >
                     <RoomDetailPage />
                   </ProtectedRoute>
@@ -736,7 +780,8 @@ function App() {
               <Route
                 path="/business/rooms/calendar"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER']}>
                     <RoomCalendarPage />
                   </ProtectedRoute>
                 }
@@ -746,7 +791,8 @@ function App() {
                 path="/business/rooms/status-board"
                 element={
                   <ProtectedRoute
-                    allowedRoles={['HOUSEKEEPING', 'RECEPTIONIST', 'MANAGER', 'BUSINESS_ADMIN']}
+                    allowedRoles={['HOUSEKEEPING', 'RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER', 'BUSINESS_ADMIN']}
                   >
                     <RoomStatusBoardPage />
                   </ProtectedRoute>
@@ -823,7 +869,10 @@ function App() {
               <Route
                 path="/business/hr/rota"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}
+                    anyPermission={['VIEW_ATTENDANCE', 'VIEW_STAFF']}
+                  >
                     <SchedulePage />
                   </ProtectedRoute>
                 }
@@ -846,7 +895,11 @@ function App() {
                   <ProtectedRoute
                     allowedRoles={[
                       'BUSINESS_ADMIN', 'MANAGER', 'RECEPTIONIST',
-                      'POS_STAFF', 'HOUSEKEEPING', 'ACCOUNTANT'
+                      'FRONT_OFFICE',
+                      'POS_STAFF', 'HOUSEKEEPING', 'ACCOUNTANT',
+                      // Their only screen: without this they could not reach
+                      // the one portal their account exists for.
+                      'SUPPORT_STAFF'
                     ]}
                   >
                     <MyHrPortal />
@@ -858,7 +911,10 @@ function App() {
               <Route
                 path="/business/hr"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}
+                    anyPermission={['HR_ACCESS', 'VIEW_STAFF']}
+                  >
                     <HrDashboard />
                   </ProtectedRoute>
                 }
@@ -866,7 +922,10 @@ function App() {
               <Route
                 path="/business/hr/staff"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}
+                    anyPermission={['VIEW_STAFF']}
+                  >
                     <StaffManagement />
                   </ProtectedRoute>
                 }
@@ -874,7 +933,10 @@ function App() {
               <Route
                 path="/business/hr/attendance"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}
+                    anyPermission={['VIEW_ATTENDANCE']}
+                  >
                     <AttendancePage />
                   </ProtectedRoute>
                 }
@@ -882,7 +944,10 @@ function App() {
               <Route
                 path="/business/hr/leave"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}
+                    anyPermission={['MANAGE_LEAVE']}
+                  >
                     <LeavePage />
                   </ProtectedRoute>
                 }
@@ -890,7 +955,10 @@ function App() {
               <Route
                 path="/business/hr/payroll"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}
+                    anyPermission={['VIEW_PAYROLL']}
+                  >
                     <PayrollPage />
                   </ProtectedRoute>
                 }
@@ -917,7 +985,8 @@ function App() {
               <Route
                 path="/business/housekeeping/room-status"
                 element={
-                  <ProtectedRoute allowedRoles={['HOUSEKEEPING', 'MANAGER', 'RECEPTIONIST']}>
+                  <ProtectedRoute allowedRoles={['HOUSEKEEPING', 'MANAGER', 'RECEPTIONIST',
+                      'FRONT_OFFICE']}>
                     <RoomStatusUpdatePage />
                   </ProtectedRoute>
                 }
@@ -935,7 +1004,8 @@ function App() {
               <Route
                 path="/business/housekeeping/lost-found"
                 element={
-                  <ProtectedRoute allowedRoles={['HOUSEKEEPING', 'RECEPTIONIST', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['HOUSEKEEPING', 'RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER']}>
                     <LostAndFoundPage />
                   </ProtectedRoute>
                 }
@@ -962,7 +1032,8 @@ function App() {
               <Route
                 path="/business/pos/tables"
                 element={
-                  <ProtectedRoute allowedRoles={['RECEPTIONIST', 'POS_STAFF']}>
+                  <ProtectedRoute allowedRoles={['RECEPTIONIST',
+                      'FRONT_OFFICE', 'POS_STAFF']}>
                     <PosTableManagementPage />
                   </ProtectedRoute>
                 }
@@ -980,7 +1051,8 @@ function App() {
               <Route
                 path="/business/pos/orders"
                 element={
-                  <ProtectedRoute allowedRoles={['POS_STAFF', 'RECEPTIONIST']}>
+                  <ProtectedRoute allowedRoles={['POS_STAFF', 'RECEPTIONIST',
+                      'FRONT_OFFICE']}>
                     <ShiftGatedRoute>
                       <PosOrdersPage />
                     </ShiftGatedRoute>
@@ -991,7 +1063,8 @@ function App() {
               <Route
                 path="/business/pos/kds"
                 element={
-                  <ProtectedRoute allowedRoles={['POS_STAFF', 'RECEPTIONIST']}>
+                  <ProtectedRoute allowedRoles={['POS_STAFF', 'RECEPTIONIST',
+                      'FRONT_OFFICE']}>
                     <KdsPage />
                   </ProtectedRoute>
                 }
@@ -1279,7 +1352,8 @@ function App() {
               <Route
                 path="/business/reception"
                 element={
-                  <ProtectedRoute allowedRoles={['RECEPTIONIST', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['RECEPTIONIST',
+                      'FRONT_OFFICE', 'MANAGER']}>
                     <Navigate to="/business/reservations/arrivals" replace />
                   </ProtectedRoute>
                 }

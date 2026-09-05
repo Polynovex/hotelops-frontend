@@ -21,6 +21,17 @@ interface User {
   /** Whether a sign-in PIN exists. The PIN itself never reaches the client. */
   hasPin?: boolean;
   mfaEnabled?: boolean;
+  /**
+   * Effective permission codes from /auth/me, or ['*'] for owner-level access.
+   *
+   * Used to decide what the navigation offers, since some access comes from the
+   * RBAC layer rather than the legacy role — an HR Manager was served every HR
+   * endpoint by the API while being shown no way to reach one. Rendering only:
+   * the server checks permissions again on every guarded route.
+   */
+  permissions?: string[];
+  /** The assigned RBAC role's name, preferred over the legacy role for display. */
+  roleName?: string | null;
 }
 
 interface AuthState {

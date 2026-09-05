@@ -718,12 +718,24 @@ const ShiftsAdmin: React.FC = () => {
 
 const ShiftDashboard: React.FC = () => {
   const user = useAuthStore((s) => s.user);
+  /**
+   * Mirrors the server's shiftAdminRoles: who may read *everyone's* shifts.
+   */
   const isAdmin =
     user?.role === 'BUSINESS_ADMIN' || user?.role === 'MANAGER' || user?.role === 'SUPER_ADMIN';
-  
-  // Only POS_STAFF, RECEPTIONIST, and ACCOUNTANT can open shifts
-  const canOpenShift = 
-    user?.role === 'POS_STAFF' || user?.role === 'RECEPTIONIST' || user?.role === 'ACCOUNTANT';
+
+  /**
+   * Mirrors the server's shiftStaffRoles: who runs a till.
+   *
+   * FRONT_OFFICE was missing here while the server allowed it, so a front
+   * office manager fell through to the oversight view below and was met with a
+   * 403 on a screen they had just been sent to by login.
+   */
+  const canOpenShift =
+    user?.role === 'POS_STAFF' ||
+    user?.role === 'RECEPTIONIST' ||
+    user?.role === 'FRONT_OFFICE' ||
+    user?.role === 'ACCOUNTANT';
   
   const [tab, setTab] = useState<'mine' | 'admin'>('mine');
 
@@ -754,7 +766,22 @@ const ShiftDashboard: React.FC = () => {
           )}
         </Stack>
 
-        {tab === 'mine' && canOpenShift ? <PersonalShift /> : <ShiftsAdmin />}
+        {/*
+          Fail closed. The oversight view is the privileged one, so it is shown
+          only to roles the server will actually serve it to; anyone else gets
+          their own shift, and a role that has neither is told so plainly
+          rather than being shown a screen that can only error.
+        */}
+        {canOpenShift && (tab === 'mine' || !isAdmin) ? (
+          <PersonalShift />
+        ) : isAdmin ? (
+          <ShiftsAdmin />
+        ) : (
+          <Alert severity="info">
+            Your role does not run till shifts, and shift oversight is limited to
+            owners and managers.
+          </Alert>
+        )}
       </Container>
     </Layout>
   );
