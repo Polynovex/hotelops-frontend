@@ -53,13 +53,26 @@ const ShiftGatedRoute = ({ children }: Props) => {
     void check();
   }, [user?.id, token, role]);
 
+  /**
+   * Notify from an effect, not from render.
+   *
+   * enqueueSnackbar updates notistack's state, so calling it while this
+   * component renders updates another component mid-render — React's "Cannot
+   * update during an existing state transition" warning. It also fired again on
+   * every re-render, queueing duplicate toasts.
+   */
+  useEffect(() => {
+    if (!checking && !hasShift) {
+      enqueueSnackbar('You must open a shift before performing this operation.', {
+        variant: 'warning',
+        preventDuplicate: true
+      });
+    }
+  }, [checking, hasShift, enqueueSnackbar]);
+
   if (checking) return <LogoLoader inline minHeight={160} label="Checking shift…" />;
 
   if (!hasShift) {
-    enqueueSnackbar('You must open a shift before performing this operation.', {
-      variant: 'warning',
-      preventDuplicate: true
-    });
     return <Navigate to="/shift" state={{ from: location }} replace />;
   }
 

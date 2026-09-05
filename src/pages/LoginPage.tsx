@@ -47,6 +47,12 @@ const routeForRole = (role: UserRole, mustResetPassword?: boolean) => {
   if (role === 'SUPER_ADMIN') return '/super-admin/dashboard';
   if (role === 'BUSINESS_ADMIN' || role === 'MANAGER') return '/business/dashboard';
   if (role === 'HOUSEKEEPING') return '/business/rooms/status-board';
+  /**
+   * Non-operational staff do not run a till, so sending them to /shift lands
+   * them on a screen they cannot use. Their own HR records are the only thing
+   * their account is for.
+   */
+  if (role === 'SUPPORT_STAFF') return '/my-hr';
   return '/shift';
 };
 

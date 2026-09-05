@@ -92,7 +92,8 @@ type NavRole =
   | 'POS_STAFF'
   | 'HOUSEKEEPING'
   | 'ACCOUNTANT'
-  | 'MANAGER';
+  | 'MANAGER'
+  | 'SUPPORT_STAFF';
 
 /** A navigable destination. */
 interface NavLink {
@@ -197,6 +198,15 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Subscription', icon: WorkspacePremium, path: '/business/subscription' },
     { label: 'Audit Trail', icon: AuditIcon, path: '/business/audit' },
     { label: 'Settings', icon: Settings, path: '/business/settings' }
+  ],
+  /**
+   * Non-operational staff — security, laundry, grounds. They hold an account
+   * only to see their own payslips and request leave, so the sidebar shows
+   * exactly that. Everything else is refused by the server anyway; listing it
+   * produced a menu where every item failed with a 403.
+   */
+  SUPPORT_STAFF: [
+    { label: 'My HR', icon: UserIcon, path: '/my-hr' }
   ],
   RECEPTION: [
     { label: 'My HR', icon: UserIcon, path: '/my-hr' },
@@ -430,9 +440,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     POS_STAFF: 'POS_STAFF',
     HOUSEKEEPING: 'HOUSEKEEPING',
     ACCOUNTANT: 'ACCOUNTANT',
-    MANAGER: 'MANAGER'
+    MANAGER: 'MANAGER',
+    // The canonical alias for RECEPTIONIST; without it these accounts fell
+    // through to the fallback and were shown the owner's menu.
+    FRONT_OFFICE: 'RECEPTION',
+    SUPPORT_STAFF: 'SUPPORT_STAFF'
   };
-  const role = roleMap[normalizedRole] || 'BUSINESS_ADMIN';
+
+  /**
+   * An unknown role gets the most restricted menu, not the most privileged.
+   *
+   * This defaulted to BUSINESS_ADMIN, so any role missing from the map above —
+   * SUPPORT_STAFF and FRONT_OFFICE both were — saw the full owner navigation
+   * and got a 403 on every item. Failing closed shows less than it should
+   * rather than more, which is the safer direction to be wrong in.
+   */
+  const role = roleMap[normalizedRole] || 'SUPPORT_STAFF';
   const isModuleEnabled = (module: keyof typeof moduleMeta) => {
     if (normalizedRole === 'SUPER_ADMIN') {
       return true;
@@ -453,7 +476,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return user?.financeEnabled !== false;
   };
 
+  /**
+   * Prefer the assigned RBAC role's name.
+   *
+   * The legacy UserRole is a permissions primitive, not a job title: an HR
+   * Manager carries SUPPORT_STAFF so that it inherits no operational
+   * authority, and labelling that person "Support Staff" in their own header
+   * is simply wrong. Falls back to the legacy name where no RBAC role is set.
+   */
   const displayRole = (r: string) => {
+    if (user?.roleName) {
+      return user.roleName.toUpperCase();
+    }
+
     const map: Record<string, string> = {
       RECEPTIONIST: 'FRONT OFFICE',
       RECEPTION: 'FRONT OFFICE',
@@ -485,6 +520,37 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
     return acc;
   }, []);
+
+  /**
+   * Navigation granted by permissions rather than by the legacy role.
+   *
+   * The menus above are keyed on UserRole, which cannot express access that
+   * comes from the RBAC layer. An HR Manager carries the SUPPORT_STAFF legacy
+   * role — deliberately, so it grants no operational authority — and was
+   * therefore shown only "My HR" while the API served it every HR endpoint.
+   *
+   * Anything appended here must correspond to a route the server will actually
+   * allow, or it recreates the dead-menu problem in the other direction.
+   */
+  const permissions = user?.permissions ?? [];
+  const can = (code: string) => permissions.includes('*') || permissions.includes(code);
+
+  const hrChildren = [
+    can('VIEW_STAFF') && { label: 'HR Dashboard', icon: UserIcon, path: '/business/hr' },
+    can('VIEW_PAYROLL') && { label: 'Payroll', icon: ReceiptIcon, path: '/business/hr/payroll' },
+    can('VIEW_ATTENDANCE') && { label: 'Staff Rota', icon: CalendarIcon, path: '/business/hr/rota' }
+  ].filter(Boolean) as NavLink[];
+
+  /**
+   * Match on the label alone: some roles list HR & Payroll as a group and
+   * others as a single link, and checking only for a group appended a second
+   * item with the same label — which React reported as a duplicate key.
+   */
+  const alreadyHasHr = menuItems.some((item) => item.label === 'HR & Payroll');
+
+  if (hrChildren.length > 0 && !alreadyHasHr) {
+    menuItems.push({ label: 'HR & Payroll', icon: UserIcon, children: hrChildren });
+  }
 
   const matchesPath = (path: string) =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);

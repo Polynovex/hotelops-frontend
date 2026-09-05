@@ -61,10 +61,12 @@ export type UserRole =
   | 'BUSINESS_ADMIN'
   | 'RECEPTION'
   | 'RECEPTIONIST'
+  | 'FRONT_OFFICE'
   | 'POS_STAFF'
   | 'HOUSEKEEPING'
   | 'ACCOUNTANT'
-  | 'MANAGER';
+  | 'MANAGER'
+  | 'SUPPORT_STAFF';
 
 export interface AuthUser {
   id: string;
@@ -81,6 +83,14 @@ export interface AuthUser {
   mustResetPassword?: boolean;
   userCode?: string | null;
   logoUrl?: string | null;
+  /**
+   * Effective permission codes, or ['*'] for owner-level access. Returned by
+   * /auth/me so the navigation can reflect access granted through the RBAC
+   * layer rather than only through the legacy role.
+   */
+  permissions?: string[];
+  /** The assigned RBAC role's name, preferred over the legacy role for display. */
+  roleName?: string | null;
 }
 
 export interface PlanSummary {
@@ -588,17 +598,43 @@ const asArray = <T>(payload: unknown): T[] => {
   return maybe.items || maybe.rows || maybe.data || [];
 };
 
+/**
+ * Normalises the role the server sent.
+ *
+ * Two roles were missing — SUPPORT_STAFF and FRONT_OFFICE — and the fallback
+ * was BUSINESS_ADMIN, so an unrecognised role was silently rewritten to the
+ * owner's. Support staff were then shown the full administrator navigation and
+ * received a 403 on every item; the server held the line, but the interface
+ * misrepresented who they were.
+ *
+ * The fallback is now the least-privileged role. Being wrong in the direction
+ * of showing too little is recoverable; showing an owner's console to someone
+ * who is not one is not.
+ */
+const KNOWN_ROLES: UserRole[] = [
+  'SUPER_ADMIN',
+  'BUSINESS_ADMIN',
+  'RECEPTIONIST',
+  'FRONT_OFFICE',
+  'POS_STAFF',
+  'HOUSEKEEPING',
+  'ACCOUNTANT',
+  'MANAGER',
+  'SUPPORT_STAFF'
+];
+
 const normalizeRole = (role: unknown): UserRole => {
   const value = String(role || '').toUpperCase();
+
+  // Legacy alias retained for stored sessions predating the rename.
   if (value === 'RECEPTION') return 'RECEPTIONIST';
-  if (value === 'SUPER_ADMIN') return 'SUPER_ADMIN';
-  if (value === 'BUSINESS_ADMIN') return 'BUSINESS_ADMIN';
-  if (value === 'RECEPTIONIST') return 'RECEPTIONIST';
-  if (value === 'POS_STAFF') return 'POS_STAFF';
-  if (value === 'HOUSEKEEPING') return 'HOUSEKEEPING';
-  if (value === 'ACCOUNTANT') return 'ACCOUNTANT';
-  if (value === 'MANAGER') return 'MANAGER';
-  return 'BUSINESS_ADMIN';
+
+  if ((KNOWN_ROLES as string[]).includes(value)) {
+    return value as UserRole;
+  }
+
+  console.warn(`[auth] Unrecognised role "${value}" — defaulting to the most restricted view.`);
+  return 'SUPPORT_STAFF';
 };
 
 const normalizeUser = (
