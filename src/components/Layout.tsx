@@ -209,9 +209,9 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'My HR', icon: UserIcon, path: '/my-hr' }
   ],
   RECEPTION: [
+    { label: 'Dashboard', icon: DashboardIcon, path: '/reception/dashboard', module: 'pms' },
     { label: 'My HR', icon: UserIcon, path: '/my-hr' },
     { label: 'Shift', icon: HistoryIcon, path: '/shift' },
-    { label: 'Dashboard', icon: DashboardIcon, path: '/reception/dashboard', module: 'pms' },
     { label: 'Stay View', icon: CalendarIcon, path: '/reception/stay-view', module: 'pms' },
     { label: 'Arrivals', icon: PeopleIcon, path: '/reception/arrivals', module: 'pms' },
     { label: 'Departures', icon: PeopleIcon, path: '/reception/departures', module: 'pms' },
@@ -226,22 +226,22 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Guest Profiles', icon: PeopleIcon, path: '/business/profiles', module: 'pms' }
   ],
   POS_STAFF: [
+    { label: 'Dashboard', icon: DashboardIcon, path: '/pos/dashboard', module: 'pos' },
     { label: 'My HR', icon: UserIcon, path: '/my-hr' },
     { label: 'Shift', icon: HistoryIcon, path: '/shift' },
-    { label: 'Dashboard', icon: DashboardIcon, path: '/pos/dashboard', module: 'pos' },
     { label: 'Take Orders', icon: PosIcon, path: '/pos/order', module: 'pos' },
     { label: 'Tables', icon: RoomIcon, path: '/pos/tables', module: 'pos' },
     { label: 'Kitchen Display', icon: KdsIcon, path: '/pos/orders', module: 'pos' }
   ],
   HOUSEKEEPING: [
-    { label: 'My HR', icon: UserIcon, path: '/my-hr' },
     { label: 'Dashboard', icon: DashboardIcon, path: '/housekeeping/dashboard', module: 'pms' },
+    { label: 'My HR', icon: UserIcon, path: '/my-hr' },
     { label: 'Room Status', icon: CleaningIcon, path: '/housekeeping/rooms', module: 'pms' },
     { label: 'My Tasks', icon: AssessmentIcon, path: '/business/housekeeping/my-tasks', module: 'pms' }
   ],
   ACCOUNTANT: [
-    { label: 'My HR', icon: UserIcon, path: '/my-hr' },
     { label: 'Dashboard', icon: DashboardIcon, path: '/accountant/dashboard', module: 'finance' },
+    { label: 'My HR', icon: UserIcon, path: '/my-hr' },
     {
       label: 'Night Audit Status',
       icon: AssessmentIcon,

@@ -574,7 +574,7 @@ export interface NightAuditRunResult {
 }
 
 const DEMO_MODE_ENABLED = import.meta.env.VITE_ENABLE_DEMO_MODE !== 'false';
-const isDemoMode = () =>
+export const isDemoMode = () =>
   DEMO_MODE_ENABLED && useAuthStore.getState().token?.startsWith('demo-token');
 
 const unwrapData = <T>(payload: unknown): T => {

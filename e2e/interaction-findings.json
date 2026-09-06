@@ -1,0 +1,34 @@
+[
+  {
+    "severity": "medium",
+    "role": "businessadmin",
+    "screen": "Payroll",
+    "control": "Payroll",
+    "kind": "inert",
+    "detail": "Clicking produced no navigation, dialog, request, download or content change"
+  },
+  {
+    "severity": "medium",
+    "role": "businessadmin",
+    "screen": "Staff Rota",
+    "control": "Rota",
+    "kind": "inert",
+    "detail": "Clicking produced no navigation, dialog, request, download or content change"
+  },
+  {
+    "severity": "medium",
+    "role": "businessadmin",
+    "screen": "Inventory",
+    "control": "Stock Items",
+    "kind": "inert",
+    "detail": "Clicking produced no navigation, dialog, request, download or content change"
+  },
+  {
+    "severity": "medium",
+    "role": "businessadmin",
+    "screen": "Forecasting",
+    "control": "Year-over-Year",
+    "kind": "inert",
+    "detail": "Clicking produced no navigation, dialog, request, download or content change"
+  }
+]

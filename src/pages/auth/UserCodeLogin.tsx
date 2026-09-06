@@ -18,16 +18,13 @@ import {
 } from '@mui/material';
 import { BadgeOutlined, LockOutlined, MailOutline } from '@mui/icons-material';
 import { useAuthStore } from '../../store/authStore';
-import { authService, UserRole } from '../../services/api';
+import { authService } from '../../services/api';
 import { getApiErrorMessage } from '../../utils/apiError';
+import { landingPathForRole } from '../../utils/roleLanding';
 
 type LoginMode = 'USERCODE' | 'PASSWORD';
 
-const routeForRole = (role: UserRole) => {
-  if (role === 'SUPER_ADMIN') return '/super-admin/dashboard';
-  if (role === 'BUSINESS_ADMIN' || role === 'MANAGER') return '/business/dashboard';
-  return '/shift';
-};
+
 
 const UserCodeLogin: React.FC = () => {
   const navigate = useNavigate();
@@ -62,11 +59,11 @@ const UserCodeLogin: React.FC = () => {
           return;
         }
         setAuth(result.user, result.token, result.refreshToken);
-        navigate(routeForRole(result.user.role));
+        navigate(landingPathForRole(result.user.role));
       } else {
         const result = await authService.login(identifier, password);
         setAuth(result.user, result.token, result.refreshToken);
-        navigate(routeForRole(result.user.role));
+        navigate(landingPathForRole(result.user.role));
       }
     } catch (e: any) {
       const code = e?.response?.data?.error;

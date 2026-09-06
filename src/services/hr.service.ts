@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, isDemoMode } from './api';
 
 /** HR & Payroll (Part 4). */
 
@@ -364,8 +364,63 @@ export interface PerformanceResponse {
   };
 }
 
+/**
+ * Sample month for demo mode.
+ *
+ * Every other dashboard call has a demo branch; this one did not, so a demo
+ * session showed "Could not load performance metrics" in the middle of an
+ * otherwise working screen — the one place a prospective customer is most
+ * likely to be looking. Figures are a plausible 50-room property, consistent
+ * with the occupancy the rest of the demo data reports.
+ */
+const DEMO_PERFORMANCE = (): PerformanceResponse => {
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), 1);
+  const nights = Math.max(
+    1,
+    Math.round((now.getTime() - from.getTime()) / (24 * 60 * 60 * 1000))
+  );
+  const rooms = 50;
+  const available = rooms * nights;
+  const sold = Math.round(available * 0.76);
+  const adr = 82500;
+
+  const previousSold = Math.round(available * 0.71);
+  const previousAdr = 79200;
+
+  const build = (soldNights: number, rate: number): PerformanceMetrics => ({
+    roomNightsSold: soldNights,
+    roomNightsAvailable: available,
+    roomRevenue: soldNights * rate,
+    occupancyRate: (soldNights / available) * 100,
+    adr: rate,
+    revpar: (soldNights * rate) / available,
+    nightsInPeriod: nights,
+    roomsInInventory: rooms
+  });
+
+  const current = build(sold, adr);
+  const previous = build(previousSold, previousAdr);
+  const delta = (a: number, b: number) => (b === 0 ? null : ((a - b) / b) * 100);
+
+  return {
+    period: { from: from.toISOString(), to: now.toISOString(), nights },
+    current,
+    previous,
+    change: {
+      occupancyRate: delta(current.occupancyRate, previous.occupancyRate),
+      adr: delta(current.adr, previous.adr),
+      revpar: delta(current.revpar, previous.revpar),
+      roomRevenue: delta(current.roomRevenue, previous.roomRevenue)
+    }
+  };
+};
+
 export const performanceService = {
   async get(params?: { from?: string; to?: string }): Promise<PerformanceResponse> {
+    if (isDemoMode()) {
+      return DEMO_PERFORMANCE();
+    }
     const { data } = await api.get('/dashboard/performance', { params });
     return data as PerformanceResponse;
   }

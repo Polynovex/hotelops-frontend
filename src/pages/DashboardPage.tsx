@@ -340,22 +340,13 @@ const DashboardPage: React.FC = () => {
               alignItems="center"
               sx={{ mb: 1.5 }}
             >
+              {/*
+                The heading lives inside PerformanceMetrics, which renders its
+                own SectionHeader. Printing it again here showed "Performance
+                this month" twice, one line apart.
+              */}
               <Box>
-                <Typography
-                  variant="h6"
-                  sx={{
-                    fontWeight: 800,
-                    letterSpacing: '-0.02em'
-                  }}
-                >
-                  Performance this month
-                </Typography>
-
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mt: 0.25 }}
-                >
+                <Typography variant="body2" color="text.secondary">
                   A quick view of your hotel's current performance.
                 </Typography>
               </Box>

@@ -185,11 +185,12 @@ const run = async () => {
       if (status === 401 && res.url().includes('/auth/login')) return;
 
       /**
-       * A 404 from /hr/me means the account has no staff record — an expected
-       * state the portal explains rather than an error. The browser logs the
-       * status regardless, so it is filtered here to keep real failures visible.
+       * A 404 from /hr/me or its sub-resources means the account has no staff
+       * record — an expected state the portal explains rather than an error.
+       * The portal requests all four in parallel, so an unlinked account
+       * produces several of these at once; none is a fault.
        */
-      if (status === 404 && /\/hr\/me(\?|$)/.test(res.url())) return;
+      if (status === 404 && /\/hr\/me(\/|\?|$)/.test(res.url())) return;
       const url = res.url();
       if (!url.includes('/api/')) return;
       record(status >= 500 ? 'high' : 'medium', user.label, screen, 'http',
@@ -314,7 +315,24 @@ const run = async () => {
           .first()
           .waitFor({ state: 'hidden', timeout: 6000 })
           .catch(() => null);
+
+        /**
+         * Wait for the address to stop moving before judging the screen.
+         *
+         * Guarded routes redirect after their check resolves — a POS screen
+         * sends a user with no open shift to /shift — so a single settle
+         * measured the page mid-redirect and reported an empty body for a
+         * guard that was working exactly as designed.
+         */
+        let settled = page.url();
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+          await page.waitForTimeout(400);
+          if (page.url() === settled) break;
+          settled = page.url();
+        }
+
         await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => null);
+        await page.waitForTimeout(400);
 
         // A screen that renders nothing is a broken screen, whatever the
         // network did.
