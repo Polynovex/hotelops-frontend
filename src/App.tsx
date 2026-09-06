@@ -112,6 +112,10 @@ import ShiftGatedRoute from './components/ShiftGatedRoute';
 import DemoRequestsPage from './pages/super-admin/DemoRequests';
 import DataImportPage from './pages/super-admin/DataImport';
 import TestimonialsPage from './pages/super-admin/Testimonials';
+import ReceptionDashboard from './pages/roles/ReceptionDashboard';
+import PosDashboard from './pages/roles/PosDashboard';
+import FinanceDashboard from './pages/roles/FinanceDashboard';
+import HousekeepingDashboard from './pages/roles/HousekeepingDashboard';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -1384,7 +1388,11 @@ function App() {
 
               <Route
                 path="/reception/dashboard"
-                element={<Navigate to="/business/reservations/arrivals" replace />}
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'FRONT_OFFICE', 'MANAGER']}>
+                    <ReceptionDashboard />
+                  </ProtectedRoute>
+                }
               />
               <Route
                 path="/reception/stay-view"
@@ -1413,7 +1421,11 @@ function App() {
 
               <Route
                 path="/pos/dashboard"
-                element={<Navigate to="/business/pos/orders" replace />}
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'POS_STAFF', 'MANAGER', 'RECEPTIONIST', 'FRONT_OFFICE']}>
+                    <PosDashboard />
+                  </ProtectedRoute>
+                }
               />
               <Route path="/pos/order" element={<Navigate to="/business/pos/orders" replace />} />
               <Route path="/pos/tables" element={<Navigate to="/business/pos/tables" replace />} />
@@ -1421,7 +1433,11 @@ function App() {
 
               <Route
                 path="/housekeeping/dashboard"
-                element={<Navigate to="/business/rooms/status-board" replace />}
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'HOUSEKEEPING', 'MANAGER']}>
+                    <HousekeepingDashboard />
+                  </ProtectedRoute>
+                }
               />
               <Route
                 path="/housekeeping/rooms"
@@ -1434,7 +1450,11 @@ function App() {
 
               <Route
                 path="/accountant/dashboard"
-                element={<Navigate to="/business/accounting/reports/profit-loss" replace />}
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'ACCOUNTANT', 'MANAGER']}>
+                    <FinanceDashboard />
+                  </ProtectedRoute>
+                }
               />
               <Route
                 path="/accountant/night-audit"

@@ -363,7 +363,18 @@ const DailyExpensesPage = () => {
           <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
             Record an expense
           </Typography>
-          <form onSubmit={submit}>
+          {/*
+            noValidate hands validation to the handler below.
+
+            With native validation on, the browser blocked submit before React
+            saw it and showed its own tooltip: unstyled, attached to one field
+            at a time, and invisible if that field is scrolled out of view — at
+            which point the Record button simply looks dead. The handler already
+            checks every field and reports through the Alert at the top of the
+            page, which is consistent with the rest of the app and names all the
+            problems at once.
+          */}
+          <form onSubmit={submit} noValidate>
             {expenseFields}
             <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
               <Button type="submit" variant="contained" disabled={saving}>

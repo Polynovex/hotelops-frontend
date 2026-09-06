@@ -39,22 +39,11 @@ import { useColorMode } from '../theme/colorMode';
 import { LoginSchema, loginSchema } from '../validation/auth.schema';
 import BrandWordmark from '../components/branding/BrandWordmark';
 import { getApiErrorMessage } from '../utils/apiError';
+import { postLoginPath } from '../utils/roleLanding';
 
 type LoginMode = 'USERCODE' | 'EMAIL';
 
-const routeForRole = (role: UserRole, mustResetPassword?: boolean) => {
-  if (mustResetPassword) return '/change-password';
-  if (role === 'SUPER_ADMIN') return '/super-admin/dashboard';
-  if (role === 'BUSINESS_ADMIN' || role === 'MANAGER') return '/business/dashboard';
-  if (role === 'HOUSEKEEPING') return '/business/rooms/status-board';
-  /**
-   * Non-operational staff do not run a till, so sending them to /shift lands
-   * them on a screen they cannot use. Their own HR records are the only thing
-   * their account is for.
-   */
-  if (role === 'SUPPORT_STAFF') return '/my-hr';
-  return '/shift';
-};
+
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -90,7 +79,7 @@ const LoginPage: React.FC = () => {
   }, [mode]);
 
   const completeLogin = (role: UserRole, mustResetPassword?: boolean) => {
-    navigate(routeForRole(role, mustResetPassword));
+    navigate(postLoginPath(role, mustResetPassword));
     reset();
   };
 

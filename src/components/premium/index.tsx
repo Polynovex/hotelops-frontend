@@ -119,7 +119,17 @@ export const MetricCard = ({
           </Typography>
         </Stack>
 
-        <Typography variant="h4" fontWeight={700} sx={{ mb: 0.5, color: onNavy ? '#FFFFFF' : 'text.primary' }}>
+        <Typography
+          variant="h4"
+          fontWeight={700}
+          sx={{
+            mb: 0.5,
+            color: onNavy ? '#FFFFFF' : 'text.primary',
+            // These refresh live; proportional digits make the figure jitter
+            // as values change, and misalign amounts read down a column.
+            fontVariantNumeric: 'tabular-nums'
+          }}
+        >
           {value}
         </Typography>
 
