@@ -28,6 +28,7 @@ import {
   type PublicMenuItem,
   type PublicOrderResult
 } from '../../services/qrOrdering';
+import { posItemImage } from '../../utils/posItemImage';
 
 type CartLine = { item: PublicMenuItem; quantity: number };
 
@@ -263,6 +264,26 @@ const PublicOrderPage = () => {
                 return (
                   <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                     <Stack direction="row" spacing={2} alignItems="flex-start">
+                      {/*
+                        A picture for every item, uploaded or drawn.
+                        This is the surface where the image does the most work:
+                        a guest choosing from their phone buys with their eyes,
+                        and a list of plain text reads as an unfinished menu.
+                      */}
+                      <Box
+                        component="img"
+                        src={posItemImage(item.imageUrl, category.name)}
+                        alt=""
+                        loading="lazy"
+                        sx={{
+                          width: 72,
+                          height: 72,
+                          flexShrink: 0,
+                          borderRadius: 2,
+                          objectFit: 'cover',
+                          bgcolor: 'action.hover'
+                        }}
+                      />
                       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                         <Typography variant="body1" fontWeight={600}>
                           {item.name}

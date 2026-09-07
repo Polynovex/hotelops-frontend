@@ -24,7 +24,10 @@ const SHOTS = [
   { name: 'front-desk', email: 'reception@demo.com', wait: 4500 },
   { name: 'point-of-sale', email: 'pos@demo.com', wait: 4500 },
   { name: 'housekeeping', email: 'housekeeping@demo.com', wait: 4500 },
-  { name: 'finance', email: 'accounting@demo.com', wait: 4500 }
+  { name: 'finance', email: 'accounting@demo.com', wait: 4500 },
+  // The room board is reached by navigation rather than by landing on it, so
+  // it carries an explicit route.
+  { name: 'rooms', email: 'admin@demo.com', route: '/business/rooms/status-board', wait: 5000 }
 ];
 
 const run = async () => {
@@ -52,6 +55,11 @@ const run = async () => {
     await page
       .waitForURL((u) => !u.pathname.includes('/login'), { timeout: 15000 })
       .catch(() => null);
+    if (shot.route) {
+      await page.goto(`${BASE}${shot.route}`, { waitUntil: 'domcontentloaded' }).catch(() => null);
+      await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => null);
+    }
+
     await page.waitForTimeout(shot.wait);
 
     /**

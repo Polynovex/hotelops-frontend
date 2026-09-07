@@ -23,7 +23,6 @@ import { api } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { useColorMode } from '../../theme/colorMode';
 import LogoLoader from '../../components/LogoLoader';
-import BrandWordmark from '../../components/branding/BrandWordmark';
 
 const AuthCard = ({
   title,
@@ -143,37 +142,12 @@ export const ForgotPasswordPage = () => {
                   }}
                 />
                 <Box sx={{ position: 'relative', zIndex: 2 }}>
-                  <Stack direction="row" alignItems="center" spacing={2} mb={6}>
-                    <Box
-                      sx={{
-                        width: 64,
-                        height: 64,
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center'
-                      }}
-                    >
-                      <img
-                        src="/icon.png"
-                        alt="HotelOpX"
-                        style={{ width: '68%', height: '68%', objectFit: 'contain' }}
-                      />
-                    </Box>
-                    <Box>
-                      <BrandWordmark fontSize="2.4rem" />
-                      <Typography
-                        sx={{
-                          mt: 0.5,
-                          color: 'rgba(255,255,255,.68)',
-                          fontWeight: 600,
-                          fontSize: 11,
-                          letterSpacing: '.22em'
-                        }}
-                      >
-                        HOSPITALITY OPERATING SYSTEM
-                      </Typography>
-                    </Box>
-                  </Stack>
+                  <Box
+                    component="img"
+                    src="/logo1.png"
+                    alt="HotelOpX — PMS, POS, Finance, Operations"
+                    sx={{ width: 240, maxWidth: '80%', display: 'block', mb: 5 }}
+                  />
                   <Typography
                     sx={{
                       fontFamily: '"Cormorant Garamond", serif',
@@ -397,19 +371,12 @@ export const ResetPasswordPage = () => {
                   }}
                 />
                 <Box sx={{ position: 'relative', zIndex: 2 }}>
-                  <Stack direction="row" alignItems="center" spacing={2} mb={6}>
-                    <Box sx={{ width: 64, height: 64, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                      <img src="/icon.png" alt="HotelOpX" style={{ width: '68%', height: '68%', objectFit: 'contain' }} />
-                    </Box>
-                    <Box>
-                      <Typography sx={{ fontSize: '2.4rem', fontWeight: 800, letterSpacing: '-0.05em', lineHeight: 1 }}>
-                        <BrandWordmark fontSize="inherit" />
-                      </Typography>
-                      <Typography sx={{ mt: 0.5, color: 'rgba(255,255,255,.68)', fontWeight: 600, fontSize: 11, letterSpacing: '.22em' }}>
-                        HOSPITALITY OPERATING SYSTEM
-                      </Typography>
-                    </Box>
-                  </Stack>
+                  <Box
+                    component="img"
+                    src="/logo1.png"
+                    alt="HotelOpX — PMS, POS, Finance, Operations"
+                    sx={{ width: 240, maxWidth: '80%', display: 'block', mb: 5 }}
+                  />
                   <Typography
                     sx={{
                       fontFamily: '"Cormorant Garamond", serif',

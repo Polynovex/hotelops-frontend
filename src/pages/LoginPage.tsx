@@ -37,11 +37,29 @@ import { useAuthStore } from '../store/authStore';
 import { authService, UserRole } from '../services/api';
 import { useColorMode } from '../theme/colorMode';
 import { LoginSchema, loginSchema } from '../validation/auth.schema';
-import BrandWordmark from '../components/branding/BrandWordmark';
 import { getApiErrorMessage } from '../utils/apiError';
 import { postLoginPath } from '../utils/roleLanding';
 
 type LoginMode = 'USERCODE' | 'EMAIL';
+
+/** Monospaced, wide-tracked digits, with the keypad's target field highlighted. */
+const codeFieldSx = (active: boolean) => ({
+  fontFamily: '"JetBrains Mono", monospace',
+  fontSize: 22,
+  fontWeight: 700,
+  letterSpacing: '0.28em',
+  ...(active && {
+    '& .MuiOutlinedInput-notchedOutline': { borderWidth: 2 }
+  })
+});
+
+const keypadSx = {
+  py: 0.9,
+  minWidth: 0,
+  fontFamily: '"JetBrains Mono", monospace',
+  fontSize: 17,
+  fontWeight: 700
+} as const;
 
 
 
@@ -57,7 +75,19 @@ const LoginPage: React.FC = () => {
   const [mfaCode, setMfaCode] = useState('');
   const [usercode, setUsercode] = useState('');
   const [pin, setPin] = useState('');
-  const [pinRequired, setPinRequired] = useState(false);
+  /**
+   * Which field the on-screen keypad types into.
+   *
+   * The code and the PIN are now asked for together rather than in two
+   * submissions, so the keypad needs to know where the digits are going.
+   */
+  const [activeField, setActiveField] = useState<'code' | 'pin'>('code');
+  /**
+   * Whether the PIN field is on screen. Shown by default so the roles that
+   * always need one can sign in with a single submission; staff whose code
+   * works alone can collapse it and leave it blank either way.
+   */
+  const [pinNeeded, setPinNeeded] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -72,10 +102,19 @@ const LoginPage: React.FC = () => {
     defaultValues: { email: '', password: '' }
   });
 
+  /**
+   * Reset the keypad when the sign-in method changes.
+   *
+   * This used to clear the error as well, which silently swallowed the one
+   * message that matters here: an account with a code but no PIN is told to
+   * use email instead, and that redirect switches the mode — clearing its own
+   * explanation on the way out. The person was simply dropped on the email tab
+   * with no idea why. The error is now cleared where the user actually chooses
+   * a different tab, and on the next submission.
+   */
   useEffect(() => {
-    setError('');
-    setPinRequired(false);
     setPin('');
+    setActiveField('code');
   }, [mode]);
 
   const completeLogin = (role: UserRole, mustResetPassword?: boolean) => {
@@ -131,8 +170,14 @@ const LoginPage: React.FC = () => {
     setError('');
     try {
       const result = await authService.userCodeLogin(usercode, pin || undefined);
+      /**
+       * The server asks for a PIN when the account needs one and none was
+       * sent. Both fields are on screen already, so this is a prompt to fill
+       * the second one in — not a separate step to navigate to.
+       */
       if ('requiresPin' in result) {
-        setPinRequired(true);
+        setActiveField('pin');
+        setError('This account also needs its PIN. Enter it below and sign in.');
         return;
       }
       useAuthStore.getState().setAuth(result.user, result.token, result.refreshToken);
@@ -160,7 +205,7 @@ const LoginPage: React.FC = () => {
   };
 
   const handleKey = (digit: string) => {
-    if (pinRequired) {
+    if (activeField === 'pin') {
       if (pin.length < 6) setPin((p) => p + digit);
     } else if (usercode.length < 6) {
       setUsercode((c) => c + digit);
@@ -168,21 +213,28 @@ const LoginPage: React.FC = () => {
   };
 
   const handleBackspace = () => {
-    if (pinRequired) setPin((p) => p.slice(0, -1));
+    if (activeField === 'pin') setPin((p) => p.slice(0, -1));
     else setUsercode((c) => c.slice(0, -1));
   };
-
-  const target = pinRequired ? pin : usercode;
-  const targetLen = pinRequired ? 4 : 5;
 
   return (
     <Box
       sx={{
+        /**
+         * The page is sized to the viewport rather than to its content.
+         *
+         * The brand panel used to run well past a laptop fold, so signing in
+         * meant scrolling to reach the button. On md and up everything is now
+         * held on one screen; narrow screens keep normal scrolling, because a
+         * phone keyboard needs the room.
+         */
         minHeight: '100vh',
+        height: { md: '100vh' },
+        overflow: { md: 'hidden' },
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        py: { xs: 4, md: 6 },
+        py: { xs: 4, md: 3 },
         background: isDark ? '#0E1418' : '#FFFFFF'
       }}
     >
@@ -250,69 +302,28 @@ const LoginPage: React.FC = () => {
                 />
 
                 <Box sx={{ position: 'relative', zIndex: 2 }}>
-                  {/* ================= Logo ================= */}
-
+                  {/*
+                    The brand mark carries the wordmark and the tagline in one
+                    asset, and is the same white-text logo the app sidebar uses
+                    — so the product a person signs into looks like the screen
+                    they signed in from.
+                  */}
                   <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 2.5,
-                      mb: 6
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        width: 100,
-                        height: 100,
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        overflow: 'hidden',
-                        flexShrink: 0
-                      }}
-                    >
-                      <img
-                        src="/icon.png"
-                        alt="HotelOpX"
-                        style={{
-                          width: '68%',
-                          height: '68%',
-                          objectFit: 'contain'
-                        }}
-                      />
-                    </Box>
-
-                    <Box>
-                      <BrandWordmark fontSize={{ xs: '2.6rem', md: '4rem' }} />
-
-                      <Typography
-                        sx={{
-                          mt: 0.5,
-                          color: 'rgba(255,255,255,.68)',
-                          fontWeight: 600,
-                          fontSize: 11,
-                          letterSpacing: '.22em'
-                        }}
-                      >
-                        HOSPITALITY OPERATING SYSTEM
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  {/* ================= Heading ================= */}
+                    component="img"
+                    src="/logo1.png"
+                    alt="HotelOpX — PMS, POS, Finance, Operations"
+                    sx={{ width: { md: 260, lg: 300 }, maxWidth: '80%', display: 'block', mb: 5 }}
+                  />
 
                   <Typography
                     sx={{
                       fontFamily: '"Cormorant Garamond", serif',
-                      fontSize: {
-                        xs: '2.5rem',
-                        md: '4rem'
-                      },
-                      lineHeight: 1.08,
+                      fontSize: { md: '2.6rem', lg: '3rem' },
+                      lineHeight: 1.12,
                       fontWeight: 600,
-                      letterSpacing: '-0.03em',
-                      maxWidth: 520,
-                      mb: 3
+                      letterSpacing: '-0.02em',
+                      maxWidth: 460,
+                      mb: 2
                     }}
                   >
                     A modern command layer for African hospitality.
@@ -320,80 +331,48 @@ const LoginPage: React.FC = () => {
 
                   <Typography
                     sx={{
-                      color: 'rgba(255,255,255,.78)',
-                      maxWidth: 500,
-                      fontSize: 18,
-                      lineHeight: 1.8,
-                      mb: 5
+                      color: 'rgba(255,255,255,.72)',
+                      maxWidth: 430,
+                      fontSize: 15,
+                      lineHeight: 1.7,
+                      mb: 4
                     }}
                   >
-                    Front desk, restaurant POS, housekeeping and night-audit — unified into one
-                    premium workspace that keeps working offline.
+                    Front desk, restaurant POS, housekeeping and night audit — one workspace
+                    that keeps working when the connection does not.
                   </Typography>
 
-                  {/* ================= Features ================= */}
-
-                  <Stack spacing={2.2}>
+                  {/*
+                    Three short marks rather than three stacked cards. The cards
+                    were the reason this panel ran past the fold on a laptop;
+                    the same three claims fit on one line.
+                  */}
+                  <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
                     {[
-                      {
-                        icon: ShieldRounded,
-                        label: 'Bank-grade audit trail & NDPR controls'
-                      },
-                      {
-                        icon: BadgeRounded,
-                        label: 'One-tap usercode login for POS & reception'
-                      },
-                      {
-                        icon: LockRounded,
-                        label: 'Offline-first sync — never lose a guest order'
-                      }
+                      { icon: ShieldRounded, label: 'Audited & NDPR-ready' },
+                      { icon: BadgeRounded, label: 'One-tap code sign-in' },
+                      { icon: LockRounded, label: 'Offline-first sync' }
                     ].map((feature) => (
-                      <Box
+                      <Stack
                         key={feature.label}
+                        direction="row"
+                        spacing={0.9}
+                        alignItems="center"
                         sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 2,
-                          px: 2,
-                          py: 1.6,
-                          borderRadius: '16px',
-                          background: 'rgba(255,255,255,.05)',
-                          border: '1px solid rgba(255,255,255,.08)',
-                          backdropFilter: 'blur(16px)',
-                          transition: '.3s',
-
-                          '&:hover': {
-                            background: 'rgba(255,255,255,.08)',
-                            transform: 'translateX(6px)'
-                          }
+                          px: 1.5,
+                          py: 0.85,
+                          borderRadius: '999px',
+                          background: 'rgba(255,255,255,.06)',
+                          border: '1px solid rgba(255,255,255,.10)'
                         }}
                       >
-                        <Box
-                          sx={{
-                            width: 44,
-                            height: 44,
-                            borderRadius: 2,
-                            bgcolor: '#2D5C93',
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            color: '#F6C26B',
-                            flexShrink: 0
-                          }}
-                        >
-                          <feature.icon fontSize="small" />
-                        </Box>
-
+                        <feature.icon sx={{ fontSize: 16, color: '#F6C26B' }} />
                         <Typography
-                          sx={{
-                            color: 'rgba(255,255,255,.92)',
-                            fontWeight: 500,
-                            fontSize: 16
-                          }}
+                          sx={{ color: 'rgba(255,255,255,.90)', fontWeight: 500, fontSize: 13 }}
                         >
                           {feature.label}
                         </Typography>
-                      </Box>
+                      </Stack>
                     ))}
                   </Stack>
                 </Box>
@@ -418,51 +397,25 @@ const LoginPage: React.FC = () => {
                   boxShadow: '0 24px 64px rgba(15, 27, 35, 0.12)'
                 }}
               >
-                {/* Mobile logo — hidden on md+ */}
+                {/* Mobile brand mark — hidden on md+, where the panel shows it */}
                 <Box
                   sx={{
                     display: { xs: 'flex', md: 'none' },
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 2.5,
-                    mb: 4,
-                    p: 3,
-                    borderRadius: '20px',
-                    background: 'linear-gradient(160deg, #13283D 0%, #1B3C61 45%, #244F80 100%)',
-                    boxShadow: '0 40px 100px rgba(7,18,31,.35)'
+                    mb: 3,
+                    py: 2.5,
+                    px: 3,
+                    borderRadius: '18px',
+                    background: 'linear-gradient(160deg, #13283D 0%, #1B3C61 45%, #244F80 100%)'
                   }}
                 >
                   <Box
-                    sx={{
-                      width: 100,
-                      height: 100,
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      overflow: 'hidden',
-                      flexShrink: 0
-                    }}
-                  >
-                    <img
-                      src="/icon.png"
-                      alt="HotelOpX"
-                      style={{ width: '68%', height: '68%', objectFit: 'contain' }}
-                    />
-                  </Box>
-                  <Box>
-                    <BrandWordmark fontSize="2.6rem" />
-                    <Typography
-                      sx={{
-                        mt: 0.5,
-                        color: 'rgba(255,255,255,.68)',
-                        fontWeight: 600,
-                        fontSize: 11,
-                        letterSpacing: '.22em'
-                      }}
-                    >
-                      HOSPITALITY OPERATING SYSTEM
-                    </Typography>
-                  </Box>
+                    component="img"
+                    src="/logo1.png"
+                    alt="HotelOpX"
+                    sx={{ width: 200, maxWidth: '70%', display: 'block' }}
+                  />
                 </Box>
 
                 <Typography variant="caption">Welcome back</Typography>
@@ -485,7 +438,11 @@ const LoginPage: React.FC = () => {
                   exclusive
                   fullWidth
                   value={mode}
-                  onChange={(_e, v) => v && setMode(v)}
+                  onChange={(_e, v) => {
+                    if (!v) return;
+                    setError('');
+                    setMode(v);
+                  }}
                   sx={{ mb: 3 }}
                 >
                   <ToggleButton value="USERCODE">
@@ -503,74 +460,74 @@ const LoginPage: React.FC = () => {
                 )}
 
                 {mode === 'USERCODE' ? (
-                  <Stack component="form" onSubmit={handleUsercodeSubmit} spacing={2.5}>
-                    <Box>
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        justifyContent="space-between"
-                        mb={1}
-                      >
-                        <Typography variant="subtitle2">
-                          {pinRequired ? 'Enter PIN' : 'Enter usercode'}
-                        </Typography>
-                        {pinRequired && (
-                          <Button
-                            size="small"
-                            onClick={() => {
-                              setPinRequired(false);
-                              setPin('');
-                            }}
-                          >
-                            Back
-                          </Button>
-                        )}
-                      </Stack>
+                  <Stack component="form" onSubmit={handleUsercodeSubmit} spacing={1.75}>
+                    {/*
+                      Code and PIN are asked for together.
+
+                      They used to be two submissions: the code went to the
+                      server, which replied that a PIN was needed, and the same
+                      keypad switched over to collect it. For the roles that
+                      always need both — every admin and manager — that made a
+                      one-step sign-in into a round trip and a second screen.
+                    */}
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: pinNeeded ? '1.35fr 1fr' : '1fr',
+                        gap: 1.5
+                      }}
+                    >
                       <TextField
                         fullWidth
                         autoFocus
+                        label="Sign-in code"
                         type="password"
+                        value={usercode}
+                        onFocus={() => setActiveField('code')}
+                        onChange={(e) =>
+                          setUsercode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                        }
+                        placeholder="•••••"
                         inputProps={{ inputMode: 'numeric', pattern: '[0-9]*', maxLength: 6 }}
-                        value={target}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/\D/g, '').slice(0, 6);
-                          if (pinRequired) setPin(v);
-                          else setUsercode(v);
-                        }}
-                        placeholder={pinRequired ? '••••' : '••••••'}
-                        InputProps={{
-                          sx: {
-                            fontFamily: '"JetBrains Mono", monospace',
-                            fontSize: 28,
-                            fontWeight: 700,
-                            letterSpacing: '0.3em',
-                            textAlign: 'center'
-                          }
-                        }}
+                        InputProps={{ sx: codeFieldSx(activeField === 'code') }}
                       />
-                      <Stack direction="row" spacing={1} mt={1} justifyContent="center">
-                        {Array.from({ length: Math.max(targetLen, target.length) }).map((_, i) => (
-                          <Box
-                            key={i}
-                            sx={{
-                              width: 10,
-                              height: 10,
-                              borderRadius: '50%',
-                              bgcolor:
-                                i < target.length
-                                  ? theme.palette.secondary.main
-                                  : alpha(theme.palette.text.primary, 0.18)
-                            }}
-                          />
-                        ))}
-                      </Stack>
+
+                      {pinNeeded && (
+                        <TextField
+                          fullWidth
+                          label="PIN"
+                          type="password"
+                          value={pin}
+                          onFocus={() => setActiveField('pin')}
+                          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          placeholder="••••"
+                          inputProps={{ inputMode: 'numeric', pattern: '[0-9]*', maxLength: 6 }}
+                          InputProps={{ sx: codeFieldSx(activeField === 'pin') }}
+                        />
+                      )}
                     </Box>
 
+                    <Button
+                      type="button"
+                      size="small"
+                      variant="text"
+                      onClick={() => {
+                        setPinNeeded((v) => !v);
+                        setActiveField('code');
+                        setPin('');
+                      }}
+                      sx={{ alignSelf: 'flex-start', px: 0.5, minHeight: 0, py: 0 }}
+                    >
+                      {pinNeeded ? 'My code works on its own' : 'My account also uses a PIN'}
+                    </Button>
+
+                    {/* Compact keypad for touch terminals; types into the
+                        field currently in focus. */}
                     <Box
                       sx={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(3, 1fr)',
-                        gap: 1.2
+                        gap: 0.75
                       }}
                     >
                       {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
@@ -578,36 +535,22 @@ const LoginPage: React.FC = () => {
                           key={d}
                           variant="outlined"
                           onClick={() => handleKey(d)}
-                          sx={{
-                            py: 1.5,
-                            fontFamily: '"JetBrains Mono", monospace',
-                            fontSize: 22,
-                            fontWeight: 700
-                          }}
+                          sx={keypadSx}
                         >
                           {d}
                         </Button>
                       ))}
                       <Box />
-                      <Button
-                        variant="outlined"
-                        onClick={() => handleKey('0')}
-                        sx={{
-                          py: 1.5,
-                          fontFamily: '"JetBrains Mono", monospace',
-                          fontSize: 22,
-                          fontWeight: 700
-                        }}
-                      >
+                      <Button variant="outlined" onClick={() => handleKey('0')} sx={keypadSx}>
                         0
                       </Button>
                       <Button
                         variant="outlined"
                         onClick={handleBackspace}
-                        sx={{ py: 1.5 }}
+                        sx={keypadSx}
                         color="inherit"
                       >
-                        <BackspaceRounded />
+                        <BackspaceRounded fontSize="small" />
                       </Button>
                     </Box>
 
@@ -618,9 +561,9 @@ const LoginPage: React.FC = () => {
                         loading ? <CircularProgress size={18} color="inherit" /> : <LoginRounded />
                       }
                       type="submit"
-                      disabled={loading || !target || target.length < (pinRequired ? 4 : 5)}
+                      disabled={loading || usercode.length < 5}
                     >
-                      {pinRequired ? 'Verify PIN' : 'Continue'}
+                      Sign in
                     </Button>
                   </Stack>
                 ) : (

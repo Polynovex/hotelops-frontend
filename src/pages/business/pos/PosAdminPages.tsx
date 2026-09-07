@@ -10,19 +10,24 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  IconButton,
   MenuItem,
   Paper,
   Snackbar,
   Stack,
   TextField,
+  Tooltip,
   Typography
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import BlockIcon from '@mui/icons-material/Block';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded';
 import Layout from '../../../components/Layout';
 import DataTable from '../../../components/common/DataTable';
+import { api } from '../../../services/api';
+import { posItemImage } from '../../../utils/posItemImage';
 import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import { Outlet, PosMenuItem, PosOrder, posService, kitchenStationService } from '../../../services/api';
 import { posAdminOpsService, PosTableRecord } from '../../../services/posAdminOps';
@@ -348,6 +353,89 @@ export const PosOutletsPage = () => {
   );
 };
 
+/**
+ * The item's picture, and the control that replaces it.
+ *
+ * Upload is inline rather than behind an edit dialog: a business admin
+ * photographing a menu works through the list one item at a time, and making
+ * that a three-click round trip per dish is why menus stay imageless.
+ */
+const MenuItemImageCell = ({
+  item,
+  onUploaded
+}: {
+  item: PosMenuItem;
+  onUploaded: (updated: { id: string; imageUrl: string | null }) => void;
+}) => {
+  const [busy, setBusy] = useState(false);
+  const inputId = `menu-item-image-${item.id}`;
+
+  const handleFile = async (file: File) => {
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append('image', file);
+      const { data } = await api.post(`/menu-items/${item.id}/image`, form);
+      onUploaded(data);
+    } catch {
+      // The row keeps its current image; the table's own error surface reports
+      // failures, and a broken thumbnail here would say less than nothing.
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Box sx={{ position: 'relative', width: 48, height: 48 }}>
+      <Box
+        component="img"
+        src={posItemImage(item.imageUrl, item.category)}
+        alt=""
+        sx={{
+          width: 48,
+          height: 48,
+          borderRadius: 1.5,
+          objectFit: 'cover',
+          display: 'block',
+          opacity: busy ? 0.4 : 1,
+          bgcolor: 'action.hover'
+        }}
+      />
+      <input
+        id={inputId}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void handleFile(file);
+          // Cleared so choosing the same file twice still fires a change.
+          event.target.value = '';
+        }}
+      />
+      <Tooltip title={item.imageUrl ? 'Replace image' : 'Add an image'}>
+        <IconButton
+          component="label"
+          htmlFor={inputId}
+          size="small"
+          disabled={busy}
+          sx={{
+            position: 'absolute',
+            right: -8,
+            bottom: -8,
+            bgcolor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider',
+            '&:hover': { bgcolor: 'background.paper' }
+          }}
+        >
+          <PhotoCameraRoundedIcon sx={{ fontSize: 14 }} />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+};
+
 export const PosMenuManagementPage = () => {
   const [outlets, setOutlets] = useState<Outlet[]>([]);
   const [items, setItems] = useState<PosMenuItem[]>([]);
@@ -633,6 +721,31 @@ export const PosMenuManagementPage = () => {
           defaultRowsPerPage={10}
           emptyText="No menu items found for selected outlet."
           columns={[
+            {
+              /*
+                Every item shows a picture: the uploaded photograph if there is
+                one, otherwise a drawn plate or glass chosen from the category.
+                The same image appears on the guest QR menu, so this column is
+                where a business admin sees what their guests will see.
+              */
+              key: 'image',
+              label: '',
+              minWidth: 64,
+              render: (item) => (
+                <MenuItemImageCell
+                  item={item}
+                  onUploaded={(updated) =>
+                    setItems((current) =>
+                      current.map((row) =>
+                        row.id === updated.id
+                          ? { ...row, imageUrl: updated.imageUrl ?? undefined }
+                          : row
+                      )
+                    )
+                  }
+                />
+              )
+            },
             { key: 'sku', label: 'SKU', minWidth: 120 },
             { key: 'name', label: 'Name', minWidth: 180 },
             { key: 'category', label: 'Category', minWidth: 140 },

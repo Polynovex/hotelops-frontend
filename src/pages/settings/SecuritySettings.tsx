@@ -16,11 +16,14 @@ import {
 } from '@mui/material';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import PinIcon from '@mui/icons-material/Pin';
+import BadgeIcon from '@mui/icons-material/BadgeOutlined';
+import AutorenewIcon from '@mui/icons-material/Autorenew';
 import ShieldIcon from '@mui/icons-material/VerifiedUser';
 import { useSnackbar } from 'notistack';
 import Layout from '../../components/Layout';
 import { useAuthStore } from '../../store/authStore';
 import { pinService, describePinProblem } from '../../services/pin.service';
+import { userCodeService } from '../../services/userCode.service';
 
 /**
  * One place for the three credentials a person can hold.
@@ -48,6 +51,10 @@ const SecuritySettings = () => {
    */
   const pinRequiredForRole = ['SUPER_ADMIN', 'BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT']
     .includes(user?.role ?? '');
+
+  const [codePassword, setCodePassword] = useState('');
+  const [rotatingCode, setRotatingCode] = useState(false);
+  const [codeError, setCodeError] = useState('');
 
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -105,6 +112,28 @@ const SecuritySettings = () => {
     }
   };
 
+  const rotateCode = async (event: FormEvent) => {
+    event.preventDefault();
+    setCodeError('');
+    setRotatingCode(true);
+    try {
+      const { userCode } = await userCodeService.regenerate(codePassword);
+      // Update the session copy so the code on screen is the one that works.
+      setUser({ userCode });
+      setCodePassword('');
+      enqueueSnackbar(`Your new sign-in code is ${userCode}`, { variant: 'success' });
+    } catch (err: any) {
+      setCodeError(
+        err?.response?.data?.error === 'INCORRECT_PASSWORD'
+          ? 'That password is not correct.'
+          : err?.response?.data?.message
+            ?? 'Could not issue a new sign-in code. Please try again.'
+      );
+    } finally {
+      setRotatingCode(false);
+    }
+  };
+
   return (
     <Layout>
       <Container maxWidth="md" sx={{ py: 4 }}>
@@ -116,6 +145,96 @@ const SecuritySettings = () => {
         </Typography>
 
         <Grid container spacing={3}>
+          {/* ── Sign-in code ────────────────────────────────────────────── */}
+          <Grid item xs={12}>
+            <Card>
+              <CardContent>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  justifyContent="space-between"
+                  alignItems={{ xs: 'flex-start', sm: 'center' }}
+                  spacing={1}
+                  sx={{ mb: 2 }}
+                >
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    <BadgeIcon color="primary" />
+                    <Box>
+                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        Sign-in code
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        The short code you type at the keypad instead of your email address.
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  {/*
+                    Plain monospaced text rather than a filled chip: the chip
+                    put dark text on a dark fill, making the one thing on this
+                    card a person actually needs to read the hardest thing on
+                    it to read.
+                  */}
+                  <Box
+                    sx={{
+                      px: 1.75,
+                      py: 0.75,
+                      borderRadius: 1.5,
+                      border: (t) => `1px solid ${t.palette.divider}`,
+                      bgcolor: 'action.hover',
+                      fontFamily: '"JetBrains Mono", monospace',
+                      fontWeight: 700,
+                      fontSize: 18,
+                      letterSpacing: '0.22em',
+                      color: user?.userCode ? 'text.primary' : 'text.disabled'
+                    }}
+                  >
+                    {user?.userCode || 'Not issued'}
+                  </Box>
+                </Stack>
+
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Issuing a new code retires the old one immediately. Your PIN is kept,
+                  so nothing else about how you sign in changes.
+                </Alert>
+
+                <Divider sx={{ mb: 2 }} />
+
+                {codeError && (
+                  <Alert severity="error" sx={{ mb: 2 }} onClose={() => setCodeError('')}>
+                    {codeError}
+                  </Alert>
+                )}
+
+                <Box component="form" onSubmit={rotateCode}>
+                  <Grid container spacing={2} alignItems="flex-start">
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Your password"
+                        value={codePassword}
+                        onChange={(e) => setCodePassword(e.target.value)}
+                        fullWidth
+                        required
+                        type="password"
+                        inputProps={{ autoComplete: 'current-password' }}
+                        helperText="Confirms it is really you, not just an open session."
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Button
+                        type="submit"
+                        variant="outlined"
+                        startIcon={<AutorenewIcon />}
+                        disabled={rotatingCode || !codePassword}
+                        sx={{ mt: { sm: 1 } }}
+                      >
+                        {rotatingCode ? 'Issuing…' : 'Issue a new code'}
+                      </Button>
+                    </Grid>
+                  </Grid>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
           {/* ── Sign-in PIN ─────────────────────────────────────────────── */}
           <Grid item xs={12}>
             <Card>

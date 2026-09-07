@@ -677,84 +677,16 @@ export const TaxSettingsPage = () => {
   );
 };
 
-export const PaymentGatewaysSettingsPage = () => {
-  const [gateways, setGateways] = useState(settingsOpsService.getPaymentGateways());
+/**
+ * PaymentGatewaysSettingsPage lived here and wrote both keys — including the
+ * secret — into localStorage. That put live payment credentials somewhere any
+ * cross-site script or browser extension could read, and the server never saw
+ * them, so no payment could actually be taken with them.
+ *
+ * It has been replaced by Settings/PaymentGateways.tsx, which stores the secret
+ * encrypted on the server and never reads it back.
+ */
 
-  const updateGateway = (
-    gateway: keyof typeof gateways,
-    field: string,
-    value: string | boolean
-  ) => {
-    const updated = settingsOpsService.updatePaymentGateway(gateway, {
-      [field]: value
-    });
-    setGateways(updated);
-  };
-
-  return (
-    <Layout>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>Payment Gateways</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Manage Paystack, Flutterwave and Interswitch credentials.
-        </Typography>
-
-        <Stack spacing={2}>
-          {(['paystack', 'flutterwave', 'interswitch'] as const).map((gateway) => (
-            <Paper key={gateway} sx={{ p: 3 }}>
-              <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} spacing={2}>
-                <Typography variant="h6" sx={{ textTransform: 'capitalize', minWidth: 160 }}>{gateway}</Typography>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <Typography variant="body2">Enabled</Typography>
-                  <Switch
-                    checked={gateways[gateway].enabled}
-                    onChange={(event) => updateGateway(gateway, 'enabled', event.target.checked)}
-                  />
-                </Stack>
-
-                {'publicKey' in gateways[gateway] && (
-                  <TextField
-                    label="Public Key"
-                    value={(gateways[gateway] as { publicKey: string }).publicKey}
-                    onChange={(event) => updateGateway(gateway, 'publicKey', event.target.value)}
-                    fullWidth
-                  />
-                )}
-
-                {'secretKey' in gateways[gateway] && (
-                  <TextField
-                    label="Secret Key"
-                    value={(gateways[gateway] as { secretKey: string }).secretKey}
-                    onChange={(event) => updateGateway(gateway, 'secretKey', event.target.value)}
-                    fullWidth
-                  />
-                )}
-
-                {'merchantCode' in gateways[gateway] && (
-                  <TextField
-                    label="Merchant Code"
-                    value={(gateways[gateway] as { merchantCode: string }).merchantCode}
-                    onChange={(event) => updateGateway(gateway, 'merchantCode', event.target.value)}
-                    fullWidth
-                  />
-                )}
-
-                {'terminalId' in gateways[gateway] && (
-                  <TextField
-                    label="Terminal ID"
-                    value={(gateways[gateway] as { terminalId: string }).terminalId}
-                    onChange={(event) => updateGateway(gateway, 'terminalId', event.target.value)}
-                    fullWidth
-                  />
-                )}
-              </Stack>
-            </Paper>
-          ))}
-        </Stack>
-      </Container>
-    </Layout>
-  );
-};
 
 export const BackupRestoreSettingsPage = () => {
   const [rows, setRows] = useState(settingsOpsService.listBackups());

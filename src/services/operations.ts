@@ -1783,11 +1783,13 @@ interface SettingsStore {
     vatRate: number;
     whtRates: Record<string, number>;
   };
-  paymentGateways: {
-    paystack: { enabled: boolean; publicKey: string; secretKey: string };
-    flutterwave: { enabled: boolean; publicKey: string; secretKey: string };
-    interswitch: { enabled: boolean; merchantCode: string; terminalId: string };
-  };
+  /*
+   * Payment credentials are not held here.
+   *
+   * This store is localStorage, which is the wrong place for a secret key —
+   * readable by any injected script, and never seen by the server that has to
+   * use it. Gateways live at /payments/gateways, encrypted at rest.
+   */
   backups: Array<{
     id: string;
     createdAt: string;
@@ -1840,11 +1842,6 @@ const defaultSettingsStore = (): SettingsStore => {
         contracts: 5,
         dividends: 10
       }
-    },
-    paymentGateways: {
-      paystack: { enabled: true, publicKey: '', secretKey: '' },
-      flutterwave: { enabled: true, publicKey: '', secretKey: '' },
-      interswitch: { enabled: false, merchantCode: '', terminalId: '' }
     },
     backups: []
   };
@@ -2099,24 +2096,15 @@ export const settingsOpsService = {
     return store.tax;
   },
 
-  getPaymentGateways(): SettingsStore['paymentGateways'] {
-    return getSettingsStore().paymentGateways;
-  },
+  /*
+   * getPaymentGateways / updatePaymentGateway were removed.
+   *
+   * They persisted Paystack and Flutterwave secret keys into localStorage.
+   * Payment credentials now go to /payments/gateways, where the secret is
+   * encrypted at rest and never returned — leaving a helper here that writes
+   * one to the browser would invite the same mistake again.
+   */
 
-  updatePaymentGateway<K extends keyof SettingsStore['paymentGateways']>(
-    gateway: K,
-    payload: Partial<SettingsStore['paymentGateways'][K]>
-  ): SettingsStore['paymentGateways'] {
-    const store = getSettingsStore();
-    store.paymentGateways[gateway] = {
-      ...store.paymentGateways[gateway],
-      ...payload
-    } as SettingsStore['paymentGateways'][K];
-
-    saveSettingsStore(store);
-    pushAudit({ action: 'UPDATE', entity: 'PAYMENT_GATEWAY', entityId: gateway, details: payload });
-    return store.paymentGateways;
-  },
 
   listBackups(): SettingsStore['backups'] {
     return getSettingsStore().backups;

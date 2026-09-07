@@ -147,6 +147,12 @@ export interface PlanPayload {
 export interface BusinessSummary {
   id: string;
   name: string;
+  /**
+   * The trading name, where a business has set one that differs from the
+   * tenant record's name. Optional and often null on older records, so every
+   * display should fall back to `name`.
+   */
+  businessName?: string | null;
   email: string;
   phone: string;
   address: string;

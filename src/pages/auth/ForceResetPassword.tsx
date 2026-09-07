@@ -27,7 +27,6 @@ import { motion } from 'framer-motion';
 import { useAuthStore } from '../../store/authStore';
 import { api } from '../../services/api';
 import { useColorMode } from '../../theme/colorMode';
-import BrandWordmark from '../../components/branding/BrandWordmark';
 import { getApiErrorMessage } from '../../utils/apiError';
 
 const ForceResetPasswordPage = () => {
@@ -126,19 +125,12 @@ const ForceResetPasswordPage = () => {
               >
                 <Box sx={{ position: 'absolute', top: -180, right: -120, width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,.12), transparent 70%)' }} />
                 <Box sx={{ position: 'relative', zIndex: 2 }}>
-                  <Stack direction="row" alignItems="center" spacing={2} mb={6}>
-                    <Box sx={{ width: 64, height: 64, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                      <img src="/icon.png" alt="HotelOpX" style={{ width: '68%', height: '68%', objectFit: 'contain' }} />
-                    </Box>
-                    <Box>
-                      <Typography sx={{ fontSize: '2.4rem', fontWeight: 800, letterSpacing: '-0.05em', lineHeight: 1 }}>
-                        <BrandWordmark fontSize="inherit" />
-                      </Typography>
-                      <Typography sx={{ mt: 0.5, color: 'rgba(255,255,255,.68)', fontWeight: 600, fontSize: 11, letterSpacing: '.22em' }}>
-                        HOSPITALITY OPERATING SYSTEM
-                      </Typography>
-                    </Box>
-                  </Stack>
+                  <Box
+                    component="img"
+                    src="/logo1.png"
+                    alt="HotelOpX — PMS, POS, Finance, Operations"
+                    sx={{ width: 240, maxWidth: '80%', display: 'block', mb: 5 }}
+                  />
                   <Typography sx={{ fontFamily: '"Cormorant Garamond", serif', fontSize: { xs: '2.5rem', md: '3.5rem' }, lineHeight: 1.08, fontWeight: 600, letterSpacing: '-0.03em', maxWidth: 480, mb: 3 }}>
                     Secure your account before you begin.
                   </Typography>
