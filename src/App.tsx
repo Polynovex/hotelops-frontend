@@ -116,6 +116,8 @@ import ReceptionDashboard from './pages/roles/ReceptionDashboard';
 import PosDashboard from './pages/roles/PosDashboard';
 import FinanceDashboard from './pages/roles/FinanceDashboard';
 import HousekeepingDashboard from './pages/roles/HousekeepingDashboard';
+import BlogPostsPage from './pages/super-admin/BlogPosts';
+import PlatformMetricsPage from './pages/super-admin/PlatformMetrics';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -437,6 +439,24 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
                     <TestimonialsPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/super-admin/metrics"
+                element={
+                  <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                    <PlatformMetricsPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/super-admin/blog"
+                element={
+                  <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                    <BlogPostsPage />
                   </ProtectedRoute>
                 }
               />

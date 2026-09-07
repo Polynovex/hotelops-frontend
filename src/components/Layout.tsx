@@ -44,6 +44,7 @@ import {
   RestaurantMenu as MenuBookIcon,
   CalendarToday as CalendarIcon,
   Receipt as ReceiptIcon,
+  Article as ArticleIcon,
   Assessment as AssessmentIcon,
   Settings,
   MeetingRoom as RoomIcon,
@@ -126,6 +127,8 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Businesses', icon: BusinessIcon, path: '/super-admin/businesses' },
     { label: 'Demo Requests', icon: PeopleIcon, path: '/super-admin/demo-requests' },
     { label: 'Testimonials', icon: AssessmentIcon, path: '/super-admin/testimonials' },
+    { label: 'Blog', icon: ArticleIcon, path: '/super-admin/blog' },
+    { label: 'Website Metrics', icon: AssessmentIcon, path: '/super-admin/metrics' },
     { label: 'Data Import', icon: BusinessIcon, path: '/super-admin/data-import' },
     { label: 'Package Configuration', icon: WorkspacePremium, path: '/super-admin/plans' },
     { label: 'System Stats', icon: AssessmentIcon, path: '/super-admin/stats' },
@@ -370,6 +373,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // The HotelOpX mark is used platform-wide; per-business logos are not
   // supported, and the server refuses uploads that would set one.
   const logoSrc = '/logo.png';
+  /**
+   * The light-text mark, for the dark sidebar.
+   *
+   * Supplying it as `logoDark` is what removes the white plate behind the
+   * logo: TenantLogo only paints that backdrop when a dark-ink logo has to sit
+   * on a dark surface, which was exactly the case while `/logo.png` — dark
+   * type on transparent — was the only variant available. With a genuine
+   * light-surface variant the container stays transparent and the mark sits
+   * directly on the navy.
+   */
+  const logoDarkSrc = '/logo1.png';
   const brandName = isSuperAdmin ? 'HotelOpX' : user?.hotelName || 'HotelOpX';
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -581,8 +595,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       >
         {/* White-label slot: flexible container, never crops or distorts. */}
         <TenantLogo
-          branding={{ name: brandName, logo: logoSrc }}
+          branding={{ name: brandName, logo: logoSrc, logoDark: logoDarkSrc }}
           surface="dark"
+          container="transparent"
           height={72}
           maxWidth={220}
         />

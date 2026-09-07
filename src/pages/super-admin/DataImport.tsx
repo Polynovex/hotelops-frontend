@@ -546,13 +546,22 @@ const DataImport = () => {
   );
 };
 
-/** Business list for the target selector. */
+/**
+ * Business list for the target selector.
+ *
+ * Uses superAdminService rather than calling the endpoint directly. The
+ * hand-rolled version here read `data.businesses`, but the API returns
+ * `{ data, pagination }` — so the list was always empty and the dropdown had
+ * nothing to offer, with no error to explain why. The service already unwraps
+ * that envelope correctly, and going through it means a change to the response
+ * shape only has to be handled once.
+ */
 const api_listBusinesses = async (): Promise<Array<{ id: string; name: string }>> => {
-  const { api } = await import('../../services/api');
-  const { data } = await api.get('/admin/businesses');
-  const rows = Array.isArray(data) ? data : data?.businesses ?? [];
-  return rows.map((row: { id: string; businessName?: string; name: string }) => ({
+  const { superAdminService } = await import('../../services/api');
+  const rows = await superAdminService.getBusinesses();
+  return rows.map((row) => ({
     id: row.id,
+    // Businesses created before businessName existed only have `name`.
     name: row.businessName || row.name
   }));
 };
