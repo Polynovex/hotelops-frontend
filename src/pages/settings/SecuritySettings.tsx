@@ -52,6 +52,12 @@ const SecuritySettings = () => {
   const pinRequiredForRole = ['SUPER_ADMIN', 'BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT']
     .includes(user?.role ?? '');
 
+  /**
+   * A platform administrator belongs to no single property, so any copy that
+   * names a hotel is wrong for them.
+   */
+  const isPlatformAdmin = user?.role === 'SUPER_ADMIN';
+
   const [codePassword, setCodePassword] = useState('');
   const [rotatingCode, setRotatingCode] = useState(false);
   const [codeError, setCodeError] = useState('');
@@ -141,7 +147,15 @@ const SecuritySettings = () => {
           Security
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          How you sign in to {user?.hotelName || 'HotelOpX'}, and how that access is protected.
+          {/*
+            This read "How you sign in to Five Star Hotel" for a super admin,
+            because the copy leaned on hotelName without asking whose account it
+            was. Not a cosmetic slip: it tells the one person who administers
+            every business on the platform that they belong to one of them.
+          */}
+          {isPlatformAdmin
+            ? 'How you sign in to the HotelOpX platform, and how that access is protected.'
+            : `How you sign in to ${user?.hotelName || 'HotelOpX'}, and how that access is protected.`}
         </Typography>
 
         <Grid container spacing={3}>
@@ -254,7 +268,9 @@ const SecuritySettings = () => {
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         {pinRequiredForRole
-                          ? 'Required alongside your sign-in code, because your role can change money and settings.'
+                          ? isPlatformAdmin
+                            ? 'Required alongside your sign-in code, because this account administers every business on the platform.'
+                            : 'Required alongside your sign-in code, because your role can change money and settings.'
                           : 'Optional extra step when signing in with your code at a shared terminal.'}
                       </Typography>
                     </Box>
@@ -397,8 +413,10 @@ const SecuritySettings = () => {
                   />
                 </Stack>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  A code from your authenticator app, in addition to your password.
-                  Required for owner and administrator accounts.
+                  A code from your authenticator app, in addition to your password.{' '}
+                  {isPlatformAdmin
+                    ? 'Required for platform administrators.'
+                    : 'Required for owner and administrator accounts.'}
                 </Typography>
                 <Button variant="outlined" onClick={() => navigate('/mfa/setup')}>
                   {mfaEnabled ? 'Manage two-factor' : 'Turn on two-factor'}
