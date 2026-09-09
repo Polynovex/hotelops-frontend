@@ -141,7 +141,12 @@ const GuestRegistrationPage = () => {
     <Container maxWidth="sm" sx={{ py: { xs: 3, sm: 6 } }}>
       <Paper sx={{ p: { xs: 2.5, sm: 4 } }}>
         <Stack spacing={1} sx={{ mb: 3, textAlign: 'center' }}>
-          {/* Platform branding; the hotel name below identifies who is asking. */}
+          {/*
+            Platform branding; the hotel name below identifies who is asking.
+            logo.png is the dark-text wordmark, which is the one that reads on
+            this white card — logo1.png is its white-text twin, for the dark
+            surfaces (sidebar, sign-in panel).
+          */}
           <Box
             component="img"
             src="/logo.png"

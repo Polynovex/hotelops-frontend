@@ -27,15 +27,14 @@ import {
   CheckCircleRounded,
   ContentCopyRounded,
   KeyRounded,
+  PersonRemoveRounded,
   PersonAddAlt1Rounded
 } from '@mui/icons-material';
 import Layout from '../../../components/Layout';
 import DataTable from '../../../components/common/DataTable';
 import {
-  AuditRecord,
   SettingRoleRecord,
   SettingUserRecord,
-  auditOpsService,
   settingsOpsService
 } from '../../../services/operations';
 import { maskUserCode, markUserCodeCopied, isUserCodeCopied } from '../../../utils/userCode';
@@ -44,6 +43,8 @@ import { useAuthStore } from '../../../store/authStore';
 import { useSnackbar } from 'notistack';
 import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import { getApiErrorMessage } from '../../../utils/apiError';
+import { SettingsTabs } from './SettingsTabs';
+import { AuditTrailViewer } from '../../../components/audit/AuditTrailViewer';
 
 export const BusinessProfileSettingsPage = () => {
   const { setUser } = useAuthStore();
@@ -90,6 +91,7 @@ export const BusinessProfileSettingsPage = () => {
   return (
     <Layout>
       <Container maxWidth="md" sx={{ py: 4 }}>
+        <SettingsTabs />
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>Business Profile</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Core property settings. The logo and business name appear on the sidebar and all dashboards.
@@ -151,6 +153,7 @@ const userActionError = (err: unknown, fallback: string) =>
 export const UsersSettingsPage = () => {
   const { enqueueSnackbar } = useSnackbar();
   const [pendingRotate, setPendingRotate] = useState<SettingUserRecord | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<SettingUserRecord | null>(null);
   const theme = useTheme();
   const [rows, setRows] = useState<SettingUserRecord[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -223,6 +226,18 @@ export const UsersSettingsPage = () => {
     }
   };
 
+  const runRemove = async (user: SettingUserRecord) => {
+    try {
+      await settingsOpsService.removeUser(user.id);
+      await reload();
+      enqueueSnackbar(`${user.name} no longer has access`, { variant: 'success' });
+    } catch (err) {
+      enqueueSnackbar(userActionError(err, 'Could not remove this person'), { variant: 'error' });
+    } finally {
+      setPendingRemove(null);
+    }
+  };
+
   const runRotate = async (user: SettingUserRecord) => {
     try {
       const issued = await settingsOpsService.assignUserCode(user.id);
@@ -266,6 +281,7 @@ export const UsersSettingsPage = () => {
   return (
     <Layout>
       <Container maxWidth="xl" sx={{ py: 4, overflowX: 'hidden' }}>
+        <SettingsTabs />
         <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} justifyContent="space-between" mb={3}>
           <Box>
             <Typography variant="caption">Staff & access</Typography>
@@ -417,6 +433,19 @@ export const UsersSettingsPage = () => {
                       label: row.isActive ? 'Deactivate user' : 'Reactivate user',
                       destructive: row.isActive,
                       onClick: () => void toggle(row)
+                    },
+                    {
+                      /*
+                       * Deactivating pauses a login; this ends the working
+                       * relationship — access revoked and the HR record
+                       * terminated in one step, so a leaver does not linger on
+                       * the roster because two screens had to be visited.
+                       */
+                      key: 'remove',
+                      label: 'Remove from business',
+                      icon: <PersonRemoveRounded fontSize="small" />,
+                      destructive: true,
+                      onClick: () => setPendingRemove(row)
                     }
                   ]}
                 />
@@ -428,6 +457,27 @@ export const UsersSettingsPage = () => {
         {/* Replaces window.confirm — a browser dialog cannot be styled, is not
             accessible to the app's theme, and is blocked outright in some
             embedded webviews, which made the action appear to do nothing. */}
+        <Dialog open={Boolean(pendingRemove)} onClose={() => setPendingRemove(null)}>
+          <DialogTitle>Remove {pendingRemove?.name} from this business?</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">
+              Their sign-in is revoked and their HR record is marked terminated.
+              Their history stays intact — shifts, orders and audit entries still
+              show who did what — and an HR administrator can reinstate them.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setPendingRemove(null)}>Cancel</Button>
+            <Button
+              color="error"
+              variant="contained"
+              onClick={() => pendingRemove && void runRemove(pendingRemove)}
+            >
+              Remove
+            </Button>
+          </DialogActions>
+        </Dialog>
+
         <Dialog open={Boolean(pendingRotate)} onClose={() => setPendingRotate(null)}>
           <DialogTitle>Rotate this sign-in code?</DialogTitle>
           <DialogContent>
@@ -597,6 +647,7 @@ export const RolesSettingsPage = () => {
   return (
     <Layout>
       <Container maxWidth="lg" sx={{ py: 4 }}>
+        <SettingsTabs />
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>Roles & Permissions</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Configure module permissions for predefined business roles.
@@ -655,6 +706,7 @@ export const TaxSettingsPage = () => {
   return (
     <Layout>
       <Container maxWidth="md" sx={{ py: 4 }}>
+        <SettingsTabs />
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>Tax Settings</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           VAT and WHT configuration for Nigerian tax compliance.
@@ -701,6 +753,7 @@ export const BackupRestoreSettingsPage = () => {
   return (
     <Layout>
       <Container maxWidth="lg" sx={{ py: 4 }}>
+        <SettingsTabs />
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>Backup & Restore</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Create snapshot records and track restore points.
@@ -748,84 +801,21 @@ export const BackupRestoreSettingsPage = () => {
   );
 };
 
-export const BusinessAuditTrailPage = () => {
-  const [rows, setRows] = useState<AuditRecord[]>([]);
-  const [actionFilter, setActionFilter] = useState('ALL');
-  const [entityFilter, setEntityFilter] = useState('ALL');
-
-  useEffect(() => {
-    const load = async () => setRows(await auditOpsService.list());
-    void load();
-  }, []);
-
-  const filtered = useMemo(() => {
-    return rows.filter((row) => {
-      if (actionFilter !== 'ALL' && row.action !== actionFilter) {
-        return false;
-      }
-      if (entityFilter !== 'ALL' && row.entity !== entityFilter) {
-        return false;
-      }
-      return true;
-    });
-  }, [rows, actionFilter, entityFilter]);
-
-  const actionValues = Array.from(new Set(rows.map((row) => row.action)));
-  const entityValues = Array.from(new Set(rows.map((row) => row.entity)));
-
-  return (
-    <Layout>
-      <Container maxWidth="xl" sx={{ py: 4, overflowX: 'hidden' }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }} sx={{ mb: 3 }}>
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: 700 }}>Business Audit Trail</Typography>
-            <Typography variant="body2" color="text.secondary">Digital footprint of operational updates from PMS/POS/Settings workflows.</Typography>
-          </Box>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-            <TextField select size="small" label="Action" value={actionFilter} onChange={(event) => setActionFilter(event.target.value)} sx={{ minWidth: { sm: 170 } }} fullWidth>
-              <MenuItem value="ALL">All</MenuItem>
-              {actionValues.map((entry) => (
-                <MenuItem key={entry} value={entry}>{entry}</MenuItem>
-              ))}
-            </TextField>
-            <TextField select size="small" label="Entity" value={entityFilter} onChange={(event) => setEntityFilter(event.target.value)} sx={{ minWidth: { sm: 170 } }} fullWidth>
-              <MenuItem value="ALL">All</MenuItem>
-              {entityValues.map((entry) => (
-                <MenuItem key={entry} value={entry}>{entry}</MenuItem>
-              ))}
-            </TextField>
-            <Button variant="outlined" onClick={() => void auditOpsService.list().then(setRows)}>Refresh</Button>
-          </Stack>
-        </Stack>
-
-        <DataTable
-          rows={filtered}
-          rowKey={(row) => row.id}
-          defaultRowsPerPage={25}
-          emptyText="No audit records for selected filters."
-          columns={[
-            {
-              key: 'timestamp',
-              label: 'Timestamp',
-              minWidth: 190,
-              render: (row) => new Date(row.timestamp).toLocaleString()
-            },
-            { key: 'action', label: 'Action', minWidth: 130 },
-            { key: 'entity', label: 'Entity', minWidth: 130 },
-            { key: 'entityId', label: 'Entity ID', minWidth: 190 },
-            {
-              key: 'details',
-              label: 'Details',
-              minWidth: 280,
-              render: (row) => (
-                <Typography variant="caption" component="pre" sx={{ m: 0, whiteSpace: 'pre-wrap' }}>
-                  {JSON.stringify(row.details, null, 2)}
-                </Typography>
-              )
-            }
-          ]}
-        />
-      </Container>
-    </Layout>
-  );
-};
+export const BusinessAuditTrailPage = () => (
+  /*
+   * Replaced a flat, unpaginated list whose only controls were two dropdowns
+   * filtering whatever had already been fetched. On a property with thousands
+   * of entries, answering "who changed that price last Tuesday" meant
+   * scrolling. The viewer searches and filters server-side, pages properly,
+   * and expands each row to show what actually changed.
+   */
+  <Layout>
+    <Container maxWidth="xl" sx={{ py: 4, overflowX: 'hidden' }}>
+      <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>Business Audit Trail</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Every recorded action on this property — who did it, when, from where, and what changed.
+      </Typography>
+      <AuditTrailViewer />
+    </Container>
+  </Layout>
+);

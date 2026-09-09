@@ -30,6 +30,8 @@ import InboxIcon from '@mui/icons-material/Inbox';
 import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
+import ReplyIcon from '@mui/icons-material/ReplyRounded';
+import SendIcon from '@mui/icons-material/SendRounded';
 import { api } from '../../services/api';
 import { EmptyState, MetricCard, PageHeader } from '../../components/premium';
 
@@ -81,6 +83,12 @@ const DemoRequests = () => {
   const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<DemoRequest | null>(null);
 
+  // Reply composed here rather than in whatever mail client happened to be
+  // open, so the exchange stays attached to the enquiry.
+  const [replySubject, setReplySubject] = useState('');
+  const [replyBody, setReplyBody] = useState('');
+  const [sending, setSending] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -106,6 +114,33 @@ const DemoRequests = () => {
     setSelected(request);
     setDraftStatus(request.status);
     setDraftNotes(request.notes ?? '');
+    setReplySubject(`Re: your HotelOpX enquiry`);
+    setReplyBody('');
+  };
+
+  const sendReply = async () => {
+    if (!selected || !replyBody.trim()) {
+      return;
+    }
+
+    setSending(true);
+    try {
+      await api.post(`/admin/demo-requests/${selected.id}/reply`, {
+        subject: replySubject.trim() || undefined,
+        body: replyBody.trim()
+      });
+      setToast(`Reply sent to ${selected.email}`);
+      setReplyBody('');
+      setSelected(null);
+      await load();
+    } catch (err: unknown) {
+      const response = (err as { response?: { data?: { error?: string; message?: string } } }).response;
+      // The server refuses to record a reply it could not send, so this really
+      // does mean nothing was sent and nothing was written down.
+      setError(response?.data?.message || response?.data?.error || 'Could not send the reply');
+    } finally {
+      setSending(false);
+    }
   };
 
   const save = async () => {
@@ -297,6 +332,48 @@ const DemoRequests = () => {
 
           <Divider sx={{ mb: 2 }} />
 
+          {/* Answer the enquiry without leaving the dashboard. */}
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2.5 }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+              <ReplyIcon fontSize="small" color="primary" />
+              <Typography variant="subtitle2" fontWeight={700}>
+                Reply to {selected?.name}
+              </Typography>
+            </Stack>
+
+            <Stack spacing={2}>
+              <TextField
+                label="Subject"
+                value={replySubject}
+                onChange={(event) => setReplySubject(event.target.value)}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Message"
+                value={replyBody}
+                onChange={(event) => setReplyBody(event.target.value)}
+                fullWidth
+                multiline
+                minRows={4}
+                placeholder={`Hello ${selected?.name?.split(' ')[0] ?? ''}, thank you for getting in touch…`}
+              />
+              <Box>
+                <Button
+                  variant="contained"
+                  startIcon={<SendIcon />}
+                  onClick={() => void sendReply()}
+                  disabled={sending || !replyBody.trim()}
+                >
+                  {sending ? 'Sending…' : 'Send reply'}
+                </Button>
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+                  Sent to {selected?.email} and saved against this enquiry.
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
+
           <Stack spacing={2.5}>
             <TextField
               select
@@ -319,6 +396,7 @@ const DemoRequests = () => {
               multiline
               minRows={3}
               placeholder="Call outcome, next step, who is following up…"
+              helperText="Replies sent from here are appended automatically."
             />
           </Stack>
 

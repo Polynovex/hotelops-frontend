@@ -27,6 +27,7 @@ import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import DataTable from '../../../components/common/DataTable';
 import { Outlet, PosOrder, posService } from '../../../services/api';
+import { CardPaymentButton } from '../../../components/payments/CardPaymentButton';
 import DiscountModal, { DiscountModalItem } from '../../../components/modals/DiscountModal';
 import { CreatePosOrderSchema, createPosOrderSchema } from '../../../validation/pos.schema';
 import { useAuthStore } from '../../../store/authStore';
@@ -383,6 +384,18 @@ const PosOrdersPage = () => {
                   )}
                   {order.orderStatus === 'SENT_TO_KITCHEN' && (
                     <Button size="small" onClick={() => void completeOrder(order.id)}>Complete</Button>
+                  )}
+                  {/*
+                    Card payment is offered on any order that is not voided and
+                    not already settled — including completed ones, since a
+                    table is routinely served before it pays.
+                  */}
+                  {order.orderStatus !== 'VOIDED' && order.paymentStatus !== 'COMPLETED' && (
+                    <CardPaymentButton
+                      posOrderId={order.id}
+                      amount={order.total}
+                      onStarted={() => void load()}
+                    />
                   )}
                   {order.orderStatus !== 'VOIDED' && order.orderStatus !== 'COMPLETED' && (
                     <Button size="small" color="error" onClick={() => void voidOrder(order.id)}>Void</Button>

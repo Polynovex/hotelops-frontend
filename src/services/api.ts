@@ -1427,6 +1427,28 @@ export const superAdminService = {
     return response.data;
   },
 
+  /**
+   * Soft delete: flags the record and keeps every row, so it can be undone.
+   */
+  deleteBusiness: async (id: string) => {
+    if (isDemoMode()) {
+      return updateDemoBusiness(id, { status: 'DELETED' });
+    }
+    const response = await api.delete(`/admin/businesses/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Permanent. Cascades through every table the property owns, so the server
+   * refuses unless `confirmName` matches the business name exactly.
+   */
+  purgeBusiness: async (id: string, confirmName: string) => {
+    const response = await api.delete(`/admin/businesses/${id}/purge`, {
+      data: { confirmName }
+    });
+    return response.data;
+  },
+
   listPlans: async (): Promise<PlanSummary[]> => {
     if (isDemoMode()) {
       return demoPlans;
