@@ -307,7 +307,7 @@ const PayrollPage = () => {
                   component="img"
                   src="/logo.png"
                   alt="HotelOpX"
-                  sx={{ height: 44, maxWidth: 140, objectFit: 'contain' }}
+                  sx={{ height: 44, maxWidth: 160, objectFit: 'contain' }}
                 />
               </Stack>
 

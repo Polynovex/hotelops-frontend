@@ -166,8 +166,40 @@ export const hrService = {
     return data as StaffMember;
   },
 
+  /**
+   * Marks a staff member TERMINATED. Their record and history are kept —
+   * attendance, payslips and shift history all still resolve — so this is a
+   * status change, not an erasure.
+   */
   async terminateStaff(id: string) {
     const { data } = await api.delete(`/hr/staff/${id}`);
+    return data;
+  },
+
+  /** Puts a terminated staff member back on the active roster. */
+  async reinstateStaff(id: string) {
+    const { data } = await api.put(`/hr/staff/${id}`, { status: 'ACTIVE' });
+    return data as StaffMember;
+  },
+
+  /**
+   * Takes away the ability to sign in, keeping the staff record.
+   *
+   * The user row is deactivated and unlinked rather than deleted, so audit
+   * logs, shifts and orders they touched still resolve to a person.
+   */
+  async revokeStaffAccess(id: string) {
+    const { data } = await api.delete(`/hr/staff/${id}/account`);
+    return data;
+  },
+
+  /**
+   * Gives platform access back — used both for a new account and to undo a
+   * revocation, since the server reclaims the dormant user rather than
+   * creating a second identity for the same person.
+   */
+  async grantStaffAccess(id: string, payload: { email: string; accessLevel: string; role?: string }) {
+    const { data } = await api.post(`/hr/staff/${id}/account`, payload);
     return data;
   },
 

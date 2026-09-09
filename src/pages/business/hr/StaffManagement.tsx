@@ -31,6 +31,7 @@ import Autocomplete from '@mui/material/Autocomplete';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import PersonOffIcon from '@mui/icons-material/PersonOff';
+import PersonAddIcon from '@mui/icons-material/PersonAddAlt1';
 import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
 import KeyIcon from '@mui/icons-material/VpnKey';
@@ -164,6 +165,16 @@ const StaffManagement = () => {
     setEditing(null);
     setForm(emptyForm);
     setDialogOpen(true);
+  };
+
+  const reinstate = async (member: StaffMember) => {
+    try {
+      await hrService.reinstateStaff(member.id);
+      setToast(`${member.firstName} ${member.lastName} is back on the roster`);
+      await load();
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? 'Could not reinstate this staff member');
+    }
   };
 
   const openEdit = (member: StaffMember) => {
@@ -441,9 +452,22 @@ const StaffManagement = () => {
                           label: 'Terminate',
                           icon: <PersonOffIcon fontSize="small" />,
                           destructive: true,
-                          disabled: member.status === 'TERMINATED',
-                          disabledReason: 'Already terminated',
+                          hidden: member.status === 'TERMINATED',
                           onClick: () => setPendingTerminate(member)
+                        },
+                        {
+                          /*
+                           * The way back from a termination made in error.
+                           * Terminating is a status change, not an erasure, so
+                           * the record and its history are still here to be put
+                           * back on the roster — but there was no action that
+                           * did it, and the only route out was the database.
+                           */
+                          key: 'reinstate',
+                          label: 'Reinstate',
+                          icon: <PersonAddIcon fontSize="small" />,
+                          hidden: member.status !== 'TERMINATED',
+                          onClick: () => void reinstate(member)
                         }
                       ]}
                     />

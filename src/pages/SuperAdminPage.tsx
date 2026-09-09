@@ -43,6 +43,7 @@ import {
   SystemAuditEntry,
   SystemMetrics
 } from '../services/api';
+import { BusinessActionsMenu } from './super-admin/BusinessActionsMenu';
 
 const defaultMetrics: SystemMetrics = {
   totalBusinesses: 0,
@@ -310,6 +311,33 @@ const SuperAdminPage: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeleteBusiness = async (business: BusinessSummary) => {
+    setSaving(true);
+    try {
+      await superAdminService.deleteBusiness(business.id);
+      updateBusinessLocally(business.id, { status: 'DELETED' });
+      enqueueSnackbar(`${business.name} deleted. The record is kept and can be restored.`, {
+        variant: 'warning'
+      });
+    } catch (err: unknown) {
+      enqueueSnackbar(err instanceof Error ? err.message : 'Delete failed', { variant: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /**
+   * Throws on failure rather than swallowing it: the dialog stays open and
+   * shows why, instead of closing as though the business had been removed.
+   */
+  const handlePurgeBusiness = async (business: BusinessSummary, confirmName: string) => {
+    await superAdminService.purgeBusiness(business.id, confirmName);
+    setBusinesses((rows) => rows.filter((row) => row.id !== business.id));
+    enqueueSnackbar(`${business.name} and all of its data have been deleted`, {
+      variant: 'success'
+    });
   };
 
   const handleCreateBusiness = async () => {
@@ -611,24 +639,19 @@ const SuperAdminPage: React.FC = () => {
             },
             {
               key: 'actions',
-              label: 'Actions',
-              minWidth: 280,
+              label: '',
+              // One icon instead of a 280px column of buttons that grew with
+              // every action added and still had no room for delete.
+              minWidth: 56,
+              align: 'right' as const,
               render: (business) => (
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<SettingsIcon />}
-                    onClick={() => void openManageModules(business)}
-                  >
-                    Manage Modules
-                  </Button>
-                  <Button size="small" onClick={() => void handleStatusChange(business)}>
-                    {business.status === 'ACTIVE' || business.status === 'TRIAL'
-                      ? 'Suspend'
-                      : 'Activate'}
-                  </Button>
-                </Stack>
+                <BusinessActionsMenu
+                  business={business}
+                  onManageModules={() => void openManageModules(business)}
+                  onToggleStatus={() => handleStatusChange(business)}
+                  onDelete={() => handleDeleteBusiness(business)}
+                  onPurge={(confirmName) => handlePurgeBusiness(business, confirmName)}
+                />
               )
             }
           ]}

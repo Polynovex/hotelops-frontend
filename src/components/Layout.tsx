@@ -53,6 +53,7 @@ import {
   BusinessCenter as BusinessIcon,
   PersonAdd as UserIcon,
   History as AuditIcon,
+  Block as BlockIcon,
   History as HistoryIcon,
   FactCheck as KdsIcon,
   Logout as LogoutIcon,
@@ -81,6 +82,7 @@ import { useNotificationStore } from '../store/notificationStore';
 import { usePermissionStore } from '../store/permissionStore';
 import TenantLogo from './branding/TenantLogo';
 import { getApiErrorMessage } from '../utils/apiError';
+import { AlertSoundToggle } from './AlertSoundToggle';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -132,14 +134,31 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Data Import', icon: BusinessIcon, path: '/super-admin/data-import' },
     { label: 'Package Configuration', icon: WorkspacePremium, path: '/super-admin/plans' },
     { label: 'System Stats', icon: AssessmentIcon, path: '/super-admin/stats' },
+    { label: 'Blocked Emails', icon: BlockIcon, path: '/super-admin/email-suppressions' },
     { label: 'Audit Log', icon: AuditIcon, path: '/super-admin/audit' }
   ],
   BUSINESS_ADMIN: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/business/dashboard' },
     { label: 'Staff', icon: UserIcon, path: '/business/users' },
     { label: 'Roles & Permissions', icon: LockOutlined, path: '/business/permissions' },
-    { label: 'Room Types', icon: HotelIcon, path: '/business/room-types', module: 'pms' },
-    { label: 'Rooms', icon: RoomIcon, path: '/business/rooms', module: 'pms' },
+    /**
+     * One heading, two related screens.
+     *
+     * These sat side by side as peers and read as duplicates. They are not:
+     * a room type is the template — what a Deluxe is, what it holds and what
+     * it costs — and a room is the physical inventory, 201 and 202, each of a
+     * type. You set the types up once and add rooms against them, so they
+     * belong under one heading in that order.
+     */
+    {
+      label: 'Rooms',
+      icon: RoomIcon,
+      module: 'pms',
+      children: [
+        { label: 'Room Types', icon: HotelIcon, path: '/business/room-types', module: 'pms' },
+        { label: 'All Rooms', icon: RoomIcon, path: '/business/rooms', module: 'pms' }
+      ]
+    },
     { label: 'Menu Configuration', icon: MenuBookIcon, path: '/business/menu', module: 'pos' },
     { label: 'QR Ordering', icon: PosIcon, path: '/business/pos/qr-codes', module: 'pos' },
     { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
@@ -825,6 +844,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               {isDark ? <LightModeRounded /> : <DarkModeRounded />}
             </IconButton>
           </Tooltip>
+
+          {/* Beside the bell, where someone silencing alerts would look. */}
+          <Box sx={{ mr: 0.5 }}>
+            <AlertSoundToggle />
+          </Box>
 
           <IconButton
             color="inherit"

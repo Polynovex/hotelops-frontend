@@ -7,30 +7,18 @@ import { useWebSocket } from '../../../hooks/useWebSocket';
  * try/catch because browsers block audio until the user has interacted with
  * the page — a silent failure is correct here, not an error.
  */
+/**
+ * Sounds the arrival of an order.
+ *
+ * This used to build a fresh AudioContext for every order and never close it.
+ * Browsers cap how many a page may hold, so after a handful of orders the
+ * constructor throws and the kitchen simply stops being told — silently, and
+ * at exactly the point in a service when it matters most. The shared chime
+ * keeps one context for the life of the page and releases each node as it
+ * finishes.
+ */
 const notifyKitchen = () => {
-  try {
-    const AudioCtx =
-      window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) {
-      return;
-    }
-
-    const context = new AudioCtx();
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, context.currentTime);
-    gain.gain.setValueAtTime(0.12, context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.4);
-
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start();
-    oscillator.stop(context.currentTime + 0.4);
-  } catch {
-    // Autoplay blocked or Web Audio unavailable — the visual toast still fires.
-  }
+  playChime('order');
 
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
     navigator.vibrate?.(200);
@@ -56,6 +44,7 @@ import { useSnackbar } from 'notistack';
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import { Outlet, PosOrder, posService } from '../../../services/api';
+import { playChime } from '../../../utils/alertChime';
 
 const KdsPage = () => {
   const { enqueueSnackbar } = useSnackbar();

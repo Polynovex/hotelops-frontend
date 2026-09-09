@@ -447,8 +447,17 @@ export const PosMenuManagementPage = () => {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [kitchenStation, setKitchenStation] = useState('');
-  const [price, setPrice] = useState(0);
-  const [cost, setCost] = useState(0);
+  /**
+   * Held as text, not as a number.
+   *
+   * These were numbers initialised to 0, and the change handler ran the input
+   * through Number(). Clearing the field gives an empty string, Number('')
+   * is 0, so the zero reappeared the moment you deleted it — you could never
+   * empty the box, and every price had to be typed around a leading zero.
+   * The value is converted once, on submit.
+   */
+  const [price, setPrice] = useState('');
+  const [cost, setCost] = useState('');
 
   const [newCategory, setNewCategory] = useState('');
   const [newStation, setNewStation] = useState('');
@@ -517,8 +526,10 @@ export const PosMenuManagementPage = () => {
         name: name.trim(),
         category,
         kitchenStation,
-        price,
-        cost,
+        // Converted here, once: an empty box means nothing was entered, which
+        // is zero, rather than a number the form had to keep re-asserting.
+        price: Number(price) || 0,
+        cost: Number(cost) || 0,
         isActive: true,
         isAvailable: true
       });
@@ -526,8 +537,8 @@ export const PosMenuManagementPage = () => {
       setToast(`${name.trim()} added to the menu`);
       setSku('');
       setName('');
-      setPrice(0);
-      setCost(0);
+      setPrice('');
+      setCost('');
       await load();
     } catch (err) {
       // A duplicate SKU is the common case here and the server names it.
@@ -670,10 +681,27 @@ export const PosMenuManagementPage = () => {
                     </TextField>
                   </Grid>
                   <Grid item xs={6} sm={3} lg={2}>
-                    <TextField label="Price" type="number" value={price} onChange={(event) => setPrice(Number(event.target.value))} fullWidth />
+                    <TextField
+                      label="Price"
+                      type="number"
+                      value={price}
+                      onChange={(event) => setPrice(event.target.value)}
+                      placeholder="0"
+                      inputProps={{ min: 0, step: '0.01', inputMode: 'decimal' }}
+                      fullWidth
+                    />
                   </Grid>
                   <Grid item xs={6} sm={3} lg={2}>
-                    <TextField label="Cost" type="number" value={cost} onChange={(event) => setCost(Number(event.target.value))} fullWidth />
+                    <TextField
+                      label="Cost"
+                      type="number"
+                      value={cost}
+                      onChange={(event) => setCost(event.target.value)}
+                      placeholder="0"
+                      inputProps={{ min: 0, step: '0.01', inputMode: 'decimal' }}
+                      helperText="What it costs you to make. Used for margin reporting."
+                      fullWidth
+                    />
                   </Grid>
                   <Grid item xs={12} lg={2}>
                     <Button

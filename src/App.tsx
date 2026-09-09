@@ -13,6 +13,7 @@ import PromotionsAdminPage from './pages/business/PromotionsAdmin';
 import AnomaliesPage from './pages/business/AnomaliesPage';
 import DashboardPage from './pages/DashboardPage';
 import SuperAdminPage from './pages/SuperAdminPage';
+import PaymentReturnPage from './pages/PaymentReturn';
 import PosOrdersPage from './pages/business/pos/PosOrdersPage';
 import KdsPage from './pages/business/pos/KdsPage';
 import PlansPage from './pages/super-admin/PlansPage';
@@ -118,6 +119,7 @@ import FinanceDashboard from './pages/roles/FinanceDashboard';
 import HousekeepingDashboard from './pages/roles/HousekeepingDashboard';
 import BlogPostsPage from './pages/super-admin/BlogPosts';
 import PlatformMetricsPage from './pages/super-admin/PlatformMetrics';
+import EmailSuppressionsPage from './pages/super-admin/EmailSuppressions';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -367,6 +369,14 @@ function App() {
           <BrowserRouter>
             <DesktopOfflineIndicator />
             <Routes>
+              {/*
+                Where a payment provider returns the payer. Unauthenticated,
+                because a guest paying for a table order has no account — and
+                the page only reports what the server confirms with the
+                provider, so it decides nothing itself.
+              */}
+              <Route path="/payment/return" element={<PaymentReturnPage />} />
+
               {/* Public QR ordering — intentionally unauthenticated */}
               <Route path="/order/:code" element={<PublicOrderPage />} />
 
@@ -466,6 +476,15 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
                     <DemoRequestsPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/super-admin/email-suppressions"
+                element={
+                  <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                    <EmailSuppressionsPage />
                   </ProtectedRoute>
                 }
               />

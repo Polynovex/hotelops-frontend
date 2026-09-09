@@ -8,12 +8,14 @@ import LockRounded from '@mui/icons-material/LockRounded';
 import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
 import { api } from '../../../services/api';
 import { getApiErrorMessage } from '../../../utils/apiError';
+import { SettingsTabs } from './SettingsTabs';
 
 interface Gateway {
   provider: 'PAYSTACK' | 'FLUTTERWAVE';
   publicKey: string | null;
   /** Whether a secret is stored. The key itself is never sent to the client. */
   hasSecretKey: boolean;
+  hasWebhookSecret: boolean;
   environment: 'TEST' | 'LIVE';
   isActive: boolean;
   updatedAt: string | null;
@@ -47,7 +49,9 @@ const LABELS: Record<Gateway['provider'], { name: string; publicHint: string; se
  */
 const PaymentGatewaysSettingsPage = () => {
   const [gateways, setGateways] = useState<Gateway[]>([]);
-  const [drafts, setDrafts] = useState<Record<string, { publicKey: string; secretKey: string; environment: string }>>({});
+  const [drafts, setDrafts] = useState<
+    Record<string, { publicKey: string; secretKey: string; webhookSecret: string; environment: string }>
+  >({});
   const [loading, setLoading] = useState(true);
   const [savingProvider, setSavingProvider] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -66,7 +70,12 @@ const PaymentGatewaysSettingsPage = () => {
             // The secret field always starts empty: there is nothing to
             // prefill it with, and an empty submission leaves the stored key
             // untouched rather than clearing it.
-            { publicKey: g.publicKey ?? '', secretKey: '', environment: g.environment }
+            {
+              publicKey: g.publicKey ?? '',
+              secretKey: '',
+              webhookSecret: '',
+              environment: g.environment
+            }
           ])
         )
       );
@@ -89,6 +98,7 @@ const PaymentGatewaysSettingsPage = () => {
       await api.put(`/payments/gateways/${gateway.provider}`, {
         publicKey: draft.publicKey,
         secretKey: draft.secretKey,
+        webhookSecret: draft.webhookSecret,
         environment: draft.environment,
         ...overrides
       });
@@ -104,6 +114,7 @@ const PaymentGatewaysSettingsPage = () => {
   return (
     <Layout>
       <Container maxWidth="md" sx={{ py: 4 }}>
+        <SettingsTabs />
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
           Payment gateways
         </Typography>
@@ -214,6 +225,39 @@ const PaymentGatewaysSettingsPage = () => {
                       }
                       autoComplete="off"
                     />
+
+                    {/*
+                      Flutterwave only. It does not sign its webhooks — it
+                      echoes back a "secret hash" set in its own dashboard —
+                      so that value has to be stored here to verify a delivery.
+                      Paystack signs with the secret key above and needs
+                      nothing extra.
+                    */}
+                    {gateway.provider === 'FLUTTERWAVE' && (
+                      <TextField
+                        fullWidth
+                        type="password"
+                        label={
+                          gateway.hasWebhookSecret
+                            ? 'Replace webhook secret hash'
+                            : 'Webhook secret hash'
+                        }
+                        value={draft.webhookSecret}
+                        onChange={(e) =>
+                          setDrafts({
+                            ...drafts,
+                            [gateway.provider]: { ...draft, webhookSecret: e.target.value }
+                          })
+                        }
+                        placeholder={gateway.hasWebhookSecret ? '•••••••••• (unchanged)' : ''}
+                        helperText={
+                          gateway.hasWebhookSecret
+                            ? 'A secret hash is already stored. Leave blank to keep it.'
+                            : 'From Flutterwave → Settings → Webhooks. Leave blank to use the secret key above, and set the same value in Flutterwave.'
+                        }
+                        autoComplete="off"
+                      />
+                    )}
 
                     <TextField
                       select

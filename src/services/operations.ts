@@ -1958,6 +1958,16 @@ export const settingsOpsService = {
     return user;
   },
 
+  /**
+   * Removes a person from the platform: their access is revoked and their HR
+   * record is terminated. The user row itself is kept so audit logs, shifts
+   * and orders still resolve to a person — reversible from the HR screen.
+   */
+  async removeUser(userId: string) {
+    const { data } = await api.post(`/users/${userId}/remove`);
+    return data;
+  },
+
   async toggleUserActive(userId: string): Promise<SettingUserRecord | null> {
     const store = getSettingsStore();
     const index = store.users.findIndex((user) => user.id === userId);
@@ -2134,26 +2144,90 @@ export interface AuditRecord {
   entity: string;
   entityId: string;
   details: Record<string, unknown>;
+  /** Who did it, resolved server-side. */
+  userName?: string;
+  userRole?: string;
+  /** Where from — present on most entries, absent on a few older ones. */
+  ipAddress?: string;
+}
+
+/** Normalises one server row into the shape the viewer renders. */
+const mapAuditRow = (row: Record<string, unknown>): AuditRecord => {
+  const actor = row.user as
+    | { firstName?: string; lastName?: string; email?: string; role?: string }
+    | undefined;
+
+  return {
+    id: String(row.id || makeId('audit')),
+    timestamp: String(row.createdAt || row.timestamp || new Date().toISOString()),
+    action: String(row.action || 'UNKNOWN'),
+    entity: String(row.entity || 'UNKNOWN'),
+    entityId: String(row.entityId || ''),
+    details: (row.changes as Record<string, unknown>) || {},
+    userName: actor
+      ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim() || actor.email || 'Unknown'
+      : undefined,
+    userRole: actor?.role,
+    ipAddress: row.ipAddress ? String(row.ipAddress) : undefined
+  };
+};
+
+export interface AuditQuery {
+  q?: string;
+  action?: string;
+  entity?: string;
+  userId?: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AuditPage {
+  items: AuditRecord[];
+  total: number;
+  /** Actions and entities this property has actually recorded. */
+  facets: { actions: string[]; entities: string[] };
 }
 
 export const auditOpsService = {
-  async list(): Promise<AuditRecord[]> {
+  /**
+   * One page of the audit trail, filtered.
+   *
+   * Returns the total and the available filter values alongside the rows, so
+   * the viewer can say "37 of 4,182" and offer only the actions this property
+   * has really performed rather than a hardcoded list that drifts from the
+   * controllers.
+   */
+  async search(query: AuditQuery = {}): Promise<AuditPage> {
     if (!isDemoMode()) {
       try {
-        const response = await api.get('/audit/logs');
-        return toArray<Record<string, unknown>>(response.data).map((row) => ({
-          id: String(row.id || makeId('audit')),
-          timestamp: String(row.createdAt || row.timestamp || new Date().toISOString()),
-          action: String(row.action || 'UNKNOWN'),
-          entity: String(row.entity || 'UNKNOWN'),
-          entityId: String(row.entityId || ''),
-          details: (row.changes as Record<string, unknown>) || {}
-        }));
+        const response = await api.get('/audit/logs', { params: query });
+        const payload = response.data as {
+          items?: unknown[];
+          total?: number;
+          facets?: { actions?: string[]; entities?: string[] };
+        };
+
+        return {
+          items: toArray<Record<string, unknown>>(response.data).map(mapAuditRow),
+          total: Number(payload?.total ?? 0),
+          facets: {
+            actions: payload?.facets?.actions ?? [],
+            entities: payload?.facets?.entities ?? []
+          }
+        };
       } catch (_error) {
-        // Fall back to local audit cache.
+        // Fall back to the local audit cache below.
       }
     }
 
-    return getStore<AuditRecord[]>(AUDIT_KEY, []);
+    const cached = getStore<AuditRecord[]>(AUDIT_KEY, []);
+    return { items: cached, total: cached.length, facets: { actions: [], entities: [] } };
+  },
+
+  async list(): Promise<AuditRecord[]> {
+    const page = await this.search();
+    return page.items;
   }
 };
