@@ -14,6 +14,8 @@ import AnomaliesPage from './pages/business/AnomaliesPage';
 import DashboardPage from './pages/DashboardPage';
 import SuperAdminPage from './pages/SuperAdminPage';
 import PaymentReturnPage from './pages/PaymentReturn';
+import SupportPortalPage from './pages/support/SupportPortal';
+import LiveLogsPage from './pages/super-admin/LiveLogs';
 import PosOrdersPage from './pages/business/pos/PosOrdersPage';
 import KdsPage from './pages/business/pos/KdsPage';
 import PlansPage from './pages/super-admin/PlansPage';
@@ -476,6 +478,34 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
                     <DemoRequestsPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/*
+                The support desk. Open to operations and admin roles rather
+                than super admin alone — the people answering the phone are
+                usually not the people who can delete a business.
+              */}
+              <Route
+                path="/support"
+                element={
+                  <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'BUSINESS_ADMIN', 'MANAGER']}>
+                    <SupportPortalPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/*
+                Application logs span every tenant, so this is the one screen a
+                business admin must not reach — it would show another
+                property's activity.
+              */}
+              <Route
+                path="/super-admin/logs"
+                element={
+                  <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                    <LiveLogsPage />
                   </ProtectedRoute>
                 }
               />

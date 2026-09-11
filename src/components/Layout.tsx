@@ -54,6 +54,8 @@ import {
   PersonAdd as UserIcon,
   History as AuditIcon,
   Block as BlockIcon,
+  SupportAgent as SupportIcon,
+  Terminal as LogsIcon,
   History as HistoryIcon,
   FactCheck as KdsIcon,
   Logout as LogoutIcon,
@@ -135,6 +137,8 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Package Configuration', icon: WorkspacePremium, path: '/super-admin/plans' },
     { label: 'System Stats', icon: AssessmentIcon, path: '/super-admin/stats' },
     { label: 'Blocked Emails', icon: BlockIcon, path: '/super-admin/email-suppressions' },
+    { label: 'Support Desk', icon: SupportIcon, path: '/support' },
+    { label: 'Live Logs', icon: LogsIcon, path: '/super-admin/logs' },
     { label: 'Audit Log', icon: AuditIcon, path: '/super-admin/audit' }
   ],
   BUSINESS_ADMIN: [
