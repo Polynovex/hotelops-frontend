@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  AlertTitle,
   Box,
   Button,
   Card,
@@ -89,6 +90,20 @@ const SuperAdminPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
+  /**
+   * Credentials to hand over when the welcome email did not send.
+   *
+   * Held in state rather than shown in a toast: this is the only place these
+   * details exist outside the database, and a message that vanishes on a timer
+   * would strand the property.
+   */
+  const [emailFallback, setEmailFallback] = useState<{
+    businessName: string;
+    email: string;
+    password: string;
+    userCode?: string;
+    reason?: string;
+  } | null>(null);
 
   const [businesses, setBusinesses] = useState<BusinessSummary[]>([]);
   const [plans, setPlans] = useState<PlanSummary[]>([]);
@@ -391,15 +406,34 @@ const SuperAdminPage: React.FC = () => {
         adminFirstName: 'Business',
         adminLastName: 'Admin'
       });
-      // Surface the generated sign-in code — it is not shown anywhere else, and
-      // the welcome email may not arrive if SES is not yet configured.
-      const generatedCode = (created as { adminUser?: { userCode?: string } })?.adminUser?.userCode;
-      enqueueSnackbar(
-        generatedCode
-          ? `Business created. Admin sign-in code: ${generatedCode}`
-          : 'Business created and admin credentials prepared.',
-        { variant: 'success', autoHideDuration: 12000 }
-      );
+      const generatedCode = created?.adminUser?.userCode;
+
+      /*
+       * Whether the owner was actually told is the thing worth reporting.
+       *
+       * A business can be created perfectly while the email carrying the first
+       * password fails, and that combination is worse than an outright error:
+       * the property exists, looks finished, and nobody can sign in to it. So
+       * a failed send is shown as a warning that stays on screen with the
+       * credentials to pass on by hand, rather than a success toast that
+       * disappears in four seconds.
+       */
+      if (created?.welcomeEmailSent === false) {
+        setEmailFallback({
+          businessName: created.name,
+          email: created.adminUser?.email ?? payload.email,
+          password: created.temporaryPassword ?? payload.adminPassword ?? '',
+          userCode: generatedCode,
+          reason: created.welcomeEmailError
+        });
+      } else {
+        enqueueSnackbar(
+          generatedCode
+            ? `Business created and the owner emailed. Sign-in code: ${generatedCode}`
+            : 'Business created and the owner emailed.',
+          { variant: 'success', autoHideDuration: 12000 }
+        );
+      }
     } catch (err: unknown) {
       // The server now names the actual cause (duplicate email, taken sign-in
       // code, missing plan). Prefer that over the axios message, which is
@@ -422,6 +456,66 @@ const SuperAdminPage: React.FC = () => {
   return (
     <Layout>
       <Container maxWidth={false} sx={{ py: 4, overflowX: 'hidden' }}>
+        {/*
+          Shown until dismissed, because dismissing it is the admin confirming
+          they have passed the credentials on. There is no second chance to
+          read this password.
+        */}
+        {emailFallback && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 3 }}
+            onClose={() => setEmailFallback(null)}
+            action={
+              <Button
+                size="small"
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(
+                      [
+                        `HotelOpX sign-in for ${emailFallback.businessName}`,
+                        `Email: ${emailFallback.email}`,
+                        `Temporary password: ${emailFallback.password}`,
+                        emailFallback.userCode ? `Sign-in code: ${emailFallback.userCode}` : '',
+                        'Sign in at https://app.hotelopx.com — you will be asked to change the password.'
+                      ]
+                        .filter(Boolean)
+                        .join('\n')
+                    )
+                    .catch(() => undefined);
+                }}
+              >
+                Copy
+              </Button>
+            }
+          >
+            <AlertTitle>
+              {emailFallback.businessName} was created, but the welcome email did not send
+            </AlertTitle>
+            Send these to the owner yourself — they are not stored anywhere you can read again.
+            <Box
+              component="dl"
+              sx={{ my: 1, '& dt': { fontWeight: 600, fontSize: 13 }, '& dd': { m: 0, mb: 1, fontFamily: 'monospace' } }}
+            >
+              <dt>Email</dt>
+              <dd>{emailFallback.email}</dd>
+              <dt>Temporary password</dt>
+              <dd>{emailFallback.password || '(the one you entered)'}</dd>
+              {emailFallback.userCode && (
+                <>
+                  <dt>Sign-in code</dt>
+                  <dd>{emailFallback.userCode}</dd>
+                </>
+              )}
+            </Box>
+            {emailFallback.reason && (
+              <Typography variant="caption" color="text.secondary">
+                Reason: {emailFallback.reason}
+              </Typography>
+            )}
+          </Alert>
+        )}
+
         <Box
           sx={{
             mb: 4,

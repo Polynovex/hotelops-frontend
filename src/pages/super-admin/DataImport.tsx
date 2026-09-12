@@ -41,6 +41,8 @@ import {
   type TargetField
 } from '../../services/migration.service';
 import { EmptyState, PageHeader } from '../../components/premium';
+import { MigrationTemplates } from '../../components/migration/MigrationTemplates';
+import { PreflightResult, preflightFile } from '../../services/migration.service';
 
 const STEPS = ['Choose file', 'Map columns', 'Review', 'Import'];
 
@@ -53,6 +55,8 @@ const STEPS = ['Choose file', 'Map columns', 'Review', 'Import'];
  * was reviewed.
  */
 const DataImport = () => {
+  // What the local checks found about the chosen file, before anything is sent.
+  const [preflight, setPreflight] = useState<PreflightResult | null>(null);
   const [step, setStep] = useState(0);
   const [entity, setEntity] = useState<MigrationEntity>('GUEST');
   const [hotelId, setHotelId] = useState('');
@@ -92,6 +96,19 @@ const DataImport = () => {
     setBusy(true);
     setError('');
     try {
+      /*
+       * Checked locally first. The server validates too, but uploading twenty
+       * thousand rows to be told the header row is wrong wastes the operator's
+       * time and the connection — and the mistakes that stop an import are
+       * almost always visible without leaving the browser.
+       */
+      const checks = await preflightFile(file, schema);
+      setPreflight(checks);
+      if (!checks.ok) {
+        setError(checks.errors[0]);
+        return;
+      }
+
       const parsed = await parseCsv(file);
       if (parsed.length === 0) {
         setError('That file has no data rows.');
@@ -244,6 +261,10 @@ const DataImport = () => {
             </Grid>
           </Grid>
 
+          {/* Offered before the upload, because a file built from the template
+              is the one case that reliably imports first time. */}
+          <MigrationTemplates />
+
           <Button
             component="label"
             variant="contained"
@@ -262,6 +283,29 @@ const DataImport = () => {
               }}
             />
           </Button>
+          {/*
+            What the local checks found. Warnings are shown even on success:
+            an unrecognised column still imports, but only after someone maps
+            it by hand, and it is better to know that now than at step two.
+          */}
+          {preflight && (
+            <Box sx={{ mt: 2 }}>
+              {preflight.ok && (
+                <Alert severity="success" sx={{ mb: 1 }}>
+                  <strong>{preflight.fileName}</strong> — {preflight.rowCount.toLocaleString()} row
+                  {preflight.rowCount === 1 ? '' : 's'}, {preflight.columns.length} columns, every
+                  required column present.
+                </Alert>
+              )}
+              {preflight.errors.map((message) => (
+                <Alert severity="error" key={message} sx={{ mb: 1 }}>{message}</Alert>
+              ))}
+              {preflight.warnings.map((message) => (
+                <Alert severity="warning" key={message} sx={{ mb: 1 }}>{message}</Alert>
+              ))}
+            </Box>
+          )}
+
           {!hotelId && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
               Select a business first.

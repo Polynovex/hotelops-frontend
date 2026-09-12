@@ -1282,7 +1282,25 @@ export const superAdminService = {
     return asArray<BusinessSummary>(unwrapData<unknown>(response.data));
   },
 
-  createBusiness: async (data: CreateBusinessPayload): Promise<BusinessSummary> => {
+  /**
+   * The created business, plus whether its owner was actually told about it.
+   *
+   * `welcomeEmailSent` is the field that matters. A business can be created
+   * perfectly while the email carrying the owner's first password fails, and
+   * for some time that failure was invisible — properties were set up that
+   * nobody could sign in to. When it is false the server also returns the
+   * temporary password so it can be passed on by hand.
+   */
+  createBusiness: async (
+    data: CreateBusinessPayload
+  ): Promise<
+    BusinessSummary & {
+      welcomeEmailSent?: boolean;
+      welcomeEmailError?: string;
+      temporaryPassword?: string;
+      adminUser?: { id: string; email: string; userCode?: string };
+    }
+  > => {
     if (isDemoMode()) {
       const created: BusinessSummary = {
         id: `demo-${Date.now()}`,
