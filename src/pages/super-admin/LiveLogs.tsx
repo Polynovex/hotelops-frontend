@@ -12,6 +12,7 @@ import ExpandLessRounded from '@mui/icons-material/ExpandLessRounded';
 import Layout from '../../components/Layout';
 import { EmptyState, PageHeader } from '../../components/premium';
 import { api } from '../../services/api';
+import { LogMetrics, LogMetricsData } from '../../components/logs/LogMetrics';
 
 /**
  * The application's own logs, for a super admin during an incident.
@@ -61,6 +62,7 @@ export default function LiveLogs() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [meta, setMeta] = useState<{ logGroup?: string; truncated?: boolean }>({});
+  const [metrics, setMetrics] = useState<LogMetricsData | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [copied, setCopied] = useState('');
 
@@ -75,18 +77,26 @@ export default function LiveLogs() {
       const endDate = new Date();
       const startDate = new Date(endDate.getTime() - window * 60 * 1000);
 
-      const { data } = await api.get('/admin/logs', {
-        params: {
-          level: lvl || undefined,
-          search: term || undefined,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          limit: 200
-        }
-      });
+      const range = { startDate: startDate.toISOString(), endDate: endDate.toISOString() };
 
+      /*
+       * Rows and metrics in parallel. Metrics ignore the level and search
+       * filters on purpose: the charts answer "how is the system", and a view
+       * filtered to WARN would show a healthy error chart during an outage.
+       * A metrics failure must not blank the table, so each settles on its own.
+       */
+      const [rows, stats] = await Promise.allSettled([
+        api.get('/admin/logs', {
+          params: { level: lvl || undefined, search: term || undefined, ...range, limit: 200 }
+        }),
+        api.get('/admin/logs/metrics', { params: range })
+      ]);
+
+      if (rows.status === 'rejected') throw rows.reason;
+      const { data } = rows.value;
       setItems(data.items ?? []);
       setMeta({ logGroup: data.logGroup, truncated: data.truncated });
+      setMetrics(stats.status === 'fulfilled' ? stats.value.data : null);
     } catch (err: any) {
       setError(
         err?.response?.data?.message ??
@@ -213,6 +223,8 @@ export default function LiveLogs() {
             ))}
           </Stack>
         </Paper>
+
+        {metrics && <LogMetrics data={metrics} />}
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {copied && <Alert severity="success" sx={{ mb: 2 }}>{copied} copied.</Alert>}
