@@ -16,6 +16,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import mfaService, { type MfaSetupResponse } from '../../services/mfa.service';
 import { useAuthStore } from '../../store/authStore';
+import { landingPathForRole } from '../../utils/roleLanding';
 
 const errorMessage = (err: unknown, fallback: string) =>
   (err as { response?: { data?: { message?: string; error?: string } } }).response?.data?.message
@@ -42,6 +43,10 @@ const MfaSetupPage = () => {
   const [copied, setCopied] = useState(false);
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
+  const [alreadyEnabled, setAlreadyEnabled] = useState(false);
+  const setUser = useAuthStore((state) => state.setUser);
+  const home = landingPathForRole(user?.role);
+  const isRequired = user?.role === 'SUPER_ADMIN';
 
   const begin = useCallback(async () => {
     setLoading(true);
@@ -49,6 +54,14 @@ const MfaSetupPage = () => {
       setSetup(await mfaService.setup());
       setError('');
     } catch (err) {
+      // Already on: the server now refuses rather than silently re-enrolling,
+      // which used to wipe a working authenticator.
+      const code = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      if (code === 'MFA_ALREADY_ENABLED') {
+        setAlreadyEnabled(true);
+        setUser({ mfaEnabled: true });
+        return;
+      }
       setError(errorMessage(err, 'Could not start two-factor setup'));
     } finally {
       setLoading(false);
@@ -82,10 +95,25 @@ const MfaSetupPage = () => {
     setError('');
     try {
       const result = await mfaService.verify(code.trim());
+
+      /*
+       * Swap in the token the server issued for the enrolled account.
+       *
+       * This was the onboarding loop. The server gates on `mfaEnabled` inside
+       * the access token, and this page never stored the replacement — so the
+       * next request carried the old `mfaEnabled: false` token, came back 403,
+       * and the API client sent the browser straight back here. Updating the
+       * user record too keeps Security settings from still showing "Off".
+       */
+      if (result.accessToken) {
+        useAuthStore.setState({ token: result.accessToken });
+      }
+      setUser({ mfaEnabled: true });
+
       if (result.recoveryCodes?.length) {
         setRecoveryCodes(result.recoveryCodes);
       } else {
-        navigate('/business/dashboard');
+        navigate(home, { replace: true });
       }
     } catch (err) {
       setError(errorMessage(err, 'That code was not accepted. Try the next one.'));
@@ -138,13 +166,38 @@ const MfaSetupPage = () => {
               variant="contained"
               size="large"
               disabled={!acknowledged}
-              onClick={() => navigate('/business/dashboard')}
+              onClick={() => navigate(home, { replace: true })}
             >
               Continue
             </Button>
             <Button size="small" onClick={() => setAcknowledged(true)}>
               {acknowledged ? 'Confirmed' : 'I have saved these codes'}
             </Button>
+          </Stack>
+        </Paper>
+      </Box>
+    );
+  }
+
+  if (alreadyEnabled) {
+    return (
+      <Box sx={{ maxWidth: 560, mx: 'auto', p: { xs: 2, sm: 4 } }}>
+        <Paper sx={{ p: { xs: 2.5, sm: 4 } }}>
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <CheckCircleIcon color="success" />
+              <Typography variant="h5" fontWeight={700}>Two-factor is on</Typography>
+            </Stack>
+            <Typography variant="body2" color="text.secondary">
+              Your account already asks for a code from your authenticator app when you sign in.
+              {isRequired
+                ? ' It stays on for platform administrators.'
+                : ' To move it to a new phone, turn it off in Security settings and set it up again.'}
+            </Typography>
+            <Stack direction="row" spacing={1}>
+              <Button variant="contained" onClick={() => navigate(home, { replace: true })}>Continue</Button>
+              <Button onClick={() => navigate('/settings/security')}>Security settings</Button>
+            </Stack>
           </Stack>
         </Paper>
       </Box>
@@ -160,7 +213,9 @@ const MfaSetupPage = () => {
               Set up two-factor authentication
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Required for {user?.role?.replace(/_/g, ' ').toLowerCase() ?? 'this role'}.
+              {isRequired
+                ? 'Required for platform administrators. '
+                : 'Optional, and recommended. '}
               It protects the account even if the password is stolen.
             </Typography>
           </Box>
@@ -231,6 +286,12 @@ const MfaSetupPage = () => {
                   >
                     {submitting ? 'Verifying…' : 'Turn on two-factor'}
                   </Button>
+                  {/* Optional for every role except platform administrators. */}
+                  {!isRequired && (
+                    <Button onClick={() => navigate(-1)} disabled={submitting}>
+                      Not now
+                    </Button>
+                  )}
                 </Stack>
               </form>
             </>

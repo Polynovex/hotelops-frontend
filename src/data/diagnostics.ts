@@ -71,7 +71,7 @@ export const DIAGNOSTICS: Diagnostic[] = [
     codes: ['MFA_ENROLMENT_REQUIRED', '403'],
     symptom: 'Signs in successfully, but every page says forbidden.',
     cause:
-      'The role requires two-factor authentication and the account has not enrolled. Sign-in is allowed; everything else is closed until enrolment.',
+      'Only super admins are required to enrol. For them, sign-in is allowed and everything else is closed until enrolment. If a business admin or other role sees this, it is a regression — MFA became optional for them in September 2026.',
     resolution: [
       'Send them to Settings → Security → Set up authenticator.',
       'They scan the QR code with Google Authenticator and enter one code.',
@@ -86,8 +86,8 @@ export const DIAGNOSTICS: Diagnostic[] = [
     id: 'auth-mfa-cannot-disable',
     category: 'Auth',
     codes: ['MFA_REQUIRED_FOR_ROLE', '403'],
-    symptom: 'A super admin or business admin cannot turn MFA off.',
-    cause: 'By design. Roles that govern a whole property, or the whole platform, must keep a second factor.',
+    symptom: 'A super admin cannot turn MFA off.',
+    cause: 'By design. Super admins reach every property, so they must keep a second factor. Every other role — including business admins — can turn it off in Security settings with their password.',
     resolution: [
       'Explain that it cannot be switched off for this role.',
       'If they have lost their phone, use recovery codes instead.',

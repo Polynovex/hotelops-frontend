@@ -1758,6 +1758,11 @@ export interface SettingUserRecord {
   isActive: boolean;
   userCode?: string | null;
   lastLoginAt?: string;
+  /** Set on creation only: whether the invitation email actually went out. */
+  welcomeEmailSent?: boolean;
+  welcomeEmailError?: string;
+  /** Returned only when the email failed, so the admin can pass it on. */
+  temporaryPassword?: string;
 }
 
 export interface SettingRoleRecord {
@@ -1908,7 +1913,8 @@ export const settingsOpsService = {
     lastName: string;
     email: string;
     role: string;
-    password: string;
+    /** Blank means the server generates one. */
+    password?: string;
   }): Promise<SettingUserRecord> {
     const store = getSettingsStore();
     const currentUser = useAuthStore.getState().user;
@@ -1916,27 +1922,44 @@ export const settingsOpsService = {
     let userRole = payload.role;
     let isActive = true;
 
-    if (!isDemoMode() && currentUser?.hotelId) {
-      try {
-        const response = await api.post('/users', {
-          email: payload.email,
-          password: payload.password,
-          firstName: payload.firstName,
-          lastName: payload.lastName,
-          role: payload.role,
-          hotelId: currentUser.hotelId
-        });
+    let emailOutcome: Pick<SettingUserRecord, 'welcomeEmailSent' | 'welcomeEmailError' | 'temporaryPassword'> = {};
 
-        const created = response.data as { id?: string; role?: string; isActive?: boolean };
-        userId = String(created.id || userId);
-        userRole = String(created.role || userRole);
-        if (userRole === 'MANAGER' && payload.role.startsWith('MANAGER_')) {
-          userRole = payload.role;
-        }
-        isActive = created.isActive !== false;
-      } catch (_error) {
-        // Keep local creation when backend endpoint is unavailable (demo/offline mode).
+    if (!isDemoMode() && currentUser?.hotelId) {
+      /*
+       * No catch. This used to swallow every error and then create the user in
+       * local storage anyway, so in production a rejected request — a
+       * duplicate email, a validation failure, a 500 — reported success and
+       * listed a staff member who did not exist on the server and could never
+       * sign in. A failure must reach the form that can show it.
+       */
+      const response = await api.post('/users', {
+        email: payload.email,
+        ...(payload.password?.trim() ? { password: payload.password.trim() } : {}),
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        role: payload.role,
+        hotelId: currentUser.hotelId
+      });
+
+      const created = response.data as {
+        id?: string;
+        role?: string;
+        isActive?: boolean;
+        welcomeEmailSent?: boolean;
+        welcomeEmailError?: string;
+        temporaryPassword?: string;
+      };
+      userId = String(created.id || userId);
+      userRole = String(created.role || userRole);
+      if (userRole === 'MANAGER' && payload.role.startsWith('MANAGER_')) {
+        userRole = payload.role;
       }
+      isActive = created.isActive !== false;
+      emailOutcome = {
+        welcomeEmailSent: created.welcomeEmailSent,
+        welcomeEmailError: created.welcomeEmailError,
+        temporaryPassword: created.temporaryPassword
+      };
     }
 
     const user: SettingUserRecord = {
@@ -1955,7 +1978,7 @@ export const settingsOpsService = {
     }
     saveSettingsStore(store);
     pushAudit({ action: 'CREATE', entity: 'USER', entityId: user.id, details: { email: user.email, role: user.role } });
-    return user;
+    return { ...user, ...emailOutcome };
   },
 
   /**
