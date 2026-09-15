@@ -24,6 +24,7 @@ import Layout from '../../components/Layout';
 import { useAuthStore } from '../../store/authStore';
 import { pinService, describePinProblem } from '../../services/pin.service';
 import { userCodeService } from '../../services/userCode.service';
+import mfaService from '../../services/mfa.service';
 
 /**
  * One place for the three credentials a person can hold.
@@ -57,6 +58,30 @@ const SecuritySettings = () => {
    * names a hotel is wrong for them.
    */
   const isPlatformAdmin = user?.role === 'SUPER_ADMIN';
+
+  // Turning two-factor off: an inline password step rather than a dialog.
+  const [disabling, setDisabling] = useState(false);
+  const [disablePassword, setDisablePassword] = useState('');
+  const [disableBusy, setDisableBusy] = useState(false);
+  const [disableError, setDisableError] = useState('');
+
+  const turnOffMfa = async (event: FormEvent) => {
+    event.preventDefault();
+    setDisableBusy(true);
+    setDisableError('');
+    try {
+      await mfaService.disable(disablePassword);
+      setUser({ mfaEnabled: false });
+      setDisabling(false);
+      setDisablePassword('');
+      enqueueSnackbar('Two-factor authentication is off.', { variant: 'success' });
+    } catch (err) {
+      const message = (err as { response?: { data?: { message?: string; error?: string } } })?.response?.data;
+      setDisableError(message?.message ?? message?.error ?? 'Could not turn two-factor off.');
+    } finally {
+      setDisableBusy(false);
+    }
+  };
 
   const [codePassword, setCodePassword] = useState('');
   const [rotatingCode, setRotatingCode] = useState(false);
@@ -416,11 +441,57 @@ const SecuritySettings = () => {
                   A code from your authenticator app, in addition to your password.{' '}
                   {isPlatformAdmin
                     ? 'Required for platform administrators.'
-                    : 'Required for owner and administrator accounts.'}
+                    : 'Optional, and recommended — you can turn it on or off at any time.'}
                 </Typography>
-                <Button variant="outlined" onClick={() => navigate('/mfa/setup')}>
-                  {mfaEnabled ? 'Manage two-factor' : 'Turn on two-factor'}
-                </Button>
+
+                {/*
+                  "Manage two-factor" used to open the setup screen for an
+                  account that was already enrolled — and setup re-enrolled it,
+                  silently disabling the authenticator on the user's phone.
+                  An enrolled account now gets a real off switch instead.
+                */}
+                {!mfaEnabled && (
+                  <Button variant="contained" onClick={() => navigate('/mfa/setup')}>
+                    Turn on two-factor
+                  </Button>
+                )}
+
+                {mfaEnabled && isPlatformAdmin && (
+                  <Typography variant="body2" color="text.secondary">
+                    It stays on for platform administrators. Lost your phone? Sign in with a recovery code.
+                  </Typography>
+                )}
+
+                {mfaEnabled && !isPlatformAdmin && !disabling && (
+                  <Button variant="outlined" color="warning" onClick={() => setDisabling(true)}>
+                    Turn off two-factor
+                  </Button>
+                )}
+
+                {mfaEnabled && !isPlatformAdmin && disabling && (
+                  <Box component="form" onSubmit={turnOffMfa}>
+                    <Stack spacing={1.5}>
+                      <TextField
+                        type="password"
+                        label="Your password"
+                        size="small"
+                        autoFocus
+                        value={disablePassword}
+                        onChange={(e) => setDisablePassword(e.target.value)}
+                        helperText="Needed so a session left open elsewhere cannot remove your second factor."
+                      />
+                      {disableError && <Alert severity="error">{disableError}</Alert>}
+                      <Stack direction="row" spacing={1}>
+                        <Button type="submit" variant="contained" color="warning" disabled={!disablePassword || disableBusy}>
+                          {disableBusy ? 'Turning off…' : 'Turn off'}
+                        </Button>
+                        <Button onClick={() => { setDisabling(false); setDisablePassword(''); setDisableError(''); }} disabled={disableBusy}>
+                          Cancel
+                        </Button>
+                      </Stack>
+                    </Stack>
+                  </Box>
+                )}
               </CardContent>
             </Card>
           </Grid>

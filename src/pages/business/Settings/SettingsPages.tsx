@@ -162,10 +162,20 @@ export const UsersSettingsPage = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('TempPass123!');
+  /*
+   * Empty by default. This was pre-filled with 'TempPass123!', so every staff
+   * account created without retyping it shared one guessable password. Left
+   * blank, the server generates a unique one.
+   */
+  const [password, setPassword] = useState('');
   const [role, setRole] = useState('RECEPTION');
   const [autoAssignCode, setAutoAssignCode] = useState(true);
-  const [issuedCode, setIssuedCode] = useState<{ user: SettingUserRecord; userCode: string } | null>(null);
+  const [issuedCode, setIssuedCode] = useState<{
+    user: SettingUserRecord;
+    userCode: string | null;
+    temporaryPassword?: string;
+    emailError?: string;
+  } | null>(null);
   const [copied, setCopied] = useState(false);
 
   const reload = async () => setRows(await settingsOpsService.listUsers());
@@ -178,7 +188,7 @@ export const UsersSettingsPage = () => {
     setFirstName('');
     setLastName('');
     setEmail('');
-    setPassword('TempPass123!');
+    setPassword('');
     setRole('RECEPTION');
     setAutoAssignCode(true);
   };
@@ -197,8 +207,17 @@ export const UsersSettingsPage = () => {
       setCreateOpen(false);
       resetForm();
       await reload();
-      if (userCode) {
-        setIssuedCode({ user: { ...created, userCode }, userCode });
+
+      // When the invitation email did not go out, the dialog is the only
+      // place the password exists — it is never shown again.
+      const emailFailed = created.welcomeEmailSent === false;
+      if (userCode || emailFailed) {
+        setIssuedCode({
+          user: { ...created, userCode },
+          userCode,
+          temporaryPassword: emailFailed ? created.temporaryPassword : undefined,
+          emailError: emailFailed ? created.welcomeEmailError : undefined
+        });
       }
     } catch (err: any) {
       setError(getApiErrorMessage(err, 'Failed to create user'));
@@ -514,7 +533,7 @@ export const UsersSettingsPage = () => {
                   <TextField fullWidth label="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
                 </Stack>
                 <TextField fullWidth label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                <TextField fullWidth label="Temporary password" value={password} onChange={(e) => setPassword(e.target.value)} required helperText="Staff can change this after first login." />
+                <TextField fullWidth type="password" label="Temporary password (optional)" value={password} onChange={(e) => setPassword(e.target.value)} helperText="Leave blank to generate a unique one. It is emailed to them, and they must change it at first sign-in." />
                 <TextField select fullWidth label="Role" value={role} onChange={(e) => setRole(e.target.value)}>
                   <MenuItem value="RECEPTION">Receptionist</MenuItem>
                   <MenuItem value="POS_STAFF">POS staff</MenuItem>
@@ -561,18 +580,33 @@ export const UsersSettingsPage = () => {
           <DialogTitle>
             <Stack direction="row" alignItems="center" spacing={1}>
               <CheckCircleRounded sx={{ color: theme.palette.success.main }} />
-              <span>Usercode issued</span>
+              <span>{issuedCode?.temporaryPassword ? 'Account created' : 'Usercode issued'}</span>
             </Stack>
           </DialogTitle>
           <DialogContent sx={{ textAlign: 'center', pb: 1 }}>
             {issuedCode && (
               <>
+                {issuedCode.temporaryPassword && (
+                  <Alert severity="warning" sx={{ mb: 2, textAlign: 'left' }}>
+                    The invitation email did not send, so pass these on yourself.
+                    {issuedCode.emailError && (
+                      <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>{issuedCode.emailError}</Typography>
+                    )}
+                    <Box sx={{ mt: 1, fontFamily: 'monospace' }}>
+                      Email: {issuedCode.user.email}<br />
+                      Temporary password: {issuedCode.temporaryPassword}
+                    </Box>
+                  </Alert>
+                )}
+                {issuedCode.userCode && (
                 <Typography color="text.secondary" sx={{ mb: 2 }}>
                   Share this code securely with <b>{issuedCode.user.name}</b>. It is shown only once.
                 </Typography>
+                )}
                 <Typography
                   variant="h1"
                   sx={{
+                    display: issuedCode.userCode ? 'block' : 'none',
                     fontFamily: '"JetBrains Mono", monospace',
                     fontSize: 56,
                     letterSpacing: '0.18em',
@@ -586,13 +620,15 @@ export const UsersSettingsPage = () => {
                 >
                   {issuedCode.userCode}
                 </Typography>
+                {issuedCode.userCode && (
                 <Button
                   variant="outlined"
                   startIcon={<ContentCopyRounded />}
-                  onClick={() => void copyCode(issuedCode.userCode)}
+                  onClick={() => void copyCode(issuedCode.userCode!)}
                 >
                   {copied ? 'Copied' : 'Copy to clipboard'}
                 </Button>
+                )}
               </>
             )}
           </DialogContent>
