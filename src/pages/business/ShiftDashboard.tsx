@@ -171,6 +171,19 @@ const PersonalShift: React.FC = () => {
 
   const [openDialog, setOpenDialog] = useState(false);
   const [closeDialog, setCloseDialog] = useState(false);
+  /**
+   * The result of the shift just closed, shown in a dialog.
+   *
+   * This was a browser alert(): plain text, no formatting, and a blocking
+   * system popup that on some browsers can be suppressed entirely — so the one
+   * moment a cashier learns whether their drawer balanced could show nothing.
+   */
+  const [closedSummary, setClosedSummary] = useState<{
+    counted: number;
+    expected: number;
+    variance: number;
+    totalSales: number;
+  } | null>(null);
   const [openingCash, setOpeningCash] = useState('0');
   const [closingCash, setClosingCash] = useState('0');
   const [notes, setNotes] = useState('');
@@ -247,11 +260,12 @@ const PersonalShift: React.FC = () => {
       setClosingCash('0');
       setNotes('');
       setShift(null);
-      window.alert(
-        `Shift closed.\nExpected: ${formatNGN(r.summary.expectedCash)}\nVariance: ${formatNGN(
-          r.summary.cashVariance
-        )}`
-      );
+      setClosedSummary({
+        counted: Number(closingCash) || 0,
+        expected: r.summary.expectedCash,
+        variance: r.summary.cashVariance,
+        totalSales: r.summary.totalSales
+      });
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to close shift');
     } finally {
@@ -331,6 +345,53 @@ const PersonalShift: React.FC = () => {
               Open
             </Button>
           </DialogActions>
+        </Dialog>
+
+        <Dialog open={Boolean(closedSummary)} onClose={() => setClosedSummary(null)} fullWidth maxWidth="xs">
+          {closedSummary && (() => {
+            const balanced = Math.abs(closedSummary.variance) < 0.01;
+            const over = closedSummary.variance > 0;
+            return (
+              <>
+                <DialogTitle>Shift closed</DialogTitle>
+                <DialogContent>
+                  <Alert
+                    severity={balanced ? 'success' : 'warning'}
+                    sx={{ mb: 2 }}
+                  >
+                    {balanced
+                      ? 'The drawer balanced exactly.'
+                      : over
+                        ? `The drawer is ${formatNGN(Math.abs(closedSummary.variance))} over what was expected.`
+                        : `The drawer is ${formatNGN(Math.abs(closedSummary.variance))} short of what was expected.`}
+                  </Alert>
+                  <Stack spacing={1}>
+                    {[
+                      ['Sales this shift', closedSummary.totalSales],
+                      ['Expected cash', closedSummary.expected],
+                      ['Counted cash', closedSummary.counted],
+                      ['Variance', closedSummary.variance]
+                    ].map(([label, value]) => (
+                      <Stack key={label as string} direction="row" justifyContent="space-between">
+                        <Typography color="text.secondary">{label}</Typography>
+                        <Typography fontWeight={label === 'Variance' ? 700 : 500}>
+                          {formatNGN(value as number)}
+                        </Typography>
+                      </Stack>
+                    ))}
+                  </Stack>
+                  {!balanced && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+                      Your manager will see this variance on the shift report.
+                    </Typography>
+                  )}
+                </DialogContent>
+                <DialogActions>
+                  <Button variant="contained" onClick={() => setClosedSummary(null)}>Done</Button>
+                </DialogActions>
+              </>
+            );
+          })()}
         </Dialog>
       </Card>
     );

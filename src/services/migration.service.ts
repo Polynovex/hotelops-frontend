@@ -109,6 +109,21 @@ export const migrationService = {
       params: hotelId ? { hotelId } : undefined
     });
     return Array.isArray(data) ? data : [];
+  },
+
+  /**
+   * One page of import history, with the total. History used to stop at the
+   * newest 50 imports; anything older could not be seen.
+   */
+  async listJobsPage(
+    params: { hotelId?: string; limit: number; offset: number }
+  ): Promise<{ items: MigrationJob[]; total: number }> {
+    const { data } = await api.get('/admin/migration/jobs', {
+      params: { ...(params.hotelId ? { hotelId: params.hotelId } : {}), limit: params.limit, offset: params.offset }
+    });
+    // An older server ignores paging and returns a plain array.
+    if (Array.isArray(data)) return { items: data.slice(params.offset, params.offset + params.limit), total: data.length };
+    return { items: Array.isArray(data?.items) ? data.items : [], total: Number(data?.total) || 0 };
   }
 };
 

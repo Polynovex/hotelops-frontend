@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Box, Button, Chip, CircularProgress, Collapse, Container, FormControlLabel,
   IconButton, MenuItem, Paper, Stack, Switch, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, TextField, Tooltip, Typography
+  TableContainer, TableHead, TablePagination, TableRow, TextField, Tooltip, Typography
 } from '@mui/material';
 import RefreshRounded from '@mui/icons-material/RefreshRounded';
 import DownloadRounded from '@mui/icons-material/DownloadRounded';
@@ -63,6 +63,16 @@ export default function LiveLogs() {
   const [error, setError] = useState('');
   const [meta, setMeta] = useState<{ logGroup?: string; truncated?: boolean }>({});
   const [metrics, setMetrics] = useState<LogMetricsData | null>(null);
+  /*
+   * Why the charts are missing, when they are. They used to disappear without a
+   * word whenever the metrics request failed, which looks exactly like the
+   * feature having been removed.
+   */
+  const [metricsError, setMetricsError] = useState('');
+  // Paged in the browser over the window's lines. The server reads a time
+  // window from CloudWatch, so an exact total only exists once it is fetched.
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [copied, setCopied] = useState('');
 
@@ -87,7 +97,7 @@ export default function LiveLogs() {
        */
       const [rows, stats] = await Promise.allSettled([
         api.get('/admin/logs', {
-          params: { level: lvl || undefined, search: term || undefined, ...range, limit: 200 }
+          params: { level: lvl || undefined, search: term || undefined, ...range, limit: 500 }
         }),
         api.get('/admin/logs/metrics', { params: range })
       ]);
@@ -96,7 +106,15 @@ export default function LiveLogs() {
       const { data } = rows.value;
       setItems(data.items ?? []);
       setMeta({ logGroup: data.logGroup, truncated: data.truncated });
-      setMetrics(stats.status === 'fulfilled' ? stats.value.data : null);
+      if (stats.status === 'fulfilled') {
+        setMetrics(stats.value.data);
+        setMetricsError('');
+      } else {
+        // Keep the last good charts on screen during live polling, and say
+        // that they could not be refreshed rather than removing them.
+        const reason = (stats.reason as { response?: { data?: { message?: string; error?: string } }; message?: string });
+        setMetricsError(reason?.response?.data?.message ?? reason?.response?.data?.error ?? reason?.message ?? 'The metrics request failed.');
+      }
     } catch (err: any) {
       setError(
         err?.response?.data?.message ??
@@ -109,6 +127,10 @@ export default function LiveLogs() {
 
   useEffect(() => {
     setLoading(true);
+    // A new filter is a new list. Live polling does not come through here, so
+    // it leaves the page someone is reading alone.
+    setPage(0);
+    setExpanded(new Set());
     void load();
   }, [load, level, minutes, search]);
 
@@ -224,6 +246,15 @@ export default function LiveLogs() {
           </Stack>
         </Paper>
 
+        {metricsError && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            action={<Button color="inherit" size="small" onClick={() => void load()}>Retry</Button>}
+          >
+            {metrics ? 'The charts below could not be refreshed' : 'The health charts could not be loaded'}: {metricsError}
+          </Alert>
+        )}
         {metrics && <LogMetrics data={metrics} />}
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -258,7 +289,10 @@ export default function LiveLogs() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {items.map((item, index) => {
+                  {items.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item, pageIndex) => {
+                    // Absolute index, so an expanded row stays expanded as its own
+                    // row rather than whichever row takes its place on another page.
+                    const index = page * rowsPerPage + pageIndex;
                     const open = expanded.has(index);
                     const hasDetail = Boolean(item.stack || item.payload);
                     return (
@@ -342,6 +376,20 @@ export default function LiveLogs() {
                 </TableBody>
               </Table>
             </TableContainer>
+          )}
+          {items.length > 0 && (
+            <TablePagination
+              component="div"
+              count={items.length}
+              page={Math.min(page, Math.max(0, Math.ceil(items.length / rowsPerPage) - 1))}
+              onPageChange={(_event, next) => setPage(next)}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={(event) => {
+                setRowsPerPage(Number(event.target.value));
+                setPage(0);
+              }}
+              rowsPerPageOptions={[25, 50, 100]}
+            />
           )}
         </Paper>
       </Container>

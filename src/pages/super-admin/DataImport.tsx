@@ -21,6 +21,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Typography
@@ -74,12 +75,33 @@ const DataImport = () => {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
 
+  const [jobsPage, setJobsPage] = useState(0);
+  const [jobsPerPage, setJobsPerPage] = useState(10);
+  const [jobsTotal, setJobsTotal] = useState(0);
+
   const loadJobs = useCallback(async () => {
     try {
-      setJobs(await migrationService.listJobs(hotelId || undefined));
+      const { items, total } = await migrationService.listJobsPage({
+        hotelId: hotelId || undefined,
+        limit: jobsPerPage,
+        offset: jobsPage * jobsPerPage
+      });
+      setJobs(items);
+      setJobsTotal(total);
     } catch {
       // History is informational; a failure here must not block an import.
     }
+  }, [hotelId, jobsPage, jobsPerPage]);
+
+  // Re-read when the page changes. Imports call loadJobs directly after they
+  // commit, which returns to the newest entries on the current page size.
+  useEffect(() => {
+    void loadJobs();
+  }, [loadJobs]);
+
+  // Another business's history starts from its first page.
+  useEffect(() => {
+    setJobsPage(0);
   }, [hotelId]);
 
   useEffect(() => {
@@ -577,6 +599,18 @@ const DataImport = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        <TablePagination
+          component="div"
+          count={jobsTotal}
+          page={jobsPage}
+          onPageChange={(_event, next) => setJobsPage(next)}
+          rowsPerPage={jobsPerPage}
+          onRowsPerPageChange={(event) => {
+            setJobsPerPage(Number(event.target.value));
+            setJobsPage(0);
+          }}
+          rowsPerPageOptions={[10, 25, 50]}
+        />
       </Box>
 
       <Snackbar

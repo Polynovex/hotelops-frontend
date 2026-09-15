@@ -16,9 +16,43 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+/**
+ * One refresh at a time, shared by every request that needs it.
+ *
+ * The server rotates refresh tokens: each refresh retires the token it was
+ * given. When a dashboard page fires several requests and the access token has
+ * just expired, they all come back 401 together. If each refreshed on its own,
+ * the first would retire the token and every other would fail — logging the
+ * user out anyway. So the first 401 starts a refresh and the rest wait on it.
+ */
+let refreshInFlight: Promise<string | null> | null = null;
+
+const refreshAccessToken = (): Promise<string | null> => {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      const { refreshToken, user } = useAuthStore.getState();
+      // `remember-…` placeholders are not real refresh tokens.
+      if (!refreshToken || refreshToken.startsWith('remember-') || !user) return null;
+      try {
+        // Plain axios, not `api`: a 401 here must not re-enter this interceptor.
+        const { data } = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
+        const accessToken: string | undefined = data?.accessToken ?? data?.token;
+        if (!accessToken) return null;
+        useAuthStore.getState().setAuth(user, accessToken, data?.refreshToken ?? refreshToken);
+        return accessToken;
+      } catch {
+        return null;
+      }
+    })().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+};
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     /**
      * Replace axios's own message with the server's explanation.
      *
@@ -34,7 +68,35 @@ api.interceptors.response.use(
     const isAuthEndpoint =
       error.config?.url?.includes('/auth/login') ||
       error.config?.url?.includes('/auth/usercode-login');
-    if (!isDemo && !isAuthEndpoint && error.response?.status === 401) {
+    /*
+     * Renew the session before giving up on it.
+     *
+     * Access tokens last 15 minutes. This used to log the user out on the first
+     * 401, and nothing in the 59 screens using this client ever refreshed — so
+     * everyone was signed out 15 minutes after signing in, mid-task, and
+     * whatever page was open simply "failed to load". The refresh token (7
+     * days) exists for exactly this; only when it too is refused is the
+     * session really over.
+     */
+    const original = error.config as (typeof error.config & { _retried?: boolean }) | undefined;
+    const isRefreshCall = error.config?.url?.includes('/auth/refresh');
+    if (!isDemo && !isAuthEndpoint && !isRefreshCall && error.response?.status === 401) {
+      if (original && !original._retried) {
+        original._retried = true;
+
+        // Another request may already have refreshed while this one was in
+        // flight; if so, retry with the token it obtained instead of refreshing
+        // again with a refresh token that has since been rotated away.
+        const sentWith = String(original.headers?.Authorization ?? '').replace(/^Bearer /, '');
+        const current = useAuthStore.getState().token;
+        const fresh = current && current !== sentWith ? current : await refreshAccessToken();
+
+        if (fresh) {
+          original.headers = original.headers ?? {};
+          original.headers.Authorization = `Bearer ${fresh}`;
+          return api(original);
+        }
+      }
       useAuthStore.getState().logout();
       window.location.href = '/login';
     }
