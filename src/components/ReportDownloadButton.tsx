@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSnackbar } from 'notistack';
 import {
   Button,
   ListItemIcon,
@@ -112,6 +113,7 @@ function ReportDownloadButton<T extends Record<string, any>>({
   disabled
 }: ReportDownloadButtonProps<T>) {
   const theme = useTheme();
+  const { enqueueSnackbar } = useSnackbar();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
   const baseName = (filename || title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '');
@@ -159,7 +161,12 @@ function ReportDownloadButton<T extends Record<string, any>>({
     setAnchorEl(null);
     const win = window.open('', '_blank', 'noopener,noreferrer');
     if (!win) {
-      window.alert('Pop-up was blocked. Please allow pop-ups to download the PDF.');
+      // A toast rather than alert(): a blocked pop-up is exactly when the
+      // browser may also suppress a native dialog.
+      enqueueSnackbar('Your browser blocked the PDF window. Allow pop-ups for this site, then try again.', {
+        variant: 'warning',
+        autoHideDuration: 8000
+      });
       return;
     }
     const navy = theme.palette.primary.main;

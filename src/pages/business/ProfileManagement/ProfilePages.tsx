@@ -108,25 +108,63 @@ const ProfileListCore = ({
     });
   }, [profiles, query]);
 
-  const blacklistProfile = async (profile: ProfileRecord) => {
-    const reason = window.prompt('Enter blacklist reason', profile.blacklistReason || 'Policy violation');
-    if (!reason) {
-      return;
-    }
+  /*
+   * Dialogs rather than window.prompt().
+   *
+   * The blacklist reason and the merge were both browser prompts. The merge was
+   * the worse of the two: it asked for two raw profile IDs, typed from memory,
+   * with no confirmation — an irreversible operation on guest records driven by
+   * two text boxes the browser can suppress. Profiles are now chosen by name.
+   */
+  const [blacklistTarget, setBlacklistTarget] = useState<ProfileRecord | null>(null);
+  const [blacklistReason, setBlacklistReason] = useState('');
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeSource, setMergeSource] = useState('');
+  const [mergeTarget, setMergeTarget] = useState('');
+  const [dialogBusy, setDialogBusy] = useState(false);
 
-    await profileOpsService.blacklistProfile(profile.id, reason);
-    await loadProfiles();
+  const blacklistProfile = async (profile: ProfileRecord) => {
+    setBlacklistReason(profile.blacklistReason || '');
+    setBlacklistTarget(profile);
+  };
+
+  const confirmBlacklist = async () => {
+    if (!blacklistTarget || !blacklistReason.trim()) return;
+    setDialogBusy(true);
+    try {
+      await profileOpsService.blacklistProfile(blacklistTarget.id, blacklistReason.trim());
+      setBlacklistTarget(null);
+      await loadProfiles();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Could not blacklist the profile');
+    } finally {
+      setDialogBusy(false);
+    }
   };
 
   const mergeProfiles = async () => {
-    const sourceId = window.prompt('Source profile ID');
-    const targetId = window.prompt('Target profile ID');
-    if (!sourceId || !targetId || sourceId === targetId) {
-      return;
-    }
+    setMergeSource('');
+    setMergeTarget('');
+    setMergeOpen(true);
+  };
 
-    await profileOpsService.mergeProfiles(sourceId, targetId);
-    await loadProfiles();
+  const confirmMerge = async () => {
+    if (!mergeSource || !mergeTarget || mergeSource === mergeTarget) return;
+    setDialogBusy(true);
+    try {
+      await profileOpsService.mergeProfiles(mergeSource, mergeTarget);
+      setMergeOpen(false);
+      await loadProfiles();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Could not merge the profiles');
+    } finally {
+      setDialogBusy(false);
+    }
+  };
+
+  const profileLabel = (id: string) => {
+    const match = profiles.find((profile) => profile.id === id);
+    return match ? `${match.name}${match.email ? ` · ${match.email}` : ''}` : '';
   };
 
   return (
@@ -241,6 +279,68 @@ const ProfileListCore = ({
             }
           ]}
         />
+
+        <Dialog open={Boolean(blacklistTarget)} onClose={() => !dialogBusy && setBlacklistTarget(null)} fullWidth maxWidth="sm">
+          <DialogTitle>Blacklist {blacklistTarget?.name}?</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Staff will be warned when this profile is used for a booking. The reason is shown to them, so be specific.
+            </Typography>
+            <TextField
+              autoFocus
+              fullWidth
+              multiline
+              minRows={2}
+              label="Reason"
+              value={blacklistReason}
+              onChange={(event) => setBlacklistReason(event.target.value)}
+              placeholder="e.g. Unpaid folio from March stay"
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setBlacklistTarget(null)} disabled={dialogBusy}>Cancel</Button>
+            <Button color="warning" variant="contained" onClick={() => void confirmBlacklist()} disabled={dialogBusy || !blacklistReason.trim()}>
+              {dialogBusy ? 'Saving…' : 'Blacklist'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={mergeOpen} onClose={() => !dialogBusy && setMergeOpen(false)} fullWidth maxWidth="sm">
+          <DialogTitle>Merge two profiles</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              The duplicate&apos;s stays, bookings and history move onto the profile you keep, and the duplicate is removed.
+              This cannot be undone.
+            </Typography>
+            <Stack spacing={2}>
+              <TextField select fullWidth label="Duplicate to merge away" value={mergeSource} onChange={(event) => setMergeSource(event.target.value)}>
+                {profiles.map((profile) => (
+                  <MenuItem key={profile.id} value={profile.id} disabled={profile.id === mergeTarget}>
+                    {profile.name}{profile.email ? ` · ${profile.email}` : ''}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField select fullWidth label="Profile to keep" value={mergeTarget} onChange={(event) => setMergeTarget(event.target.value)}>
+                {profiles.map((profile) => (
+                  <MenuItem key={profile.id} value={profile.id} disabled={profile.id === mergeSource}>
+                    {profile.name}{profile.email ? ` · ${profile.email}` : ''}
+                  </MenuItem>
+                ))}
+              </TextField>
+              {mergeSource && mergeTarget && (
+                <Alert severity="warning">
+                  {profileLabel(mergeSource)} will be merged into {profileLabel(mergeTarget)}.
+                </Alert>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setMergeOpen(false)} disabled={dialogBusy}>Cancel</Button>
+            <Button color="warning" variant="contained" onClick={() => void confirmMerge()} disabled={dialogBusy || !mergeSource || !mergeTarget || mergeSource === mergeTarget}>
+              {dialogBusy ? 'Merging…' : 'Merge'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </Layout>
   );

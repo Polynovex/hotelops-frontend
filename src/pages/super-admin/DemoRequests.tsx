@@ -22,6 +22,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Typography
@@ -76,6 +77,10 @@ const DemoRequests = () => {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [filter, setFilter] = useState<Status | ''>('');
+  // Paged on the server: the list used to stop silently at 500 enquiries.
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [pageTotal, setPageTotal] = useState(0);
 
   const [selected, setSelected] = useState<DemoRequest | null>(null);
   const [draftStatus, setDraftStatus] = useState<Status>('NEW');
@@ -93,9 +98,16 @@ const DemoRequests = () => {
     setLoading(true);
     try {
       const { data } = await api.get('/admin/demo-requests', {
-        params: filter ? { status: filter } : undefined
+        params: {
+          ...(filter ? { status: filter } : {}),
+          limit: rowsPerPage,
+          offset: page * rowsPerPage
+        }
       });
-      setRequests(Array.isArray(data?.requests) ? data.requests : []);
+      const rows = Array.isArray(data?.requests) ? data.requests : [];
+      setRequests(rows);
+      // An older server without paging returns no total; fall back to the rows.
+      setPageTotal(typeof data?.total === 'number' ? data.total : rows.length);
       setCounts((data?.counts as Record<string, number>) || {});
       setError('');
     } catch (err: unknown) {
@@ -104,11 +116,16 @@ const DemoRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, page, rowsPerPage]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // A different filter is a different list; start it from the first page.
+  useEffect(() => {
+    setPage(0);
+  }, [filter]);
 
   const open = (request: DemoRequest) => {
     setSelected(request);
@@ -297,6 +314,18 @@ const DemoRequests = () => {
           </TableBody>
         </Table>
       </TableContainer>
+      <TablePagination
+        component="div"
+        count={pageTotal}
+        page={page}
+        onPageChange={(_event, next) => setPage(next)}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={(event) => {
+          setRowsPerPage(Number(event.target.value));
+          setPage(0);
+        }}
+        rowsPerPageOptions={[10, 25, 50, 100]}
+      />
 
       <Dialog open={Boolean(selected)} onClose={() => setSelected(null)} fullWidth maxWidth="sm">
         <DialogTitle>{selected?.name}</DialogTitle>

@@ -2068,7 +2068,11 @@ export const settingsOpsService = {
         // '/roles' now serves the RBAC role records; this legacy consumer wants
         // the static UserRole catalogue, which moved to '/roles/legacy'.
         const response = await api.get('/roles/legacy');
-        const roles = toArray<Record<string, unknown>>(response.data).map((row) => {
+        // Never offer the platform role to a tenant, even if an older server
+        // still returns it.
+        const roles = toArray<Record<string, unknown>>(response.data)
+          .filter((row) => String(row.role || row.name || '').toUpperCase() !== 'SUPER_ADMIN')
+          .map((row) => {
           const backendRole = String(row.role || row.name || 'RECEPTION').toUpperCase();
           const normalizedName = backendRole === 'RECEPTION' ? 'RECEPTION' : backendRole;
           return {
@@ -2089,7 +2093,8 @@ export const settingsOpsService = {
       }
     }
 
-    return getSettingsStore().roles;
+    // Browsers that cached the old catalogue still hold SUPER_ADMIN.
+    return getSettingsStore().roles.filter((role) => role.name.toUpperCase() !== 'SUPER_ADMIN');
   },
 
   updateRole(roleId: string, permissions: string[]): SettingRoleRecord | null {

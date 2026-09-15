@@ -441,6 +441,8 @@ export const PosMenuManagementPage = () => {
   const [items, setItems] = useState<PosMenuItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [stations, setStations] = useState<string[]>([]);
+  const [newOutletName, setNewOutletName] = useState('');
+  const [newOutletType, setNewOutletType] = useState('RESTAURANT');
 
   const [outletId, setOutletId] = useState('');
   const [sku, setSku] = useState('');
@@ -468,12 +470,23 @@ export const PosMenuManagementPage = () => {
   const [pendingDelete, setPendingDelete] = useState<PosMenuItem | null>(null);
 
   const load = async () => {
-    const [outletRows, itemRows, categoryRows, stationRows] = await Promise.all([
+    // Settled, not Promise.all: one failing list (a role without KDS access,
+    // say) must not blank the outlets and items that did load.
+    const settled = await Promise.allSettled([
       posService.getOutlets(),
       posService.getMenuItems(),
       posService.getMenuCategories(),
       posService.getKitchenStations()
     ]);
+    const valueOf = <T,>(result: PromiseSettledResult<T>, fallback: T): T =>
+      result.status === 'fulfilled' ? result.value : fallback;
+    const outletRows = valueOf(settled[0], [] as Outlet[]);
+    const itemRows = valueOf(settled[1], [] as PosMenuItem[]);
+    const categoryRows = valueOf(settled[2], [] as string[]);
+    const stationRows = valueOf(settled[3], [] as string[]);
+    if (settled[0].status === 'rejected' || settled[1].status === 'rejected') {
+      setError('Some menu data could not be loaded. Refresh to try again.');
+    }
 
     setOutlets(outletRows);
     setItems(itemRows);
@@ -545,6 +558,34 @@ export const PosMenuManagementPage = () => {
       setError(errorMessage(err, 'Could not add the menu item'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  /**
+   * Outlets can now be added where they are needed.
+   *
+   * The item form said "Create an outlet first", but the Outlets page was not
+   * in the business admin menu, so there was no way to act on it from here —
+   * while categories and stations, which depend on outlets far less, each had
+   * their own inline Add.
+   */
+  const addOutlet = async () => {
+    const outletName = newOutletName.trim();
+    if (!outletName) {
+      return;
+    }
+    try {
+      const created = await posService.createOutlet({ name: outletName, type: newOutletType });
+      setToast(`Outlet "${outletName}" added`);
+      setNewOutletName('');
+      setNewOutletType('RESTAURANT');
+      await load();
+      // Select it straight away: adding an outlet is almost always the step
+      // just before adding its first item.
+      const createdId = (created as { id?: string } | undefined)?.id;
+      if (createdId) setOutletId(createdId);
+    } catch (err) {
+      setError(errorMessage(err, 'Could not add the outlet'));
     }
   };
 
@@ -699,7 +740,6 @@ export const PosMenuManagementPage = () => {
                       onChange={(event) => setCost(event.target.value)}
                       placeholder="0"
                       inputProps={{ min: 0, step: '0.01', inputMode: 'decimal' }}
-                      helperText="What it costs you to make. Used for margin reporting."
                       fullWidth
                     />
                   </Grid>
@@ -709,10 +749,21 @@ export const PosMenuManagementPage = () => {
                       variant="contained"
                       fullWidth
                       disabled={saving || outlets.length === 0}
-                      sx={{ height: '56px' }}
+                      sx={{ height: '56px', whiteSpace: 'nowrap', px: 1.5 }}
                     >
                       {saving ? 'Adding…' : 'Add Item'}
                     </Button>
+                  </Grid>
+                  {/*
+                    The explanation for Cost lives on its own full-width line.
+                    As the field's helper text it wrapped onto three lines inside
+                    a column two-twelfths wide, making that one field taller than
+                    its neighbours and knocking the whole row out of alignment.
+                  */}
+                  <Grid item xs={12} sx={{ pt: '8px !important' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Cost is what the item costs you to make or buy. It is used for margin reporting and never shown to guests.
+                    </Typography>
                   </Grid>
                 </Grid>
               </Box>
@@ -721,6 +772,24 @@ export const PosMenuManagementPage = () => {
 
           <Grid item xs={12} md={4}>
             <Stack spacing={2}>
+              <Paper sx={{ p: 2 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Outlets</Typography>
+                <Stack spacing={1}>
+                  <Stack direction="row" spacing={1}>
+                    <TextField size="small" label="New Outlet" value={newOutletName} onChange={(event) => setNewOutletName(event.target.value)} fullWidth />
+                    <Button variant="outlined" onClick={() => void addOutlet()}>Add</Button>
+                  </Stack>
+                  <TextField select size="small" label="Type" value={newOutletType} onChange={(event) => setNewOutletType(event.target.value)} fullWidth>
+                    {OUTLET_TYPES.map((entry) => (
+                      <MenuItem key={entry.value} value={entry.value}>{entry.label}</MenuItem>
+                    ))}
+                  </TextField>
+                </Stack>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  Where you sell — restaurant, bar, pool bar. Each outlet has its own menu and sales.
+                </Typography>
+              </Paper>
+
               <Paper sx={{ p: 2 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Categories</Typography>
                 <Stack direction="row" spacing={1}>
@@ -736,7 +805,7 @@ export const PosMenuManagementPage = () => {
                   <Button variant="outlined" onClick={() => void addStation()}>Add</Button>
                 </Stack>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  Stations are shared across every terminal in this business.
+                  Where it is prepared — grill, pastry, bar counter. Orders are routed to the station's kitchen screen. Shared by every outlet.
                 </Typography>
               </Paper>
             </Stack>

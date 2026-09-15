@@ -779,6 +779,7 @@ export const TaxSettingsPage = () => {
 export const BackupRestoreSettingsPage = () => {
   const [rows, setRows] = useState(settingsOpsService.listBackups());
   const [notes, setNotes] = useState('');
+  const [restoreTarget, setRestoreTarget] = useState<string | null>(null);
 
   const createBackup = () => {
     settingsOpsService.createBackup(notes.trim() || undefined);
@@ -827,11 +828,42 @@ export const BackupRestoreSettingsPage = () => {
               label: 'Action',
               minWidth: 120,
               render: (row) => (
-                <Button size="small" onClick={() => window.alert(`Restore flow for backup ${row.id} is queued.`)}>Restore</Button>
+                <Button size="small" onClick={() => setRestoreTarget(row.id)}>Restore</Button>
               )
             }
           ]}
         />
+
+        {/*
+          This replaced alert("Restore flow … is queued"), which claimed a
+          restore had been queued when nothing was. A restore overwrites a
+          property's live data, so it is carried out by HotelOpX support rather
+          than by a button, and the dialog now says so.
+        */}
+        <Dialog open={Boolean(restoreTarget)} onClose={() => setRestoreTarget(null)} fullWidth maxWidth="sm">
+          <DialogTitle>Restore this backup?</DialogTitle>
+          <DialogContent>
+            <Typography sx={{ mb: 2 }}>
+              Restoring replaces your property&apos;s current data with this snapshot. Anything recorded since it was
+              taken — bookings, payments, orders — would be lost, so restores are carried out by HotelOpX support
+              after confirming with you.
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Contact support at info@hotelopx.com or on WhatsApp and quote this reference:
+            </Typography>
+            <Typography sx={{ fontFamily: 'monospace', mt: 1, wordBreak: 'break-all' }}>{restoreTarget}</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                if (restoreTarget) void navigator.clipboard?.writeText(restoreTarget).catch(() => undefined);
+              }}
+            >
+              Copy reference
+            </Button>
+            <Button variant="contained" onClick={() => setRestoreTarget(null)}>Close</Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </Layout>
   );

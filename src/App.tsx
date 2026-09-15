@@ -14,6 +14,7 @@ import AnomaliesPage from './pages/business/AnomaliesPage';
 import DashboardPage from './pages/DashboardPage';
 import SuperAdminPage from './pages/SuperAdminPage';
 import PaymentReturnPage from './pages/PaymentReturn';
+import { landingPathForRole } from './utils/roleLanding';
 import SupportPortalPage from './pages/support/SupportPortal';
 import LiveLogsPage from './pages/super-admin/LiveLogs';
 import PosOrdersPage from './pages/business/pos/PosOrdersPage';
@@ -282,8 +283,16 @@ const ProtectedRoute = ({
       (code) => permissions.includes('*') || permissions.includes(code)
     ) ?? false;
 
+  /*
+   * To the user's own landing page, not "/".
+   *
+   * "/" redirects to /login, so a signed-in member of staff who opened a page
+   * their role cannot use — a POS attendant following a link to Promotions,
+   * say — was dropped on the sign-in screen as though logged out. That reads
+   * as the page failing, and signing in again only loops back to it.
+   */
   if (allowedRoles && !allowedRoles.includes(normalizeRouteRole(user.role)) && !permitted) {
-    return <Navigate to="/" />;
+    return <Navigate to={landingPathForRole(user.role)} replace />;
   }
 
   const requiredModule = resolveModuleForPath(location.pathname);
