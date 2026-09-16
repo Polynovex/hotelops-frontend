@@ -436,6 +436,17 @@ const MenuItemImageCell = ({
   );
 };
 
+/** What already exists in a setup card, so it is visible without opening a dropdown. */
+const SetupChips = ({ entries, emptyText }: { entries: string[]; emptyText: string }) => (
+  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 2 }}>
+    {entries.length === 0 ? (
+      <Typography variant="caption" color="text.secondary">{emptyText}</Typography>
+    ) : (
+      entries.map((entry) => <Chip key={entry} label={entry} size="small" variant="outlined" />)
+    )}
+  </Box>
+);
+
 export const PosMenuManagementPage = () => {
   const [outlets, setOutlets] = useState<Outlet[]>([]);
   const [items, setItems] = useState<PosMenuItem[]>([]);
@@ -680,137 +691,147 @@ export const PosMenuManagementPage = () => {
           </Alert>
         )}
 
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} md={8}>
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>Create Menu Item</Typography>
-              <Box component="form" onSubmit={createItem}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6} lg={4}>
-                    <TextField
-                      select
-                      label="Outlet"
-                      value={outletId}
-                      onChange={(event) => setOutletId(event.target.value)}
-                      fullWidth
-                      helperText={outlets.length === 0 ? 'Create an outlet first' : ' '}
-                    >
-                      {outlets.map((outlet) => (
-                        <MenuItem key={outlet.id} value={outlet.id}>{outlet.name}</MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-                  <Grid item xs={12} sm={6} lg={3}>
-                    <TextField label="SKU" value={sku} onChange={(event) => setSku(event.target.value)} required fullWidth helperText=" " />
-                  </Grid>
-                  <Grid item xs={12} lg={5}>
-                    <TextField label="Name" value={name} onChange={(event) => setName(event.target.value)} required fullWidth helperText=" " />
-                  </Grid>
-
-                  <Grid item xs={12} sm={6} lg={3}>
-                    <TextField select label="Category" value={category} onChange={(event) => setCategory(event.target.value)} fullWidth>
-                      {categories.map((entry) => (
-                        <MenuItem key={entry} value={entry}>{entry}</MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-                  <Grid item xs={12} sm={6} lg={3}>
-                    <TextField select label="Kitchen Station" value={kitchenStation} onChange={(event) => setKitchenStation(event.target.value)} fullWidth>
-                      {stations.map((entry) => (
-                        <MenuItem key={entry} value={entry}>{entry}</MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-                  <Grid item xs={6} sm={3} lg={2}>
-                    <TextField
-                      label="Price"
-                      type="number"
-                      value={price}
-                      onChange={(event) => setPrice(event.target.value)}
-                      placeholder="0"
-                      inputProps={{ min: 0, step: '0.01', inputMode: 'decimal' }}
-                      fullWidth
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={3} lg={2}>
-                    <TextField
-                      label="Cost"
-                      type="number"
-                      value={cost}
-                      onChange={(event) => setCost(event.target.value)}
-                      placeholder="0"
-                      inputProps={{ min: 0, step: '0.01', inputMode: 'decimal' }}
-                      fullWidth
-                    />
-                  </Grid>
-                  <Grid item xs={12} lg={2}>
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      fullWidth
-                      disabled={saving || outlets.length === 0}
-                      sx={{ height: '56px', whiteSpace: 'nowrap', px: 1.5 }}
-                    >
-                      {saving ? 'Adding…' : 'Add Item'}
-                    </Button>
-                  </Grid>
-                  {/*
-                    The explanation for Cost lives on its own full-width line.
-                    As the field's helper text it wrapped onto three lines inside
-                    a column two-twelfths wide, making that one field taller than
-                    its neighbours and knocking the whole row out of alignment.
-                  */}
-                  <Grid item xs={12} sx={{ pt: '8px !important' }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Cost is what the item costs you to make or buy. It is used for margin reporting and never shown to guests.
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </Box>
+        {/*
+          Setup first, in one row: the outlets, categories and stations an item
+          is filed under. Stacked in a narrow side column they squeezed the item
+          form into two-thirds of the page; side by side they share the width
+          evenly and the form below gets the full width.
+        */}
+        <Grid container spacing={2} sx={{ mb: 2 }} alignItems="stretch">
+          <Grid item xs={12} md={4}>
+            <Paper sx={{ p: 2.5, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Outlets</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2, minHeight: { md: 60 } }}>
+                Where you sell — restaurant, bar, pool bar. Each outlet has its own menu and sales.
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <TextField size="small" label="New Outlet" value={newOutletName} onChange={(event) => setNewOutletName(event.target.value)} fullWidth />
+                <Button variant="outlined" onClick={() => void addOutlet()}>Add</Button>
+              </Stack>
+              <TextField select size="small" label="Type" value={newOutletType} onChange={(event) => setNewOutletType(event.target.value)} fullWidth sx={{ mt: 1.5 }}>
+                {OUTLET_TYPES.map((entry) => (
+                  <MenuItem key={entry.value} value={entry.value}>{entry.label}</MenuItem>
+                ))}
+              </TextField>
+              <SetupChips entries={outlets.map((outlet) => outlet.name)} emptyText="No outlets yet" />
             </Paper>
           </Grid>
 
           <Grid item xs={12} md={4}>
-            <Stack spacing={2}>
-              <Paper sx={{ p: 2 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Outlets</Typography>
-                <Stack spacing={1}>
-                  <Stack direction="row" spacing={1}>
-                    <TextField size="small" label="New Outlet" value={newOutletName} onChange={(event) => setNewOutletName(event.target.value)} fullWidth />
-                    <Button variant="outlined" onClick={() => void addOutlet()}>Add</Button>
-                  </Stack>
-                  <TextField select size="small" label="Type" value={newOutletType} onChange={(event) => setNewOutletType(event.target.value)} fullWidth>
-                    {OUTLET_TYPES.map((entry) => (
-                      <MenuItem key={entry.value} value={entry.value}>{entry.label}</MenuItem>
-                    ))}
-                  </TextField>
-                </Stack>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  Where you sell — restaurant, bar, pool bar. Each outlet has its own menu and sales.
-                </Typography>
-              </Paper>
+            <Paper sx={{ p: 2.5, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Categories</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2, minHeight: { md: 60 } }}>
+                How items are grouped on the POS and guest menu — mains, drinks, desserts.
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <TextField size="small" label="New Category" value={newCategory} onChange={(event) => setNewCategory(event.target.value)} fullWidth />
+                <Button variant="outlined" onClick={() => void addCategory()}>Add</Button>
+              </Stack>
+              <SetupChips entries={categories} emptyText="No categories yet" />
+            </Paper>
+          </Grid>
 
-              <Paper sx={{ p: 2 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Categories</Typography>
-                <Stack direction="row" spacing={1}>
-                  <TextField size="small" label="New Category" value={newCategory} onChange={(event) => setNewCategory(event.target.value)} fullWidth />
-                  <Button variant="outlined" onClick={() => void addCategory()}>Add</Button>
-                </Stack>
-              </Paper>
-
-              <Paper sx={{ p: 2 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Kitchen Stations</Typography>
-                <Stack direction="row" spacing={1}>
-                  <TextField size="small" label="New Station" value={newStation} onChange={(event) => setNewStation(event.target.value)} fullWidth />
-                  <Button variant="outlined" onClick={() => void addStation()}>Add</Button>
-                </Stack>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  Where it is prepared — grill, pastry, bar counter. Orders are routed to the station's kitchen screen. Shared by every outlet.
-                </Typography>
-              </Paper>
-            </Stack>
+          <Grid item xs={12} md={4}>
+            <Paper sx={{ p: 2.5, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Kitchen Stations</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2, minHeight: { md: 60 } }}>
+                Where it is prepared — grill, pastry, bar counter. Orders go to that station's kitchen screen.
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <TextField size="small" label="New Station" value={newStation} onChange={(event) => setNewStation(event.target.value)} fullWidth />
+                <Button variant="outlined" onClick={() => void addStation()}>Add</Button>
+              </Stack>
+              <SetupChips entries={stations} emptyText="No stations yet" />
+            </Paper>
           </Grid>
         </Grid>
+
+        <Paper sx={{ p: 3, mb: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Create Menu Item</Typography>
+          <Box component="form" onSubmit={createItem}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} lg={3}>
+                <TextField
+                  select
+                  label="Outlet"
+                  value={outletId}
+                  onChange={(event) => setOutletId(event.target.value)}
+                  fullWidth
+                  error={outlets.length === 0}
+                  helperText={outlets.length === 0 ? 'Add an outlet above first' : undefined}
+                >
+                  {outlets.map((outlet) => (
+                    <MenuItem key={outlet.id} value={outlet.id}>{outlet.name}</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6} lg={3}>
+                <TextField select label="Category" value={category} onChange={(event) => setCategory(event.target.value)} fullWidth>
+                  {categories.map((entry) => (
+                    <MenuItem key={entry} value={entry}>{entry}</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6} lg={3}>
+                <TextField select label="Kitchen Station" value={kitchenStation} onChange={(event) => setKitchenStation(event.target.value)} fullWidth>
+                  {stations.map((entry) => (
+                    <MenuItem key={entry} value={entry}>{entry}</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6} lg={3}>
+                <TextField label="SKU" value={sku} onChange={(event) => setSku(event.target.value)} required fullWidth />
+              </Grid>
+
+              <Grid item xs={12} lg={6}>
+                <TextField label="Name" value={name} onChange={(event) => setName(event.target.value)} required fullWidth />
+              </Grid>
+              <Grid item xs={6} sm={4} lg={2}>
+                <TextField
+                  label="Price"
+                  type="number"
+                  value={price}
+                  onChange={(event) => setPrice(event.target.value)}
+                  placeholder="0"
+                  inputProps={{ min: 0, step: '0.01', inputMode: 'decimal' }}
+                  fullWidth
+                />
+              </Grid>
+              <Grid item xs={6} sm={4} lg={2}>
+                <TextField
+                  label="Cost"
+                  type="number"
+                  value={cost}
+                  onChange={(event) => setCost(event.target.value)}
+                  placeholder="0"
+                  inputProps={{ min: 0, step: '0.01', inputMode: 'decimal' }}
+                  fullWidth
+                />
+              </Grid>
+              <Grid item xs={12} sm={4} lg={2}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  fullWidth
+                  disabled={saving || outlets.length === 0}
+                  sx={{ height: '56px', whiteSpace: 'nowrap', px: 1.5 }}
+                >
+                  {saving ? 'Adding…' : 'Add Item'}
+                </Button>
+              </Grid>
+              {/*
+                The explanation for Cost lives on its own full-width line. As the
+                field's helper text it wrapped inside a narrow column, making that
+                one field taller than its neighbours and breaking the row.
+              */}
+              <Grid item xs={12} sx={{ pt: '8px !important' }}>
+                <Typography variant="caption" color="text.secondary">
+                  Cost is what the item costs you to make or buy. It is used for margin reporting and never shown to guests.
+                </Typography>
+              </Grid>
+            </Grid>
+          </Box>
+        </Paper>
 
         <DataTable
           rows={visibleItems}
