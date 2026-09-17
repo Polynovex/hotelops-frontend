@@ -24,6 +24,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import Layout from '../../../components/Layout';
 import DataTable from '../../../components/common/DataTable';
 import { api } from '../../../services/api';
@@ -436,13 +437,45 @@ const MenuItemImageCell = ({
   );
 };
 
-/** What already exists in a setup card, so it is visible without opening a dropdown. */
-const SetupChips = ({ entries, emptyText }: { entries: string[]; emptyText: string }) => (
+interface SetupRecord {
+  id: string;
+  name: string;
+}
+
+type SetupKind = 'outlet' | 'category' | 'station';
+
+interface PendingSetupDelete extends SetupRecord {
+  kind: SetupKind;
+}
+
+/**
+ * What already exists in a setup card, so it is visible without opening a
+ * dropdown. Each chip carries a delete control; removal is confirmed in a
+ * dialog rather than happening on the click itself.
+ */
+const SetupChips = ({
+  entries,
+  emptyText,
+  onDelete
+}: {
+  entries: SetupRecord[];
+  emptyText: string;
+  onDelete: (entry: SetupRecord) => void;
+}) => (
   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 2 }}>
     {entries.length === 0 ? (
       <Typography variant="caption" color="text.secondary">{emptyText}</Typography>
     ) : (
-      entries.map((entry) => <Chip key={entry} label={entry} size="small" variant="outlined" />)
+      entries.map((entry) => (
+        <Chip
+          key={entry.id}
+          label={entry.name}
+          size="small"
+          variant="outlined"
+          onDelete={() => onDelete(entry)}
+          deleteIcon={<CloseRoundedIcon titleAccess={`Delete ${entry.name}`} />}
+        />
+      ))
     )}
   </Box>
 );
@@ -480,6 +513,15 @@ export const PosMenuManagementPage = () => {
   const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PosMenuItem | null>(null);
 
+  /** Records carry the ids the delete calls need; the name lists feed the form. */
+  const [categoryRecords, setCategoryRecords] = useState<SetupRecord[]>([]);
+  const [stationRecords, setStationRecords] = useState<SetupRecord[]>([]);
+  /** Which setup entry the confirm dialog is asking about. */
+  const [pendingSetupDelete, setPendingSetupDelete] = useState<PendingSetupDelete | null>(null);
+  const [deletingSetup, setDeletingSetup] = useState(false);
+  /** Table filter, separate from the outlet the form files new items under. */
+  const [filterOutletId, setFilterOutletId] = useState('');
+
   const load = async () => {
     // Settled, not Promise.all: one failing list (a role without KDS access,
     // say) must not blank the outlets and items that did load.
@@ -487,7 +529,9 @@ export const PosMenuManagementPage = () => {
       posService.getOutlets(),
       posService.getMenuItems(),
       posService.getMenuCategories(),
-      posService.getKitchenStations()
+      posService.getKitchenStations(),
+      posService.getMenuCategoryRecords(),
+      kitchenStationService.list()
     ]);
     const valueOf = <T,>(result: PromiseSettledResult<T>, fallback: T): T =>
       result.status === 'fulfilled' ? result.value : fallback;
@@ -495,6 +539,13 @@ export const PosMenuManagementPage = () => {
     const itemRows = valueOf(settled[1], [] as PosMenuItem[]);
     const categoryRows = valueOf(settled[2], [] as string[]);
     const stationRows = valueOf(settled[3], [] as string[]);
+    setCategoryRecords(valueOf(settled[4], [] as SetupRecord[]));
+    setStationRecords(
+      valueOf(settled[5], [] as Array<{ id: string; name: string }>).map((row) => ({
+        id: row.id,
+        name: row.name
+      }))
+    );
     if (settled[0].status === 'rejected' || settled[1].status === 'rejected') {
       setError('Some menu data could not be loaded. Refresh to try again.');
     }
@@ -637,12 +688,64 @@ export const PosMenuManagementPage = () => {
     }
   };
 
+  const SETUP_LABELS: Record<SetupKind, string> = {
+    outlet: 'outlet',
+    category: 'category',
+    station: 'kitchen station'
+  };
+
+  const confirmSetupDelete = async () => {
+    if (!pendingSetupDelete) {
+      return;
+    }
+    const { kind, id, name } = pendingSetupDelete;
+    setDeletingSetup(true);
+    try {
+      if (kind === 'outlet') {
+        await posService.deleteOutlet(id);
+      } else if (kind === 'category') {
+        await posService.deleteMenuCategory(id);
+      } else {
+        await kitchenStationService.remove(id);
+      }
+      setPendingSetupDelete(null);
+      setToast(`${name} removed`);
+      if (kind === 'outlet') {
+        if (outletId === id) {
+          setOutletId('');
+        }
+        if (filterOutletId === id) {
+          setFilterOutletId('');
+        }
+      }
+      await load();
+    } catch (err) {
+      // The server refuses a delete that is still in use and says what is using
+      // it; that message is worth more than a generic failure.
+      setError(errorMessage(err, `Could not delete the ${SETUP_LABELS[kind]}`));
+      setPendingSetupDelete(null);
+    } finally {
+      setDeletingSetup(false);
+    }
+  };
+
+  const outletNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    outlets.forEach((outlet) => map.set(outlet.id, outlet.name));
+    return map;
+  }, [outlets]);
+
+  /*
+    Every outlet's items by default. The table used to follow the item form's
+    outlet, so choosing where to file a new item silently hid the rest of the
+    menu; the filter below is now the only thing that narrows the table.
+  */
   const visibleItems = useMemo(() => {
-    if (!outletId) {
+    if (!filterOutletId) {
       return items;
     }
-    return items.filter((item) => item.outletId === outletId);
-  }, [items, outletId]);
+    return items.filter((item) => item.outletId === filterOutletId);
+  }, [items, filterOutletId]);
 
   const toggleAvailability = async (itemId: string, current: boolean) => {
     try {
@@ -713,7 +816,11 @@ export const PosMenuManagementPage = () => {
                   <MenuItem key={entry.value} value={entry.value}>{entry.label}</MenuItem>
                 ))}
               </TextField>
-              <SetupChips entries={outlets.map((outlet) => outlet.name)} emptyText="No outlets yet" />
+              <SetupChips
+                entries={outlets.map((outlet) => ({ id: outlet.id, name: outlet.name }))}
+                emptyText="No outlets yet"
+                onDelete={(entry) => setPendingSetupDelete({ ...entry, kind: 'outlet' })}
+              />
             </Paper>
           </Grid>
 
@@ -727,7 +834,11 @@ export const PosMenuManagementPage = () => {
                 <TextField size="small" label="New Category" value={newCategory} onChange={(event) => setNewCategory(event.target.value)} fullWidth />
                 <Button variant="outlined" onClick={() => void addCategory()}>Add</Button>
               </Stack>
-              <SetupChips entries={categories} emptyText="No categories yet" />
+              <SetupChips
+                entries={categoryRecords}
+                emptyText="No categories yet"
+                onDelete={(entry) => setPendingSetupDelete({ ...entry, kind: 'category' })}
+              />
             </Paper>
           </Grid>
 
@@ -741,7 +852,11 @@ export const PosMenuManagementPage = () => {
                 <TextField size="small" label="New Station" value={newStation} onChange={(event) => setNewStation(event.target.value)} fullWidth />
                 <Button variant="outlined" onClick={() => void addStation()}>Add</Button>
               </Stack>
-              <SetupChips entries={stations} emptyText="No stations yet" />
+              <SetupChips
+                entries={stationRecords}
+                emptyText="No stations yet"
+                onDelete={(entry) => setPendingSetupDelete({ ...entry, kind: 'station' })}
+              />
             </Paper>
           </Grid>
         </Grid>
@@ -833,11 +948,34 @@ export const PosMenuManagementPage = () => {
           </Box>
         </Paper>
 
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+            <TextField
+              select
+              size="small"
+              label="Filter by outlet"
+              value={filterOutletId}
+              onChange={(event) => setFilterOutletId(event.target.value)}
+              sx={{ minWidth: 240 }}
+            >
+              <MenuItem value="">All outlets</MenuItem>
+              {outlets.map((outlet) => (
+                <MenuItem key={outlet.id} value={outlet.id}>{outlet.name}</MenuItem>
+              ))}
+            </TextField>
+            <Typography variant="body2" color="text.secondary">
+              {filterOutletId
+                ? `${visibleItems.length} item(s) in ${outletNameById.get(filterOutletId) || 'this outlet'}`
+                : `${items.length} item(s) across ${outlets.length} outlet(s)`}
+            </Typography>
+          </Stack>
+        </Paper>
+
         <DataTable
           rows={visibleItems}
           rowKey={(item) => item.id}
           defaultRowsPerPage={10}
-          emptyText="No menu items found for selected outlet."
+          emptyText={filterOutletId ? 'No menu items in this outlet.' : 'No menu items yet.'}
           columns={[
             {
               /*
@@ -866,6 +1004,12 @@ export const PosMenuManagementPage = () => {
             },
             { key: 'sku', label: 'SKU', minWidth: 120 },
             { key: 'name', label: 'Name', minWidth: 180 },
+            {
+              key: 'outletId',
+              label: 'Outlet',
+              minWidth: 150,
+              render: (item) => outletNameById.get(item.outletId) || '—'
+            },
             { key: 'category', label: 'Category', minWidth: 140 },
             { key: 'kitchenStation', label: 'Station', minWidth: 130 },
             {
@@ -933,6 +1077,41 @@ export const PosMenuManagementPage = () => {
             <Button onClick={() => setPendingDelete(null)}>Cancel</Button>
             <Button color="error" variant="contained" onClick={() => void removeItem()}>
               Delete item
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={Boolean(pendingSetupDelete)}
+          onClose={() => (deletingSetup ? undefined : setPendingSetupDelete(null))}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle>
+            Delete this {pendingSetupDelete ? SETUP_LABELS[pendingSetupDelete.kind] : 'entry'}?
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">
+              <strong>{pendingSetupDelete?.name}</strong> will be removed.
+            </Typography>
+            <Alert severity="info" sx={{ mt: 2 }}>
+              {pendingSetupDelete?.kind === 'outlet' &&
+                'An outlet that still has menu items or past orders cannot be deleted.'}
+              {pendingSetupDelete?.kind === 'category' &&
+                'A category that still has menu items filed under it cannot be deleted.'}
+              {pendingSetupDelete?.kind === 'station' &&
+                'The station is retired rather than erased, so orders already routed to it stay readable.'}
+            </Alert>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button disabled={deletingSetup} onClick={() => setPendingSetupDelete(null)}>Cancel</Button>
+            <Button
+              color="error"
+              variant="contained"
+              disabled={deletingSetup}
+              onClick={() => void confirmSetupDelete()}
+            >
+              {deletingSetup ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogActions>
         </Dialog>

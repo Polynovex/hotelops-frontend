@@ -1326,6 +1326,13 @@ export const RoomTypeListPage = () => {
   );
 };
 
+/** Pulls the server's message out of an axios error, with a sensible fallback. */
+const errorMessage = (err: unknown, fallback: string) =>
+  (err as { response?: { data?: { error?: string; message?: string } } })
+    .response?.data?.error
+  ?? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+  ?? fallback;
+
 const RoomTypeForm = ({
   initial,
   onSubmit,
@@ -1378,16 +1385,23 @@ const RoomTypeForm = ({
 
 export const CreateRoomTypePage = () => {
   const navigate = useNavigate();
+  const [error, setError] = useState('');
 
   return (
     <Layout>
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 2 }}>Create Room Type</Typography>
+        {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>{error}</Alert>}
         <RoomTypeForm
           submitLabel="Create"
           onSubmit={async (payload) => {
-            await roomOpsService.createRoomType(payload);
-            navigate('/business/rooms/types');
+            setError('');
+            try {
+              await roomOpsService.createRoomType(payload);
+              navigate('/business/rooms/types');
+            } catch (err) {
+              setError(errorMessage(err, 'Could not create the room type'));
+            }
           }}
         />
       </Container>
@@ -1400,6 +1414,7 @@ export const EditRoomTypePage = () => {
   const navigate = useNavigate();
   const [roomType, setRoomType] = useState<RoomTypeRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -1436,12 +1451,18 @@ export const EditRoomTypePage = () => {
     <Layout>
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 2 }}>Edit Room Type</Typography>
+        {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>{error}</Alert>}
         <RoomTypeForm
           initial={roomType}
           submitLabel="Save Changes"
           onSubmit={async (payload) => {
-            await roomOpsService.updateRoomType(roomType.id, payload);
-            navigate('/business/rooms/types');
+            setError('');
+            try {
+              await roomOpsService.updateRoomType(roomType.id, payload);
+              navigate('/business/rooms/types');
+            } catch (err) {
+              setError(errorMessage(err, 'Could not save the room type'));
+            }
           }}
         />
       </Container>

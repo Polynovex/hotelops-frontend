@@ -1394,8 +1394,9 @@ export const roomOpsService = {
         };
         pushAudit({ action: 'CREATE', entity: 'ROOM_TYPE', entityId: roomType.id, details: payload });
         return roomType;
-      } catch (_error) {
-        // Fall back to local room type store.
+      } catch (error) {
+        // Surfaced, not swallowed — see updateRoomType.
+        throw error;
       }
     }
 
@@ -1430,8 +1431,14 @@ export const roomOpsService = {
         };
         pushAudit({ action: 'UPDATE', entity: 'ROOM_TYPE', entityId: roomTypeId, details: updates });
         return roomType;
-      } catch (_error) {
-        // Fall back to local room type store.
+      } catch (error) {
+        /*
+          Deliberately not falling back to the browser-local store. It did, and
+          a rejected save looked identical to a successful one: the page
+          navigated away, the change lived only in localStorage, and the old
+          values were back on the next load.
+        */
+        throw error;
       }
     }
 
@@ -1457,8 +1464,10 @@ export const roomOpsService = {
         await api.delete(`/room-types/${roomTypeId}`);
         pushAudit({ action: 'DELETE', entity: 'ROOM_TYPE', entityId: roomTypeId, details: {} });
         return;
-      } catch (_error) {
-        // Fall back to local room type store.
+      } catch (error) {
+        // Surfaced, not swallowed — see updateRoomType. The server refuses a
+        // delete while rooms still use the type, and that reason must be shown.
+        throw error;
       }
     }
 

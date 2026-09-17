@@ -103,6 +103,15 @@ export const qrOrderingService = {
     return data;
   },
 
+  /**
+   * Permanent removal, unlike deactivateQrCode which only takes the sticker out
+   * of service. Past orders keep their totals and lose only the link to the code.
+   */
+  async deleteQrCode(id: string) {
+    const { data } = await api.delete(`/pos/qr-codes/${id}/permanent`);
+    return data;
+  },
+
   async reactivateQrCode(id: string) {
     const { data } = await api.patch(`/pos/qr-codes/${id}/reactivate`);
     return data;

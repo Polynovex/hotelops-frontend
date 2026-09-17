@@ -27,6 +27,7 @@ import {
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DownloadIcon from '@mui/icons-material/Download';
 import BlockIcon from '@mui/icons-material/Block';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import AddIcon from '@mui/icons-material/Add';
@@ -50,6 +51,8 @@ const QrCodesPage = () => {
   const [creating, setCreating] = useState(false);
 
   const [pendingDeactivate, setPendingDeactivate] = useState<QrCodeRecord | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<QrCodeRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -108,6 +111,25 @@ const QrCodesPage = () => {
       setError(err instanceof Error ? err.message : 'Failed to deactivate QR code');
     } finally {
       setPendingDeactivate(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!pendingDelete) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await qrOrderingService.deleteQrCode(pendingDelete.id);
+      setToast(`QR code ${pendingDelete.code} deleted`);
+      setPendingDelete(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete QR code');
+      setPendingDelete(null);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -350,6 +372,13 @@ const QrCodesPage = () => {
                           destructive: true,
                           hidden: !qr.isActive,
                           onClick: () => setPendingDeactivate(qr)
+                        },
+                        {
+                          key: 'delete',
+                          label: 'Delete permanently',
+                          icon: <DeleteOutlineIcon fontSize="small" />,
+                          destructive: true,
+                          onClick: () => setPendingDelete(qr)
                         }
                       ]}
                     />
@@ -359,6 +388,31 @@ const QrCodesPage = () => {
           </TableBody>
         </Table>
       </TableContainer>
+
+      <Dialog
+        open={Boolean(pendingDelete)}
+        onClose={() => (deleting ? undefined : setPendingDelete(null))}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Delete this QR code?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            <strong>{pendingDelete?.label || pendingDelete?.code}</strong> will be removed
+            permanently, and any sticker already printed with it will stop working.
+          </Typography>
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Past orders keep their totals; they simply lose the link to this code. To pause a
+            code you intend to use again, deactivate it instead.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button disabled={deleting} onClick={() => setPendingDelete(null)}>Cancel</Button>
+          <Button color="error" variant="contained" disabled={deleting} onClick={() => void handleDelete()}>
+            {deleting ? 'Deleting…' : 'Delete QR code'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Generate QR Code</DialogTitle>
