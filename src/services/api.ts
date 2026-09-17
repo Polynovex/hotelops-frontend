@@ -2038,6 +2038,29 @@ export const posService = {
     return Array.isArray(payload.categories) ? payload.categories : [];
   },
 
+  /**
+   * Categories with their ids, for the setup card that deletes them. The plain
+   * getMenuCategories() stays name-only because the item form files items by
+   * category name.
+   */
+  getMenuCategoryRecords: async (): Promise<Array<{ id: string; name: string }>> => {
+    if (isDemoMode()) {
+      return ['Appetizers', 'Mains', 'Desserts', 'Drinks'].map((name) => ({ id: name, name }));
+    }
+    const response = await api.get('/menu/categories');
+    const rows = asArray<{ id?: string; name?: string }>(unwrapData<unknown>(response.data));
+    return rows
+      .filter((row) => row.id && row.name)
+      .map((row) => ({ id: String(row.id), name: String(row.name) }));
+  },
+
+  deleteMenuCategory: async (id: string): Promise<void> => {
+    if (isDemoMode()) {
+      return;
+    }
+    await api.delete(`/menu/categories/${id}`);
+  },
+
   createMenuCategory: async (name: string): Promise<string> => {
     if (isDemoMode()) {
       return name;
