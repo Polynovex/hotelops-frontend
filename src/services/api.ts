@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
+import { tokenForRetry } from './tokenRefresh';
 import { getApiErrorMessage } from '../utils/apiError';
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/$/, '');
@@ -25,30 +26,12 @@ api.interceptors.request.use((config) => {
  * the first would retire the token and every other would fail — logging the
  * user out anyway. So the first 401 starts a refresh and the rest wait on it.
  */
-let refreshInFlight: Promise<string | null> | null = null;
-
-const refreshAccessToken = (): Promise<string | null> => {
-  if (!refreshInFlight) {
-    refreshInFlight = (async () => {
-      const { refreshToken, user } = useAuthStore.getState();
-      // `remember-…` placeholders are not real refresh tokens.
-      if (!refreshToken || refreshToken.startsWith('remember-') || !user) return null;
-      try {
-        // Plain axios, not `api`: a 401 here must not re-enter this interceptor.
-        const { data } = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
-        const accessToken: string | undefined = data?.accessToken ?? data?.token;
-        if (!accessToken) return null;
-        useAuthStore.getState().setAuth(user, accessToken, data?.refreshToken ?? refreshToken);
-        return accessToken;
-      } catch {
-        return null;
-      }
-    })().finally(() => {
-      refreshInFlight = null;
-    });
-  }
-  return refreshInFlight;
-};
+/*
+  The refresh itself lives in tokenRefresh.ts so that every axios instance in
+  the app shares one in-flight promise. Two clients refreshing independently
+  raced each other: the server rotates refresh tokens, so the second rotation
+  presented a revoked token, failed, and signed the user out mid-session.
+*/
 
 api.interceptors.response.use(
   (response) => response,
@@ -88,8 +71,7 @@ api.interceptors.response.use(
         // flight; if so, retry with the token it obtained instead of refreshing
         // again with a refresh token that has since been rotated away.
         const sentWith = String(original.headers?.Authorization ?? '').replace(/^Bearer /, '');
-        const current = useAuthStore.getState().token;
-        const fresh = current && current !== sentWith ? current : await refreshAccessToken();
+        const fresh = await tokenForRetry(sentWith);
 
         if (fresh) {
           original.headers = original.headers ?? {};

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuthStore } from '../store/authStore';
+import { tokenForRetry } from '../services/tokenRefresh';
 
 const baseURL = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/$/, '');
 
@@ -28,37 +29,33 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const isRefreshCall = originalRequest?.url?.includes('/auth/refresh');
 
-    if (error.response?.status === 401 && !originalRequest?._retry) {
+    if (error.response?.status === 401 && !isRefreshCall && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
-      try {
-        const refreshToken = useAuthStore.getState().refreshToken;
-        if (!refreshToken) {
-          throw new Error('No refresh token');
-        }
 
-        const refreshResponse = await axios.post(`${baseURL}/auth/refresh`, { refreshToken });
-        const accessToken = refreshResponse.data?.accessToken || refreshResponse.data?.token;
+      /*
+        Shared with the main api client rather than refreshing here.
 
-        if (!accessToken) {
-          throw new Error('No access token in refresh response');
-        }
+        This instance used to run its own refresh. The server rotates refresh
+        tokens, so when both clients saw a 401 on the same page — which is what
+        a 15-minute idle produces — the first rotation revoked the token the
+        second was holding, the second refresh returned 401, and this handler
+        logged the user out in the middle of their session. The Menu
+        Engineering page was where it showed up, because it is one of the only
+        screens served by this client.
+      */
+      const sentWith = String(originalRequest.headers?.Authorization ?? '').replace(/^Bearer /, '');
+      const fresh = await tokenForRetry(sentWith);
 
-        const currentUser = useAuthStore.getState().user;
-        if (currentUser) {
-          useAuthStore.getState().setAuth(
-            currentUser,
-            accessToken,
-            refreshResponse.data?.refreshToken || refreshToken
-          );
-        }
-
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+      if (fresh) {
+        originalRequest.headers = originalRequest.headers ?? {};
+        originalRequest.headers.Authorization = `Bearer ${fresh}`;
         return apiClient(originalRequest);
-      } catch (_refreshError) {
-        useAuthStore.getState().logout();
-        window.location.href = '/login';
       }
+
+      useAuthStore.getState().logout();
+      window.location.href = '/login';
     }
 
     return Promise.reject(error);
