@@ -32,6 +32,8 @@ interface User {
   permissions?: string[];
   /** The assigned RBAC role's name, preferred over the legacy role for display. */
   roleName?: string | null;
+  /** The hotel's idle auto-logout window, from /auth/me. */
+  idleTimeoutMinutes?: number;
 }
 
 interface AuthState {
@@ -109,6 +111,18 @@ export const useAuthStore = create<AuthState>()(
       },
       logout: () => {
         void syncAuthTokenToDesktop(null);
+        /*
+         * Revoke the refresh token server-side as well. Clearing only the
+         * browser left a stolen or copied refresh token usable until expiry.
+         * Fire-and-forget: sign-out must never wait on, or fail because of,
+         * the network. Imported lazily to avoid a cycle through the api client.
+         */
+        const { refreshToken } = get();
+        if (refreshToken && !refreshToken.startsWith('remember-')) {
+          void import('../services/api')
+            .then(({ api }) => api.post('/auth/logout', { refreshToken }))
+            .catch(() => undefined);
+        }
         set({
           user: null,
           token: null,

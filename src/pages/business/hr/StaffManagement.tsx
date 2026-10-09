@@ -36,6 +36,9 @@ import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
 import KeyIcon from '@mui/icons-material/VpnKey';
 import KeyOffIcon from '@mui/icons-material/NoEncryptionGmailerrorred';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
+import { PasswordConfirmDialog } from '../../../components/common/PasswordConfirmDialog';
+import { useAuthStore } from '../../../store/authStore';
 import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import {
   formatNaira,
@@ -128,6 +131,12 @@ const StaffManagement = () => {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [pendingTerminate, setPendingTerminate] = useState<StaffMember | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<StaffMember | null>(null);
+  // Owner and HR (DELETE_STAFF). Rendering only; the server re-checks.
+  const canDelete = useAuthStore((state) => {
+    const granted = state.user?.permissions ?? [];
+    return granted.includes('*') || granted.includes('DELETE_STAFF');
+  });
   const [pendingAccess, setPendingAccess] = useState<StaffMember | null>(null);
   const [pendingRevoke, setPendingRevoke] = useState<StaffMember | null>(null);
   const [accessLevel, setAccessLevel] = useState<StaffAccessLevel>('SELF_SERVICE');
@@ -286,6 +295,15 @@ const StaffManagement = () => {
     } finally {
       setPendingTerminate(null);
     }
+  };
+
+  /** Throws on failure so the password dialog stays open with the reason. */
+  const handleDelete = async (password: string) => {
+    if (!pendingDelete) return;
+    await hrService.deleteStaff(pendingDelete.id, password);
+    setToast(`${pendingDelete.firstName} ${pendingDelete.lastName} permanently deleted`);
+    setPendingDelete(null);
+    await load();
   };
 
   return (
@@ -454,6 +472,14 @@ const StaffManagement = () => {
                           destructive: true,
                           hidden: member.status === 'TERMINATED',
                           onClick: () => setPendingTerminate(member)
+                        },
+                        {
+                          key: 'delete',
+                          label: 'Delete permanently',
+                          icon: <DeleteForeverIcon fontSize="small" />,
+                          destructive: true,
+                          hidden: !canDelete,
+                          onClick: () => setPendingDelete(member)
                         },
                         {
                           /*
@@ -697,6 +723,23 @@ const StaffManagement = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <PasswordConfirmDialog
+        open={Boolean(pendingDelete)}
+        title="Delete staff profile permanently?"
+        confirmLabel="Delete permanently"
+        onClose={() => setPendingDelete(null)}
+        onConfirm={handleDelete}
+      >
+        <Typography variant="body2">
+          <strong>
+            {pendingDelete?.firstName} {pendingDelete?.lastName}
+          </strong>{' '}
+          and their attendance, leave, payroll and review history will be erased.
+          Any login they have is revoked. This cannot be undone — to keep their
+          history, terminate them instead.
+        </Typography>
+      </PasswordConfirmDialog>
 
       <Dialog open={Boolean(pendingTerminate)} onClose={() => setPendingTerminate(null)}>
         <DialogTitle>Terminate staff member?</DialogTitle>

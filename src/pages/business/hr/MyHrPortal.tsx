@@ -33,7 +33,6 @@ import BadgeIcon from '@mui/icons-material/Badge';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import {
   formatNaira,
-  hrService,
   LEAVE_STATUS_COLOR,
   myHrService,
   PAYROLL_STATUS_COLOR,
@@ -41,8 +40,10 @@ import {
   type MyAttendance,
   type MyLeave,
   type MyStaffProfile,
-  type PayrollRecord
+  type PayrollRecord,
+  type AttendanceRecord
 } from '../../../services/hr.service';
+import { useClockAction } from '../../../components/hr/useClockAction';
 import { EmptyState, MetricCard, PageHeader, SectionHeader } from '../../../components/premium';
 
 const LEAVE_TYPES: LeaveType[] = ['ANNUAL', 'SICK', 'PERSONAL', 'MATERNITY', 'OTHER'];
@@ -127,46 +128,30 @@ const MyHrPortal = () => {
     void load();
   }, [load]);
 
-  /** GPS is offered but never required — a denied prompt must not block a punch. */
-  const getPosition = () =>
-    new Promise<{ lat?: number; lng?: number; method: string }>((resolve) => {
-      if (!navigator.geolocation) {
-        resolve({ method: 'MANUAL' });
-        return;
-      }
-      const timer = setTimeout(() => resolve({ method: 'MANUAL' }), 5000);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          clearTimeout(timer);
-          resolve({ lat: position.coords.latitude, lng: position.coords.longitude, method: 'GPS' });
-        },
-        () => {
-          clearTimeout(timer);
-          resolve({ method: 'MANUAL' });
-        },
-        { timeout: 5000 }
-      );
-    });
+  // Clocking, including the late-reason and overtime prompts, is shared with
+  // the HR attendance screen so both follow the same approval rules.
+  const { clock, busy: clocking, dialog: clockDialog } = useClockAction({
+    onDone: async (message) => {
+      setToast(message);
+      await load();
+    },
+    onError: setError
+  });
 
-  const clock = async (direction: 'in' | 'out') => {
-    setBusy(true);
+  /** Lets the employee explain overtime on a past day for HR. */
+  const [overtimeFor, setOvertimeFor] = useState<AttendanceRecord | null>(null);
+  const [overtimeReason, setOvertimeReason] = useState('');
+  const submitOvertime = async () => {
+    if (!overtimeFor || !overtimeReason.trim()) return;
     try {
-      const position = await getPosition();
-      const payload = { method: position.method, lat: position.lat, lng: position.lng };
-
-      if (direction === 'in') {
-        await hrService.clockIn(payload);
-        setToast('Clocked in');
-      } else {
-        await hrService.clockOut(payload);
-        setToast('Clocked out');
-      }
+      await myHrService.requestOvertime(overtimeFor.id, overtimeReason.trim());
+      setToast('Overtime sent to HR for approval');
+      setOvertimeFor(null);
+      setOvertimeReason('');
       await load();
     } catch (err: unknown) {
       const response = (err as { response?: { data?: { error?: string } } }).response;
-      setError(response?.data?.error || `Could not clock ${direction}`);
-    } finally {
-      setBusy(false);
+      setError(response?.data?.error || 'Could not send the overtime request');
     }
   };
 
@@ -266,7 +251,7 @@ const MyHrPortal = () => {
               variant="contained"
               startIcon={<LoginIcon />}
               onClick={() => void clock('in')}
-              disabled={busy || today?.clockedIn}
+              disabled={clocking || today?.clockedIn}
             >
               {today?.clockedIn ? 'Clocked in' : 'Clock In'}
             </Button>
@@ -274,7 +259,7 @@ const MyHrPortal = () => {
               variant="outlined"
               startIcon={<LogoutIcon />}
               onClick={() => void clock('out')}
-              disabled={busy || !today?.clockedIn || today?.clockedOut}
+              disabled={clocking || !today?.clockedIn || today?.clockedOut}
             >
               {today?.clockedOut ? 'Clocked out' : 'Clock Out'}
             </Button>
@@ -406,12 +391,13 @@ const MyHrPortal = () => {
                 <TableCell align="right">Hours</TableCell>
                 <TableCell align="right">Overtime</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>HR approval</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {(attendance?.records.length ?? 0) === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <EmptyState title="No attendance yet" description="Clock in to start recording your hours." />
                   </TableCell>
                 </TableRow>
@@ -422,9 +408,33 @@ const MyHrPortal = () => {
                   <TableCell>{row.clockIn ? new Date(row.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</TableCell>
                   <TableCell>{row.clockOut ? new Date(row.clockOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</TableCell>
                   <TableCell align="right">{row.totalHours.toFixed(2)}</TableCell>
-                  <TableCell align="right">{row.overtimeHours > 0 ? row.overtimeHours.toFixed(2) : '—'}</TableCell>
+                  <TableCell align="right">
+                    {row.overtimeHours > 0 ? (
+                      <Stack alignItems="flex-end">
+                        <span>{row.overtimeHours.toFixed(2)}</span>
+                        {row.overtimeStatus && row.overtimeStatus !== 'APPROVED' && row.overtimeStatus !== 'NONE' && (
+                          <Button size="small" sx={{ p: 0, minWidth: 0 }} onClick={() => setOvertimeFor(row)}>
+                            {row.overtimeReason ? 'Update reason' : 'Explain'}
+                          </Button>
+                        )}
+                      </Stack>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Chip size="small" label={row.status.replace('_', ' ')} />
+                  </TableCell>
+                  <TableCell>
+                    {row.approvalStatus && (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        title={row.reviewNote ?? undefined}
+                        label={row.approvalStatus.toLowerCase()}
+                        color={row.approvalStatus === 'APPROVED' ? 'success' : row.approvalStatus === 'REJECTED' ? 'error' : 'warning'}
+                      />
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -487,6 +497,33 @@ const MyHrPortal = () => {
           <Button onClick={() => setLeaveOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={() => void submitLeave()} disabled={busy}>
             {busy ? 'Submitting…' : 'Submit request'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {clockDialog}
+
+      <Dialog open={Boolean(overtimeFor)} onClose={() => setOvertimeFor(null)} fullWidth maxWidth="xs">
+        <DialogTitle>Explain overtime</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            {overtimeFor && `${overtimeFor.overtimeHours.toFixed(2)}h on ${new Date(overtimeFor.date).toLocaleDateString()}. HR approves overtime before it is paid.`}
+          </Typography>
+          <TextField
+            fullWidth
+            autoFocus
+            multiline
+            minRows={2}
+            label="Reason"
+            value={overtimeReason}
+            onChange={(event) => setOvertimeReason(event.target.value)}
+            inputProps={{ maxLength: 500 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setOvertimeFor(null)}>Cancel</Button>
+          <Button variant="contained" onClick={() => void submitOvertime()} disabled={!overtimeReason.trim()}>
+            Send to HR
           </Button>
         </DialogActions>
       </Dialog>

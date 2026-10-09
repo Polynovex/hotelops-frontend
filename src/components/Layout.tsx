@@ -3,7 +3,6 @@ import {
   Alert,
   AppBar,
   Avatar,
-  Badge,
   Box,
   Button,
   Chip,
@@ -23,7 +22,6 @@ import {
   Menu,
   MenuItem,
   Paper,
-  Popover,
   Stack,
   TextField,
   Toolbar,
@@ -59,7 +57,6 @@ import {
   History as HistoryIcon,
   FactCheck as KdsIcon,
   Logout as LogoutIcon,
-  Notifications,
   WorkspacePremium,
   NightShelterRounded,
   AccountBalanceWalletRounded,
@@ -80,11 +77,11 @@ import { useAuthStore } from '../store/authStore';
 import { useColorMode } from '../theme/colorMode';
 import { DemoModeBanner } from './DemoModeBanner';
 import DesktopUpdateBanner from './DesktopUpdateBanner';
-import { useNotificationStore } from '../store/notificationStore';
 import { usePermissionStore } from '../store/permissionStore';
 import TenantLogo from './branding/TenantLogo';
 import { getApiErrorMessage } from '../utils/apiError';
 import { AlertSoundToggle } from './AlertSoundToggle';
+import { NotificationCenter } from './NotificationCenter';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -165,6 +162,8 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     },
     { label: 'Menu Configuration', icon: MenuBookIcon, path: '/business/menu', module: 'pos' },
     { label: 'QR Ordering', icon: PosIcon, path: '/business/pos/qr-codes', module: 'pos' },
+    { label: 'Tables', icon: RoomIcon, path: '/business/pos/tables', module: 'pos' },
+    { label: 'Kitchen', icon: KdsIcon, path: '/business/kitchen', module: 'pos' },
     { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
     {
       label: 'HR & Payroll',
@@ -172,11 +171,27 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
       children: [
         { label: 'HR Dashboard', icon: UserIcon, path: '/business/hr' },
         { label: 'Payroll', icon: ReceiptIcon, path: '/business/hr/payroll' },
-        { label: 'Staff Rota', icon: CalendarIcon, path: '/business/hr/rota' }
+        { label: 'Staff Rota', icon: CalendarIcon, path: '/business/hr/rota' },
+        { label: 'Attendance Approvals', icon: CalendarIcon, path: '/business/hr/attendance' }
       ]
     },
-    { label: 'Daily Expenditure', icon: AssessmentIcon, path: '/business/finance/expenses' },
-    { label: 'Transaction History', icon: AssessmentIcon, path: '/business/finance/transactions' },
+    /*
+     * Finance, with the owner's approval queue first: daily records reach
+     * reports only once approved here.
+     */
+    {
+      label: 'Finance',
+      icon: AssessmentIcon,
+      children: [
+        { label: 'Approve Requests', icon: AuditIcon, path: '/business/finance/approvals' },
+        { label: 'Daily Records', icon: CalendarIcon, path: '/business/finance/daily-records' },
+        { label: 'Finance Reports', icon: AssessmentIcon, path: '/business/finance/reports' },
+        { label: 'Suppliers & Creditors', icon: ReceiptIcon, path: '/business/finance/suppliers' },
+        { label: 'Daily Expenditure', icon: AssessmentIcon, path: '/business/finance/expenses' },
+        { label: 'Transaction History', icon: AssessmentIcon, path: '/business/finance/transactions' },
+        { label: 'POS Payments', icon: PosIcon, path: '/business/pos/payments', module: 'pos' }
+      ]
+    },
     {
       label: 'Guest Portal',
       icon: PeopleIcon,
@@ -255,9 +270,12 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Dashboard', icon: DashboardIcon, path: '/pos/dashboard', module: 'pos' },
     { label: 'My HR', icon: UserIcon, path: '/my-hr' },
     { label: 'Shift', icon: HistoryIcon, path: '/shift' },
-    { label: 'Take Orders', icon: PosIcon, path: '/pos/order', module: 'pos' },
-    { label: 'Tables', icon: RoomIcon, path: '/pos/tables', module: 'pos' },
-    { label: 'Kitchen Display', icon: KdsIcon, path: '/pos/orders', module: 'pos' }
+    { label: 'Take Orders', icon: PosIcon, path: '/business/pos/orders', module: 'pos' },
+    { label: 'Tables', icon: RoomIcon, path: '/business/pos/tables', module: 'pos' },
+    // Pointed at the orders page before; the kitchen display is its own screen.
+    { label: 'Kitchen Display', icon: KdsIcon, path: '/business/pos/kds', module: 'pos' },
+    { label: 'Kitchen', icon: KdsIcon, path: '/business/kitchen', module: 'pos' },
+    { label: 'Payments', icon: ReceiptIcon, path: '/business/pos/payments', module: 'pos' }
   ],
   HOUSEKEEPING: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/housekeeping/dashboard', module: 'pms' },
@@ -293,6 +311,10 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
       module: 'finance'
     },
     // { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
+    { label: 'Daily Records', icon: CalendarIcon, path: '/business/finance/daily-records', module: 'finance' },
+    { label: 'Finance Reports', icon: AssessmentIcon, path: '/business/finance/reports', module: 'finance' },
+    { label: 'Suppliers & Creditors', icon: ReceiptIcon, path: '/business/finance/suppliers', module: 'finance' },
+    { label: 'POS Payments', icon: PosIcon, path: '/business/pos/payments', module: 'pos' },
     { label: 'Revenue', icon: AssessmentIcon, path: '/accountant/revenue', module: 'finance' },
     {
       label: 'Inventory',
@@ -322,6 +344,18 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
     { label: 'HR & Payroll', icon: UserIcon, path: '/business/hr' },
     { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
+    { label: 'Tables', icon: RoomIcon, path: '/business/pos/tables', module: 'pos' },
+    { label: 'Kitchen', icon: KdsIcon, path: '/business/kitchen', module: 'pos' },
+    {
+      label: 'Finance',
+      icon: AssessmentIcon,
+      children: [
+        { label: 'Daily Records', icon: CalendarIcon, path: '/business/finance/daily-records' },
+        { label: 'Finance Reports', icon: AssessmentIcon, path: '/business/finance/reports' },
+        { label: 'Suppliers & Creditors', icon: ReceiptIcon, path: '/business/finance/suppliers' },
+        { label: 'POS Payments', icon: PosIcon, path: '/business/pos/payments', module: 'pos' }
+      ]
+    },
     {
       label: 'Revenue',
       icon: AssessmentIcon,
@@ -363,10 +397,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       void loadPermissions(user.id);
     }
   }, [user?.id, loadPermissions]);
-  const { notifications, removeNotification } = useNotificationStore();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [notifAnchorEl, setNotifAnchorEl] = useState<null | HTMLElement>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
   /**
@@ -575,7 +607,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const hrChildren = [
     can('VIEW_STAFF') && { label: 'HR Dashboard', icon: UserIcon, path: '/business/hr' },
     can('VIEW_PAYROLL') && { label: 'Payroll', icon: ReceiptIcon, path: '/business/hr/payroll' },
-    can('VIEW_ATTENDANCE') && { label: 'Staff Rota', icon: CalendarIcon, path: '/business/hr/rota' }
+    can('VIEW_ATTENDANCE') && { label: 'Staff Rota', icon: CalendarIcon, path: '/business/hr/rota' },
+    can('APPROVE_ATTENDANCE') && { label: 'Attendance Approvals', icon: CalendarIcon, path: '/business/hr/attendance' },
+    // The owner's Staff screen, for HR. The owner already has it at top level.
+    role !== 'BUSINESS_ADMIN' && can('MANAGE_USERS')
+      && { label: 'Staff Accounts', icon: UserIcon, path: '/business/settings/users' }
   ].filter(Boolean) as NavLink[];
 
   /**
@@ -854,58 +890,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <AlertSoundToggle />
           </Box>
 
-          <IconButton
-            color="inherit"
-            sx={{ mr: 1 }}
-            onClick={(e) => setNotifAnchorEl(e.currentTarget)}
-          >
-            <Badge badgeContent={notifications.length || null} color="error">
-              <Notifications />
-            </Badge>
-          </IconButton>
-
-          <Popover
-            open={Boolean(notifAnchorEl)}
-            anchorEl={notifAnchorEl}
-            onClose={() => setNotifAnchorEl(null)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            PaperProps={{ sx: { width: 320, maxHeight: 400 } }}
-          >
-            <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="subtitle2" fontWeight={700}>Notifications</Typography>
-            </Box>
-            {notifications.length === 0 ? (
-              <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">No new notifications</Typography>
-              </Box>
-            ) : (
-              <List dense disablePadding>
-                {notifications.map((n) => (
-                  <MenuItem
-                    key={n.id}
-                    sx={{ alignItems: 'flex-start', py: 1.25, whiteSpace: 'normal' }}
-                    onClick={() => removeNotification(n.id)}
-                  >
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="body2">{n.message}</Typography>
-                    </Box>
-                    <Chip
-                      label={n.type}
-                      size="small"
-                      color={
-                        n.type === 'error' ? 'error'
-                        : n.type === 'warning' ? 'warning'
-                        : n.type === 'success' ? 'success'
-                        : 'info'
-                      }
-                      sx={{ ml: 1, mt: 0.25 }}
-                    />
-                  </MenuItem>
-                ))}
-              </List>
-            )}
-          </Popover>
+          {/* Server-backed inbox with live alerts and sound. */}
+          <NotificationCenter />
 
           <Box
             onClick={handleProfileMenuOpen}

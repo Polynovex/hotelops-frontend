@@ -44,6 +44,7 @@ import { useSnackbar } from 'notistack';
 import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import { getApiErrorMessage } from '../../../utils/apiError';
 import { SettingsTabs } from './SettingsTabs';
+import { PasswordConfirmDialog } from '../../../components/common/PasswordConfirmDialog';
 import { AuditTrailViewer } from '../../../components/audit/AuditTrailViewer';
 
 export const BusinessProfileSettingsPage = () => {
@@ -152,6 +153,12 @@ const userActionError = (err: unknown, fallback: string) =>
 
 export const UsersSettingsPage = () => {
   const { enqueueSnackbar } = useSnackbar();
+  /**
+   * HR reaches this page through MANAGE_USERS. The server will not let a
+   * delegated manager create or manage manager accounts, so those options are
+   * not offered to anyone but the owner.
+   */
+  const isOwner = useAuthStore((state) => String(state.user?.role || '').toUpperCase() === 'BUSINESS_ADMIN');
   const [pendingRotate, setPendingRotate] = useState<SettingUserRecord | null>(null);
   const [pendingRemove, setPendingRemove] = useState<SettingUserRecord | null>(null);
   const theme = useTheme();
@@ -245,16 +252,12 @@ export const UsersSettingsPage = () => {
     }
   };
 
-  const runRemove = async (user: SettingUserRecord) => {
-    try {
-      await settingsOpsService.removeUser(user.id);
-      await reload();
-      enqueueSnackbar(`${user.name} no longer has access`, { variant: 'success' });
-    } catch (err) {
-      enqueueSnackbar(userActionError(err, 'Could not remove this person'), { variant: 'error' });
-    } finally {
-      setPendingRemove(null);
-    }
+  /** Throws on failure so the password dialog stays open and shows why. */
+  const runRemove = async (user: SettingUserRecord, password: string) => {
+    await settingsOpsService.removeUser(user.id, password);
+    setPendingRemove(null);
+    await reload();
+    enqueueSnackbar(`${user.name} no longer has access`, { variant: 'success' });
   };
 
   const runRotate = async (user: SettingUserRecord) => {
@@ -476,26 +479,19 @@ export const UsersSettingsPage = () => {
         {/* Replaces window.confirm — a browser dialog cannot be styled, is not
             accessible to the app's theme, and is blocked outright in some
             embedded webviews, which made the action appear to do nothing. */}
-        <Dialog open={Boolean(pendingRemove)} onClose={() => setPendingRemove(null)}>
-          <DialogTitle>Remove {pendingRemove?.name} from this business?</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2">
-              Their sign-in is revoked and their HR record is marked terminated.
-              Their history stays intact — shifts, orders and audit entries still
-              show who did what — and an HR administrator can reinstate them.
-            </Typography>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setPendingRemove(null)}>Cancel</Button>
-            <Button
-              color="error"
-              variant="contained"
-              onClick={() => pendingRemove && void runRemove(pendingRemove)}
-            >
-              Remove
-            </Button>
-          </DialogActions>
-        </Dialog>
+        <PasswordConfirmDialog
+          open={Boolean(pendingRemove)}
+          title={`Remove ${pendingRemove?.name ?? ''} from this business?`}
+          confirmLabel="Remove"
+          onClose={() => setPendingRemove(null)}
+          onConfirm={(password) => (pendingRemove ? runRemove(pendingRemove, password) : Promise.resolve())}
+        >
+          <Typography variant="body2">
+            Their sign-in is revoked and their HR record is marked terminated.
+            Their history stays intact — shifts, orders and audit entries still
+            show who did what — and an HR administrator can reinstate them.
+          </Typography>
+        </PasswordConfirmDialog>
 
         <Dialog open={Boolean(pendingRotate)} onClose={() => setPendingRotate(null)}>
           <DialogTitle>Rotate this sign-in code?</DialogTitle>
@@ -538,11 +534,14 @@ export const UsersSettingsPage = () => {
                   <MenuItem value="RECEPTION">Receptionist</MenuItem>
                   <MenuItem value="POS_STAFF">POS staff</MenuItem>
                   <MenuItem value="HOUSEKEEPING">Housekeeping</MenuItem>
-                  <MenuItem value="MANAGER">Manager</MenuItem>
-                  <MenuItem value="MANAGER_RECEPTION">Manager — Reception</MenuItem>
-                  <MenuItem value="MANAGER_POS">Manager — POS</MenuItem>
-                  <MenuItem value="MANAGER_HOUSEKEEPING">Manager — Housekeeping</MenuItem>
-                  <MenuItem value="MANAGER_ACCOUNTING">Manager — Accounting</MenuItem>
+                  {isOwner && [
+                    <MenuItem key="MANAGER" value="MANAGER">Manager</MenuItem>,
+                    <MenuItem key="MANAGER_RECEPTION" value="MANAGER_RECEPTION">Manager — Reception</MenuItem>,
+                    <MenuItem key="MANAGER_POS" value="MANAGER_POS">Manager — POS</MenuItem>,
+                    <MenuItem key="MANAGER_HOUSEKEEPING" value="MANAGER_HOUSEKEEPING">Manager — Housekeeping</MenuItem>,
+                    <MenuItem key="MANAGER_ACCOUNTING" value="MANAGER_ACCOUNTING">Manager — Accounting</MenuItem>
+                  ]}
+                  <MenuItem value="SUPPORT_STAFF">Support staff (HR self-service)</MenuItem>
                   <MenuItem value="ACCOUNTANT">Accountant</MenuItem>
                 </TextField>
                 <Stack

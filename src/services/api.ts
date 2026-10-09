@@ -135,6 +135,8 @@ export interface AuthUser {
   permissions?: string[];
   /** The assigned RBAC role's name, preferred over the legacy role for display. */
   roleName?: string | null;
+  /** The hotel's idle auto-logout window in minutes. */
+  idleTimeoutMinutes?: number;
 }
 
 export interface PlanSummary {
@@ -1492,11 +1494,12 @@ export const superAdminService = {
   /**
    * Soft delete: flags the record and keeps every row, so it can be undone.
    */
-  deleteBusiness: async (id: string) => {
+  deleteBusiness: async (id: string, password: string) => {
     if (isDemoMode()) {
       return updateDemoBusiness(id, { status: 'DELETED' });
     }
-    const response = await api.delete(`/admin/businesses/${id}`);
+    // The server re-checks the super admin's password before deleting.
+    const response = await api.delete(`/admin/businesses/${id}`, { data: { password } });
     return response.data;
   },
 
@@ -1504,9 +1507,9 @@ export const superAdminService = {
    * Permanent. Cascades through every table the property owns, so the server
    * refuses unless `confirmName` matches the business name exactly.
    */
-  purgeBusiness: async (id: string, confirmName: string) => {
+  purgeBusiness: async (id: string, confirmName: string, password: string) => {
     const response = await api.delete(`/admin/businesses/${id}/purge`, {
-      data: { confirmName }
+      data: { confirmName, password }
     });
     return response.data;
   },

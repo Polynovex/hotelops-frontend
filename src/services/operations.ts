@@ -843,7 +843,11 @@ export const reservationOpsService = {
     checkOut: string;
     adults: number;
     children: number;
-    totalAmount: number;
+    /**
+     * Omit to let the server price the stay (rate × nights). The booking form
+     * no longer sends one: the total is read-only there.
+     */
+    totalAmount?: number;
   }): Promise<ReservationRecord> {
     if (isDemoMode()) {
       const rooms = await roomOpsService.listRooms();
@@ -859,9 +863,9 @@ export const reservationOpsService = {
         status: 'CONFIRMED',
         checkIn: new Date(payload.checkIn).toISOString(),
         checkOut: new Date(payload.checkOut).toISOString(),
-        totalAmount: payload.totalAmount,
+        totalAmount: payload.totalAmount ?? 0,
         paidAmount: 0,
-        balance: payload.totalAmount,
+        balance: payload.totalAmount ?? 0,
         adults: payload.adults,
         children: payload.children,
         requestedRoomType: payload.requestedRoomType || room?.roomType || null,
@@ -885,9 +889,15 @@ export const reservationOpsService = {
         departureDate: payload.checkOut,
         adults: payload.adults,
         children: payload.children,
-        totalAmount: payload.totalAmount
+        ...(payload.totalAmount !== undefined ? { totalAmount: payload.totalAmount } : {})
       });
-    } catch (_error) {
+    } catch (error) {
+      // Only an older API without /reservations falls back. Retrying any
+      // failure here re-submitted refused bookings (a room conflict, a closed
+      // shift) through a second endpoint.
+      if ((error as { response?: { status?: number } }).response?.status !== 404) {
+        throw error;
+      }
       response = await api.post('/bookings', payload);
     }
 
@@ -1209,6 +1219,8 @@ export const reservationOpsService = {
 export interface RoomRecord {
   id: string;
   roomNumber: string;
+  /** Optional display name, e.g. "Garden Suite". */
+  name?: string | null;
   roomType: string;
   floor: number;
   rate: number;
@@ -1223,6 +1235,12 @@ export interface RoomTypeRecord {
   maxChildren: number;
   baseRate: number;
   isActive: boolean;
+  /** Amenity labels, standard and custom. */
+  amenities?: string[];
+  bedSize?: string | null;
+  /** Optional first room created together with a new type. */
+  roomNumber?: string;
+  roomName?: string;
 }
 
 const defaultRoomTypes: RoomTypeRecord[] = [
@@ -1260,15 +1278,17 @@ const saveRoomTypes = (rows: RoomTypeRecord[]) => setStore(ROOM_TYPE_KEY, rows);
 
 const normalizeRoomStatus = (status: unknown) => {
   const raw = String(status || 'AVAILABLE').toUpperCase();
-  if (raw === 'DIRTY') return 'CLEANING';
+  // DIRTY stays DIRTY: it is waiting for a cleaner, CLEANING has one. Folding
+  // the two together hid dirty rooms from the housekeeping queue.
   if (raw === 'OUT_OF_ORDER' || raw === 'BLOCKED') return 'MAINTENANCE';
-  if (raw === 'READY') return 'AVAILABLE';
+  if (raw === 'READY' || raw === 'CLEAN') return 'AVAILABLE';
   return raw;
 };
 
 const mapRoom = (room: Record<string, unknown>): RoomRecord => ({
   id: String(room.id),
   roomNumber: String(room.roomNumber || room.number || 'N/A'),
+  name: typeof room.name === 'string' ? room.name : null,
   roomType: String(room.roomType || room.type || 'Standard'),
   floor: Number(room.floor || 1),
   rate: Number(room.rate || 0),
@@ -1295,18 +1315,21 @@ export const roomOpsService = {
 
   async createRoom(payload: {
     roomNumber: string;
+    name?: string;
     roomType: string;
     floor: number;
-    rate: number;
+    /** Omit to use the room type's base rate. */
+    rate?: number;
     status?: string;
   }): Promise<RoomRecord> {
     if (isDemoMode()) {
       const room: RoomRecord = {
         id: makeId('room'),
         roomNumber: payload.roomNumber,
+        name: payload.name ?? null,
         roomType: payload.roomType,
         floor: payload.floor,
-        rate: payload.rate,
+        rate: payload.rate ?? 0,
         status: normalizeRoomStatus(payload.status || 'AVAILABLE')
       };
       const rows = getDemoRooms();
@@ -1315,12 +1338,14 @@ export const roomOpsService = {
       pushAudit({ action: 'CREATE', entity: 'ROOM', entityId: room.id, details: payload });
       return room;
     }
+    // Status is not sent: a new room starts AVAILABLE, and the server owns the
+    // transitions from there.
     const response = await api.post('/rooms', {
       roomNumber: payload.roomNumber,
+      name: payload.name || undefined,
       roomType: payload.roomType,
       floor: payload.floor,
-      rate: payload.rate,
-      status: normalizeRoomStatus(payload.status || 'AVAILABLE')
+      rate: payload.rate
     });
 
     const room = mapRoom(response.data as Record<string, unknown>);
@@ -1366,7 +1391,9 @@ export const roomOpsService = {
           maxAdults: Number(row.maxAdults || 2),
           maxChildren: Number(row.maxChildren || 0),
           baseRate: Number(row.baseRate || row.rate || 0),
-          isActive: row.isActive !== false
+          isActive: row.isActive !== false,
+          amenities: Array.isArray(row.amenities) ? (row.amenities as string[]) : [],
+          bedSize: typeof row.bedSize === 'string' ? row.bedSize : null
         }));
 
         return rows.sort((a, b) => a.name.localeCompare(b.name));
@@ -1390,7 +1417,9 @@ export const roomOpsService = {
           maxAdults: Number(row.maxAdults || payload.maxAdults),
           maxChildren: Number(row.maxChildren || payload.maxChildren),
           baseRate: Number(row.baseRate || payload.baseRate),
-          isActive: row.isActive !== false
+          isActive: row.isActive !== false,
+          amenities: Array.isArray(row.amenities) ? (row.amenities as string[]) : payload.amenities ?? [],
+          bedSize: typeof row.bedSize === 'string' ? row.bedSize : payload.bedSize ?? null
         };
         pushAudit({ action: 'CREATE', entity: 'ROOM_TYPE', entityId: roomType.id, details: payload });
         return roomType;
@@ -1427,7 +1456,9 @@ export const roomOpsService = {
           maxAdults: Number(row.maxAdults || updates.maxAdults || 2),
           maxChildren: Number(row.maxChildren || updates.maxChildren || 0),
           baseRate: Number(row.baseRate || updates.baseRate || 0),
-          isActive: row.isActive !== false
+          isActive: row.isActive !== false,
+          amenities: Array.isArray(row.amenities) ? (row.amenities as string[]) : updates.amenities ?? [],
+          bedSize: typeof row.bedSize === 'string' ? row.bedSize : updates.bedSize ?? null
         };
         pushAudit({ action: 'UPDATE', entity: 'ROOM_TYPE', entityId: roomTypeId, details: updates });
         return roomType;
@@ -1995,8 +2026,9 @@ export const settingsOpsService = {
    * record is terminated. The user row itself is kept so audit logs, shifts
    * and orders still resolve to a person — reversible from the HR screen.
    */
-  async removeUser(userId: string) {
-    const { data } = await api.post(`/users/${userId}/remove`);
+  async removeUser(userId: string, password: string) {
+    // The server re-checks the actor's password before removing anyone.
+    const { data } = await api.post(`/users/${userId}/remove`, { password });
     return data;
   },
 

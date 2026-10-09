@@ -26,7 +26,8 @@ import {
   qrOrderingService,
   type PublicMenu,
   type PublicMenuItem,
-  type PublicOrderResult
+  type PublicOrderResult,
+  type PaymentPreference
 } from '../../services/qrOrdering';
 import { posItemImage } from '../../utils/posItemImage';
 
@@ -50,7 +51,13 @@ const PublicOrderPage = () => {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [tableNumber, setTableNumber] = useState('');
+  const [roomNumber, setRoomNumber] = useState('');
   const [notes, setNotes] = useState('');
+  /** Chosen from what the venue actually accepts (menu.paymentOptions). */
+  const [payment, setPayment] = useState<PaymentPreference | ''>('');
+  const [payEmail, setPayEmail] = useState('');
+  const [paying, setPaying] = useState('');
+  const [payError, setPayError] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -128,7 +135,25 @@ const PublicOrderPage = () => {
     [lines]
   );
 
+  const onlineOptions = menu?.paymentOptions?.online ?? [];
+  const manualOptions = menu?.paymentOptions?.manual ?? ['CARD', 'TRANSFER'];
+  // Default: online if the venue has a gateway, else the first in-person method.
+  const effectivePayment: PaymentPreference = payment || (onlineOptions.length > 0 ? 'ONLINE' : manualOptions[0]);
+
   const canSubmit = customerName.trim().length > 0 && lines.length > 0 && !submitting;
+
+  const payOnline = async (provider: string) => {
+    if (!confirmation) return;
+    setPaying(provider);
+    setPayError('');
+    try {
+      const { authorizationUrl } = await qrOrderingService.startOnlinePayment(confirmation.orderId, provider, payEmail.trim() || undefined);
+      window.location.href = authorizationUrl;
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : 'Online payment could not be started');
+      setPaying('');
+    }
+  };
 
   const handleSubmit = async () => {
     if (!canSubmit) {
@@ -143,7 +168,9 @@ const PublicOrderPage = () => {
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim() || undefined,
         tableNumber: tableNumber.trim() || undefined,
+        roomNumber: roomNumber.trim() || undefined,
         notes: notes.trim() || undefined,
+        paymentPreference: effectivePayment,
         items: lines.map((line) => ({ menuItemId: line.item.id, quantity: line.quantity }))
       });
 
@@ -201,6 +228,31 @@ const PublicOrderPage = () => {
             <Row label="Total" value={formatMoney(confirmation.total)} />
             <Row label="Estimated time" value={`About ${confirmation.estimatedMinutes} minutes`} />
           </Stack>
+
+          {effectivePayment === 'ONLINE' && onlineOptions.length > 0 ? (
+            <Stack spacing={1.5} sx={{ mt: 3, textAlign: 'left' }}>
+              <Typography variant="subtitle2" fontWeight={700}>Pay now</Typography>
+              <TextField size="small" label="Email for your receipt" value={payEmail} onChange={(event) => setPayEmail(event.target.value)} type="email" />
+              {payError && <Alert severity="error">{payError}</Alert>}
+              {onlineOptions.map((option) => (
+                <Button
+                  key={option.provider}
+                  fullWidth
+                  variant="contained"
+                  onClick={() => void payOnline(option.provider)}
+                  disabled={Boolean(paying)}
+                  startIcon={paying === option.provider ? <CircularProgress size={18} color="inherit" /> : undefined}
+                >
+                  Pay with {option.provider.charAt(0) + option.provider.slice(1).toLowerCase()}{option.testMode ? ' (test mode)' : ''}
+                </Button>
+              ))}
+              <Typography variant="caption" color="text.secondary">Or pay a staff member by {manualOptions.map((method) => method.toLowerCase()).join(', ')} when you are served.</Typography>
+            </Stack>
+          ) : (
+            <Alert severity="info" sx={{ mt: 3, textAlign: 'left' }}>
+              Pay by {effectivePayment.toLowerCase()} when your order is served. A staff member will come to you.
+            </Alert>
+          )}
 
           <Button fullWidth variant="outlined" sx={{ mt: 3 }} onClick={() => setConfirmation(null)}>
             Place another order
@@ -436,12 +488,40 @@ const PublicOrderPage = () => {
                   autoComplete="tel"
                   inputMode="tel"
                 />
+                {/* Both optional: they only help staff find you. */}
+                <Stack direction="row" spacing={1.5}>
+                  <TextField
+                    label="Table number (optional)"
+                    value={tableNumber}
+                    onChange={(event) => setTableNumber(event.target.value)}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Room number (optional)"
+                    value={roomNumber}
+                    onChange={(event) => setRoomNumber(event.target.value)}
+                    fullWidth
+                  />
+                </Stack>
                 <TextField
-                  label="Table number (optional)"
-                  value={tableNumber}
-                  onChange={(event) => setTableNumber(event.target.value)}
+                  select
+                  label="How will you pay?"
+                  value={effectivePayment}
+                  onChange={(event) => setPayment(event.target.value as PaymentPreference)}
                   fullWidth
-                />
+                  SelectProps={{ native: true }}
+                >
+                  {onlineOptions.length > 0 && (
+                    <option value="ONLINE">
+                      Pay online now ({onlineOptions.map((option) => option.provider.charAt(0) + option.provider.slice(1).toLowerCase()).join(' or ')})
+                    </option>
+                  )}
+                  {manualOptions.map((method) => (
+                    <option key={method} value={method}>
+                      {method === 'CARD' ? 'Card, when served' : method === 'TRANSFER' ? 'Bank transfer, when served' : 'Cash, when served'}
+                    </option>
+                  ))}
+                </TextField>
                 <TextField
                   label="Notes for the kitchen (optional)"
                   value={notes}

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SnackbarProvider } from 'notistack';
+import { IdleLogoutGuard } from './components/IdleLogoutGuard';
 import { useAuthStore } from './store/authStore';
 import { useWebSocket } from './hooks/useWebSocket';
 import { ColorModeProvider } from './theme/colorMode';
@@ -92,12 +93,18 @@ import BusinessProfileSettingsPage from './pages/business/Settings/BusinessProfi
 import UsersSettingsPage from './pages/business/Settings/Users';
 import RolesSettingsPage from './pages/business/Settings/Roles';
 import TaxSettingsPage from './pages/business/Settings/TaxSettings';
+import SessionPolicyPage from './pages/business/Settings/SessionPolicy';
 import PaymentGatewaysSettingsPage from './pages/business/Settings/PaymentGateways';
 import BackupRestoreSettingsPage from './pages/business/Settings/BackupRestore';
 import BusinessAuditTrailPage from './pages/business/AuditTrail';
 import PosOutletsPage from './pages/business/pos/OutletList';
 import PosMenuManagementPage from './pages/business/pos/MenuManagementPage';
-import PosTableManagementPage from './pages/business/pos/TableManagement';
+import TablesPage from './pages/business/pos/TablesPage';
+import PosPaymentsPage from './pages/business/pos/PosPaymentsPage';
+import KitchenDashboard from './pages/business/kitchen/KitchenDashboard';
+import { DailyRecordsPage, FinanceApprovalsPage } from './pages/business/finance/DailyRecordsPages';
+import FinanceReportsPage from './pages/business/finance/FinanceReportsPage';
+import SuppliersPage from './pages/business/finance/SuppliersPage';
 import QrCodesPage from './pages/business/pos/QrCodesPage';
 import PublicOrderPage from './pages/public/PublicOrderPage';
 import GuestRegistrationPage from './pages/public/GuestRegistrationPage';
@@ -303,6 +310,13 @@ const ProtectedRoute = ({
   return children;
 };
 
+/** Sends /business/housekeeping to the right screen for the signed-in role. */
+const HousekeepingIndexRedirect = () => {
+  const role = useAuthStore((state) => String(state.user?.role || '').toUpperCase());
+  const supervisor = role === 'BUSINESS_ADMIN' || role === 'MANAGER' || role === 'SUPER_ADMIN';
+  return <Navigate to={supervisor ? '/business/housekeeping/manager' : '/business/housekeeping/my-tasks'} replace />;
+};
+
 function App() {
   useWebSocket();
   const token = useAuthStore((state) => state.token);
@@ -340,7 +354,8 @@ function App() {
           // Drives which navigation the layout offers; the server still checks
           // permissions on every guarded route.
           permissions: me.permissions,
-          roleName: me.roleName
+          roleName: me.roleName,
+          idleTimeoutMinutes: me.idleTimeoutMinutes
         });
       } catch (_error) {
         // ignore sync failures and continue with current session context
@@ -379,6 +394,7 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
             <DesktopOfflineIndicator />
+            <IdleLogoutGuard />
             <Routes>
               {/*
                 Where a payment provider returns the payer. Unauthenticated,
@@ -1055,6 +1071,10 @@ function App() {
                 }
               />
 
+              {/* The bare section path had no route and showed a 404. It
+                  lands supervisors on the manager board and housekeepers on
+                  their own tasks. */}
+              <Route path="/business/housekeeping" element={<HousekeepingIndexRedirect />} />
               <Route
                 path="/business/housekeeping/my-tasks"
                 element={
@@ -1114,9 +1134,57 @@ function App() {
               <Route
                 path="/business/pos/tables"
                 element={
-                  <ProtectedRoute allowedRoles={['RECEPTIONIST',
-                      'FRONT_OFFICE', 'POS_STAFF']}>
-                    <PosTableManagementPage />
+                  // Owners and managers configure tables; floor staff see them.
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'RECEPTIONIST', 'FRONT_OFFICE', 'POS_STAFF']}>
+                    <TablesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/pos/payments"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT', 'POS_STAFF', 'RECEPTIONIST', 'FRONT_OFFICE']}>
+                    <PosPaymentsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/kitchen"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'POS_STAFF']} anyPermission={['VIEW_KDS']}>
+                    <KitchenDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/finance/daily-records"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT']} anyPermission={['FINANCE_ACCESS']}>
+                    <DailyRecordsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/finance/approvals"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN']}>
+                    <FinanceApprovalsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/finance/reports"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT']} anyPermission={['FINANCE_ACCESS', 'VIEW_REPORTS']}>
+                    <FinanceReportsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/finance/suppliers"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT']} anyPermission={['FINANCE_ACCESS']}>
+                    <SuppliersPage />
                   </ProtectedRoute>
                 }
               />
@@ -1380,7 +1448,8 @@ function App() {
               <Route
                 path="/business/settings/users"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN']}>
+                  // HR holds MANAGE_USERS and gets the owner's staff screen.
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN']} anyPermission={['MANAGE_USERS']}>
                     <UsersSettingsPage />
                   </ProtectedRoute>
                 }
@@ -1409,6 +1478,15 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['BUSINESS_ADMIN']}>
                     <PaymentGatewaysSettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/business/settings/security"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN']}>
+                    <SessionPolicyPage />
                   </ProtectedRoute>
                 }
               />

@@ -49,7 +49,17 @@ export interface PublicMenu {
   business: { name: string; logoUrl: string | null; currency: string };
   outlet: { id: string; name: string };
   categories: Array<{ id: string; name: string; items: PublicMenuItem[] }>;
+  /**
+   * What this venue accepts, from its own settings: online gateways only when
+   * their keys are configured, cash only when the venue takes cash.
+   */
+  paymentOptions?: {
+    online: Array<{ provider: string; testMode: boolean }>;
+    manual: Array<'CARD' | 'TRANSFER' | 'CASH'>;
+  };
 }
+
+export type PaymentPreference = 'ONLINE' | 'CARD' | 'TRANSFER' | 'CASH';
 
 export interface PublicOrderResult {
   orderId: string;
@@ -134,7 +144,10 @@ export const qrOrderingService = {
       customerName: string;
       customerPhone?: string;
       tableNumber?: string;
+      /** Optional, like the table: helps staff find the guest. */
+      roomNumber?: string;
       notes?: string;
+      paymentPreference?: PaymentPreference;
       items: Array<{ menuItemId: string; quantity: number; notes?: string }>;
     }
   ): Promise<PublicOrderResult> {
@@ -143,6 +156,19 @@ export const qrOrderingService = {
       return data as PublicOrderResult;
     } catch (error) {
       throw new Error(toMessage(error, 'We could not place your order. Please try again.'));
+    }
+  },
+
+  /** Starts an online payment and returns the provider's checkout page. */
+  async startOnlinePayment(orderId: string, provider: string, email?: string): Promise<{ authorizationUrl: string; reference: string }> {
+    try {
+      const { data } = await publicApi.post(`/public/order/${encodeURIComponent(orderId)}/pay`, {
+        provider: provider.toLowerCase(),
+        ...(email ? { email } : {})
+      });
+      return data as { authorizationUrl: string; reference: string };
+    } catch (error) {
+      throw new Error(toMessage(error, 'Online payment could not be started'));
     }
   },
 

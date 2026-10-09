@@ -32,10 +32,13 @@ import LogoLoader from '../../../components/LogoLoader';
 import DataTable from '../../../components/common/DataTable';
 import { useWebSocket } from '../../../hooks/useWebSocket';
 import GuestKycForm from '../../../components/forms/GuestKycForm';
+import { getApiErrorMessage } from '../../../utils/apiError';
 import guestService, { guestFullName, type Guest } from '../../../services/guest.service';
 import {
   QRoomRecord,
   ReservationRecord,
+  RoomRecord,
+  RoomTypeRecord,
   StayViewPayload,
   profileOpsService,
   reservationOpsService,
@@ -166,7 +169,7 @@ const RoomAssignmentDialog = ({
         setRooms(rows);
         setRoomId(rows[0]?.id || '');
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load available rooms');
+        setError(getApiErrorMessage(err, 'Failed to load available rooms'));
       } finally {
         setLoading(false);
       }
@@ -184,7 +187,7 @@ const RoomAssignmentDialog = ({
       await onAssign(roomId, reason.trim() || undefined);
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to assign room');
+      setError(getApiErrorMessage(err, 'Failed to assign room'));
     } finally {
       setSaving(false);
     }
@@ -266,7 +269,7 @@ const ReservationListCore = ({
     try {
       setRows(await loader(targetDate));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load reservations');
+      setError(getApiErrorMessage(err, 'Failed to load reservations'));
     } finally {
       setLoading(false);
     }
@@ -356,7 +359,8 @@ export const CreateReservationPage = () => {
   const [guestQuery, setGuestQuery] = useState('');
   const [guestSearching, setGuestSearching] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
-  const [rooms, setRooms] = useState<Array<{ id: string; roomNumber: string; status: string; roomType?: string }>>([]);
+  const [rooms, setRooms] = useState<RoomRecord[]>([]);
+  const [roomTypes, setRoomTypes] = useState<RoomTypeRecord[]>([]);
   const [kycOpen, setKycOpen] = useState(false);
 
   const [guestId, setGuestId] = useState('');
@@ -366,22 +370,50 @@ export const CreateReservationPage = () => {
   const [checkOut, setCheckOut] = useState(tomorrowDate());
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
-  const [totalAmount, setTotalAmount] = useState(0);
   const [requestedRoomType, setRequestedRoomType] = useState('');
 
+  /** Room types and rooms, refetched when a dropdown opens so new types appear. */
+  const loadInventory = async () => {
+    const [roomRows, typeRows] = await Promise.all([
+      roomOpsService.listRooms(),
+      roomOpsService.listRoomTypes().catch(() => [] as RoomTypeRecord[])
+    ]);
+    setRooms(roomRows);
+    setRoomTypes(typeRows.filter((row) => row.isActive));
+  };
+
   useEffect(() => {
-    const load = async () => {
-      const roomRows = await roomOpsService.listRooms();
-      setRooms(roomRows);
-      // Deliberately no default guest. Pre-selecting whoever happened to sort
-      // first made it far too easy to book a room against the wrong person.
-      if (roomRows[0]) {
-        setRoomId(roomRows[0].id);
-        setRequestedRoomType((roomRows[0] as any).roomType ?? '');
-      }
-    };
-    void load();
+    // Deliberately no default guest or room: pre-selecting whatever sorted
+    // first made it far too easy to book the wrong person into the wrong room.
+    void loadInventory();
   }, []);
+
+  /**
+   * Pricing is derived, never typed. The nightly rate comes from the chosen
+   * room (or the type's base rate before a room is picked); nights from the
+   * dates. The server prices the stay the same way and ignores the client.
+   */
+  const selectedType = roomTypes.find((row) => row.code === requestedRoomType);
+  const selectedRoom = rooms.find((room) => room.id === roomId);
+  const nightlyRate = selectedRoom?.rate ?? selectedType?.baseRate ?? 0;
+  const nights = Math.max(
+    Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86_400_000),
+    0
+  );
+  const totalAmount = nightlyRate * nights;
+
+  // Rooms of the chosen type that can be sold; dirty or out-of-order rooms
+  // stay visible on the room board but are not offered here.
+  const roomChoices = rooms.filter(
+    (room) =>
+      (!requestedRoomType || room.roomType === requestedRoomType)
+      && (room.status === 'AVAILABLE' || room.status === 'RESERVED' || room.id === roomId)
+  );
+
+  const capacityWarning =
+    selectedType && (adults > selectedType.maxAdults || children > selectedType.maxChildren)
+      ? `${selectedType.name} holds ${selectedType.maxAdults} adult${selectedType.maxAdults === 1 ? '' : 's'} and ${selectedType.maxChildren} child${selectedType.maxChildren === 1 ? '' : 'ren'}.`
+      : '';
 
   /**
    * Search the guest book as the receptionist types. Debounced so a name is one
@@ -434,6 +466,8 @@ export const CreateReservationPage = () => {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!guestId) { setError('Please select a guest profile.'); return; }
+    if (!requestedRoomType && !roomId) { setError('Choose a room type.'); return; }
+    if (nights < 1) { setError('Check-out must be after check-in.'); return; }
     setSaving(true);
     setError('');
     try {
@@ -444,12 +478,11 @@ export const CreateReservationPage = () => {
         checkIn,
         checkOut,
         adults,
-        children,
-        totalAmount
+        children
       });
       navigate(`/business/reservations/${reservation.id}`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to create reservation');
+      setError(getApiErrorMessage(err, 'Failed to create reservation'));
     } finally {
       setSaving(false);
     }
@@ -554,20 +587,42 @@ export const CreateReservationPage = () => {
                 </Alert>
               )}
 
-              <TextField select label="Room" value={roomId} onChange={(e) => setRoomId(e.target.value)}>
-                <MenuItem value="">Unassigned</MenuItem>
-                {rooms.map((room) => (
-                  <MenuItem key={room.id} value={room.id}>{room.roomNumber} ({room.status})</MenuItem>
+              <TextField
+                select
+                label="Room Type"
+                value={requestedRoomType}
+                onChange={(e) => {
+                  setRequestedRoomType(e.target.value);
+                  // A room of another type no longer fits the request.
+                  const current = rooms.find((room) => room.id === roomId);
+                  if (current && current.roomType !== e.target.value) setRoomId('');
+                }}
+                SelectProps={{ onOpen: () => void loadInventory() }}
+                required
+                helperText={roomTypes.length === 0 ? 'No room types yet — an admin adds them under Rooms → Room Types' : undefined}
+              >
+                {roomTypes.map((type) => (
+                  <MenuItem key={type.id} value={type.code}>
+                    {type.name} — ₦{type.baseRate.toLocaleString()}/night · {type.maxAdults}A {type.maxChildren}C
+                  </MenuItem>
                 ))}
               </TextField>
 
-              <TextField
-                label="Requested Room Type"
-                value={requestedRoomType}
-                onChange={(e) => setRequestedRoomType(e.target.value)}
-                placeholder="Standard / Deluxe / Suite"
-                required={!roomId}
-              />
+              <TextField select label="Room" value={roomId} onChange={(e) => setRoomId(e.target.value)} disabled={!requestedRoomType}>
+                <MenuItem value="">Assign later</MenuItem>
+                {roomChoices.map((room) => (
+                  <MenuItem key={room.id} value={room.id}>
+                    {room.roomNumber}{room.name ? ` · ${room.name}` : ''} — ₦{room.rate.toLocaleString()} ({room.status})
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              {selectedType && (selectedType.amenities?.length || selectedType.bedSize) ? (
+                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                  {selectedType.bedSize && <Chip size="small" label={`${selectedType.bedSize} bed`} />}
+                  {selectedType.amenities?.map((item) => <Chip key={item} size="small" variant="outlined" label={item} />)}
+                </Stack>
+              ) : null}
 
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                 <TextField label="Check In" type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} InputLabelProps={{ shrink: true }} fullWidth />
@@ -575,9 +630,22 @@ export const CreateReservationPage = () => {
               </Stack>
 
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <TextField label="Adults" type="number" value={adults} onChange={(e) => setAdults(Number(e.target.value))} fullWidth />
-                <TextField label="Children" type="number" value={children} onChange={(e) => setChildren(Number(e.target.value))} fullWidth />
-                <TextField label="Total (NGN)" type="number" value={totalAmount} onChange={(e) => setTotalAmount(Number(e.target.value))} fullWidth />
+                <TextField label="Adults" type="number" value={adults} onChange={(e) => setAdults(Number(e.target.value))} inputProps={{ min: 1 }} fullWidth />
+                <TextField label="Children" type="number" value={children} onChange={(e) => setChildren(Number(e.target.value))} inputProps={{ min: 0 }} fullWidth />
+              </Stack>
+              {capacityWarning && <Alert severity="warning">{capacityWarning}</Alert>}
+
+              {/* Read-only: rate × nights. Not an input, so it cannot be edited. */}
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField label="Rate per night (₦)" value={nightlyRate.toLocaleString()} InputProps={{ readOnly: true }} fullWidth />
+                <TextField label="Nights" value={nights} InputProps={{ readOnly: true }} fullWidth />
+                <TextField
+                  label="Total (₦)"
+                  value={totalAmount.toLocaleString()}
+                  InputProps={{ readOnly: true }}
+                  helperText="Calculated from the rate and length of stay"
+                  fullWidth
+                />
               </Stack>
 
               <Stack direction="row" spacing={1.5}>
@@ -655,7 +723,7 @@ export const ReservationDetailPage = () => {
         } catch (_) { /* photo optional */ }
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load reservation');
+      setError(getApiErrorMessage(err, 'Failed to load reservation'));
     } finally {
       setLoading(false);
     }
@@ -811,7 +879,7 @@ export const CheckInPage = () => {
     try {
       setRows(await reservationOpsService.listArrivals(targetDate));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load arrivals');
+      setError(getApiErrorMessage(err, 'Failed to load arrivals'));
     } finally {
       setLoading(false);
     }
@@ -961,7 +1029,7 @@ export const CheckOutPage = () => {
     try {
       setRows(await reservationOpsService.listDepartures(targetDate));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load departures');
+      setError(getApiErrorMessage(err, 'Failed to load departures'));
     } finally {
       setLoading(false);
     }
@@ -1086,7 +1154,7 @@ export const QRoomPage = () => {
       setQueue(queueRows);
       setEligible(arrivalRows.filter((reservation) => !reservation.isQRoom && reservation.status !== 'CHECKED_IN'));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load Q-room data');
+      setError(getApiErrorMessage(err, 'Failed to load Q-room data'));
     } finally {
       setLoading(false);
     }
@@ -1289,7 +1357,7 @@ export const StayViewPage = () => {
     try {
       setStayView(await reservationOpsService.listStayView(startDate, days));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load stay view');
+      setError(getApiErrorMessage(err, 'Failed to load stay view'));
     } finally {
       setLoading(false);
     }

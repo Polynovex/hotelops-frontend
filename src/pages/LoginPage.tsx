@@ -1,5 +1,5 @@
 import React, { FormEvent, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -65,6 +65,9 @@ const keypadSx = {
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  // Set by IdleLogoutGuard, so an automatic sign-out is explained rather than
+  // looking like the session simply broke.
+  const signedOutForIdle = (useLocation().state as { reason?: string } | null)?.reason === 'idle';
   const theme = useTheme();
   const { mode: colorMode, toggleColorMode } = useColorMode();
   const isDark = colorMode === 'dark';
@@ -452,6 +455,12 @@ const LoginPage: React.FC = () => {
                     <MailOutlineRounded fontSize="small" sx={{ mr: 1 }} /> Email & password
                   </ToggleButton>
                 </ToggleButtonGroup>
+
+                {signedOutForIdle && !error && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    You were signed out after a period of inactivity.
+                  </Alert>
+                )}
 
                 {error && (
                   <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>

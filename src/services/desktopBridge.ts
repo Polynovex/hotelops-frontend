@@ -30,6 +30,8 @@ export interface NotifyOptions {
 export interface SyncStatus {
   online: boolean;
   pending: number;
+  /** Operations the server refused on replay; they need a person. */
+  failed?: number;
 }
 
 export interface QueuedOp {
@@ -60,6 +62,7 @@ export interface DesktopBridge {
   syncNow: () => Promise<{ synced: number; pending: number; online: boolean }>;
   status: () => Promise<SyncStatus>;
   pendingCount: () => Promise<number>;
+  failedItems?: () => Promise<Array<{ id: string; resource: string; method: string; reason: string; createdAt: number }>>;
   clearSynced: () => Promise<{ deleted: number }>;
 
   // File operations
