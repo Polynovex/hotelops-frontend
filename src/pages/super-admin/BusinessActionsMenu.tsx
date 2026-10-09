@@ -33,8 +33,9 @@ interface Props {
   business: BusinessLike;
   onManageModules: () => void;
   onToggleStatus: () => Promise<void> | void;
-  onDelete: () => Promise<void> | void;
-  onPurge: (confirmName: string) => Promise<void>;
+  /** Both deletes carry the super admin's password; the server re-checks it. */
+  onDelete: (password: string) => Promise<void>;
+  onPurge: (confirmName: string, password: string) => Promise<void>;
 }
 
 /**
@@ -55,7 +56,9 @@ export function BusinessActionsMenu({
 }: Props) {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const [confirmPurge, setConfirmPurge] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [typedName, setTypedName] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -67,13 +70,33 @@ export function BusinessActionsMenu({
     await action();
   };
 
+  const closeDialogs = () => {
+    setConfirmPurge(false);
+    setConfirmDelete(false);
+    setTypedName('');
+    setPassword('');
+    setError('');
+  };
+
+  const softDelete = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await onDelete(password);
+      closeDialogs();
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? 'Could not delete this business.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const purge = async () => {
     setBusy(true);
     setError('');
     try {
-      await onPurge(typedName.trim());
-      setConfirmPurge(false);
-      setTypedName('');
+      await onPurge(typedName.trim(), password);
+      closeDialogs();
     } catch (err: any) {
       setError(
         err?.response?.data?.message
@@ -111,7 +134,12 @@ export function BusinessActionsMenu({
 
         <Divider />
 
-        <MenuItem onClick={run(onDelete)}>
+        <MenuItem
+          onClick={() => {
+            close();
+            setConfirmDelete(true);
+          }}
+        >
           <ListItemIcon><DeleteOutlineRounded fontSize="small" color="warning" /></ListItemIcon>
           {/* Reversible: the record is flagged, every row is kept. */}
           <ListItemText primary="Delete" secondary="Can be undone" />
@@ -132,7 +160,38 @@ export function BusinessActionsMenu({
         </MenuItem>
       </Menu>
 
-      <Dialog open={confirmPurge} onClose={() => !busy && setConfirmPurge(false)} fullWidth maxWidth="sm">
+      <Dialog open={confirmDelete} onClose={() => !busy && closeDialogs()} fullWidth maxWidth="xs">
+        <DialogTitle>Delete {business.name}?</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            The business goes offline for all of its staff. Its data is kept and
+            it can be restored later.
+          </DialogContentText>
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          <TextField
+            fullWidth
+            type="password"
+            label="Your password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDialogs} disabled={busy}>Cancel</Button>
+          <Button
+            color="warning"
+            variant="contained"
+            onClick={() => void softDelete()}
+            disabled={busy || !password}
+          >
+            {busy ? 'Deleting…' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={confirmPurge} onClose={() => !busy && closeDialogs()} fullWidth maxWidth="sm">
         <DialogTitle sx={{ color: 'error.main' }}>Delete {business.name} permanently?</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
@@ -154,17 +213,26 @@ export function BusinessActionsMenu({
             value={typedName}
             onChange={(event) => setTypedName(event.target.value)}
             autoComplete="off"
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            type="password"
+            label="Your password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmPurge(false)} disabled={busy}>
+          <Button onClick={closeDialogs} disabled={busy}>
             Cancel
           </Button>
           <Button
             color="error"
             variant="contained"
             onClick={() => void purge()}
-            disabled={busy || typedName.trim() !== business.name}
+            disabled={busy || typedName.trim() !== business.name || !password}
           >
             {busy ? 'Deleting…' : 'Delete permanently'}
           </Button>

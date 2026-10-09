@@ -66,7 +66,29 @@ export interface AttendanceRecord {
   totalHours: number;
   overtimeHours: number;
   status: 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'HOLIDAY';
+  lateMinutes?: number;
+  lateReason?: string | null;
+  /** HR sign-off on the day. Payroll counts only APPROVED hours. */
+  approvalStatus?: ApprovalStatus;
+  /** Overtime is paid only once APPROVED; NONE means none accrued. */
+  overtimeStatus?: 'NONE' | ApprovalStatus;
+  overtimeReason?: string | null;
+  reviewNote?: string | null;
+  reviewedAt?: string | null;
+  editedAt?: string | null;
+  notes?: string | null;
   staff?: { id: string; firstName: string; lastName: string; staffNumber: string | null };
+}
+
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+/** The hotel's working day, used for lateness and overtime. */
+export interface WorkPeriod {
+  startTime: string;
+  endTime: string;
+  graceMinutes: number;
+  standardHours: number;
+  timeZone?: string;
 }
 
 export interface LeaveRequestRecord {
@@ -172,7 +194,16 @@ export const hrService = {
    * status change, not an erasure.
    */
   async terminateStaff(id: string) {
-    const { data } = await api.delete(`/hr/staff/${id}`);
+    const { data } = await api.put(`/hr/staff/${id}/terminate`);
+    return data;
+  },
+
+  /**
+   * Permanently deletes a staff profile and its HR history. Irreversible, so
+   * the server requires the actor's own password.
+   */
+  async deleteStaff(id: string, password: string) {
+    const { data } = await api.delete(`/hr/staff/${id}`, { data: { password } });
     return data;
   },
 
@@ -203,19 +234,47 @@ export const hrService = {
     return data;
   },
 
-  async listAttendance(params?: { from?: string; to?: string; staffId?: string }) {
+  async listAttendance(params?: { from?: string; to?: string; staffId?: string; pending?: boolean }) {
     const { data } = await api.get('/hr/attendance', { params });
     return list<AttendanceRecord>(data);
   },
 
-  async clockIn(payload: { staffId?: string; pin?: string; method?: string; lat?: number; lng?: number }) {
+  async clockIn(payload: { staffId?: string; pin?: string; method?: string; lat?: number; lng?: number; lateReason?: string }) {
     const { data } = await api.post('/hr/attendance/clock-in', payload);
     return data as AttendanceRecord;
   },
 
-  async clockOut(payload: { staffId?: string; pin?: string; method?: string; lat?: number; lng?: number }) {
+  async clockOut(payload: { staffId?: string; pin?: string; method?: string; lat?: number; lng?: number; overtimeReason?: string }) {
     const { data } = await api.post('/hr/attendance/clock-out', payload);
     return data as AttendanceRecord;
+  },
+
+  /** HR decision on a day, its overtime, or both. A rejection needs a note. */
+  async reviewAttendance(
+    id: string,
+    payload: { decision: 'APPROVE' | 'REJECT'; scope?: 'ATTENDANCE' | 'OVERTIME' | 'ALL'; note?: string }
+  ) {
+    const { data } = await api.put(`/hr/attendance/${id}/review`, payload);
+    return data as AttendanceRecord;
+  },
+
+  /** HR correction of recorded times; hours are recomputed server-side. */
+  async updateAttendance(
+    id: string,
+    payload: { clockIn?: string | null; clockOut?: string | null; lateReason?: string | null; notes?: string | null; approve?: boolean }
+  ) {
+    const { data } = await api.put(`/hr/attendance/${id}`, payload);
+    return data as AttendanceRecord;
+  },
+
+  async getWorkPeriod(): Promise<WorkPeriod> {
+    const { data } = await api.get('/hr/work-period');
+    return data as WorkPeriod;
+  },
+
+  async updateWorkPeriod(payload: Partial<WorkPeriod>): Promise<WorkPeriod> {
+    const { data } = await api.put('/hr/work-period', payload);
+    return data as WorkPeriod;
   },
 
   async listLeave(params?: { status?: LeaveStatus; staffId?: string }) {
@@ -358,6 +417,11 @@ export const myHrService = {
   async cancelLeave(id: string) {
     const { data } = await api.put(`/hr/me/leave/${id}/cancel`);
     return data as LeaveRequestRecord;
+  },
+  /** Explains overtime on one of the user's own days and sends it to HR. */
+  async requestOvertime(attendanceId: string, reason: string) {
+    const { data } = await api.post(`/hr/me/attendance/${attendanceId}/overtime`, { reason });
+    return data as AttendanceRecord;
   },
   async getPayslips(): Promise<PayrollRecord[]> {
     const { data } = await api.get('/hr/me/payslips');

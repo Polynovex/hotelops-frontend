@@ -33,6 +33,10 @@ export interface Housekeeper {
   id: string;
   name: string;
   openTasks: number;
+  /** Inspections rejected in a row, counting back to the last approval. */
+  consecutiveRejections?: number;
+  /** Set once the streak reaches the flag threshold (3 by default). */
+  flagged?: boolean;
 }
 
 export interface HousekeepingNotification {

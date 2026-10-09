@@ -98,13 +98,15 @@ const HousekeepingDashboard = () => {
       label: 'My tasks',
       hint: 'Assigned work',
       icon: ChecklistRounded,
-      onClick: () => navigate('/business/housekeeping')
+      // Was '/business/housekeeping', which no route matches — a 404.
+      onClick: () => navigate('/business/housekeeping/my-tasks')
     },
     {
       label: 'Report an issue',
       hint: 'Maintenance request',
       icon: BuildRounded,
-      onClick: () => navigate('/business/housekeeping')
+      // The room board is where a room is taken out of order.
+      onClick: () => navigate('/business/rooms/status-board')
     },
     {
       label: 'My HR',
@@ -187,7 +189,7 @@ const HousekeepingDashboard = () => {
             : 'Tasks waiting to be started.'
         }
         action={
-          <Button size="small" onClick={() => navigate('/business/housekeeping')}>
+          <Button size="small" onClick={() => navigate('/business/housekeeping/my-tasks')}>
             All tasks
           </Button>
         }

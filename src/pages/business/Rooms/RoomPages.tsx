@@ -3,8 +3,10 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   Container,
+  FormControlLabel,
   Dialog,
   DialogActions,
   DialogContent,
@@ -38,6 +40,7 @@ import DataTable from '../../../components/common/DataTable';
 import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import { useSnackbar } from 'notistack';
 import { useWebSocket } from '../../../hooks/useWebSocket';
+import { getApiErrorMessage } from '../../../utils/apiError';
 import {
   ReservationRecord,
   RoomRecord,
@@ -51,7 +54,7 @@ import {
 const roomStatusColor = (status: string) => {
   if (status === 'AVAILABLE' || status === 'READY') return 'success';
   if (status === 'OCCUPIED') return 'info';
-  if (status === 'CLEANING') return 'warning';
+  if (status === 'CLEANING' || status === 'DIRTY') return 'warning';
   if (status === 'MAINTENANCE') return 'error';
   if (status === 'RESERVED') return 'secondary';
   return 'default';
@@ -59,6 +62,7 @@ const roomStatusColor = (status: string) => {
 
 export const RoomStatusBoardPage = () => {
   const { on } = useWebSocket();
+  const { enqueueSnackbar } = useSnackbar();
 
   const [rooms, setRooms] = useState<RoomRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,12 +96,18 @@ export const RoomStatusBoardPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [on]);
 
+  /**
+   * The server enforces the lifecycle (a housekeeper cannot mark a room ready
+   * without inspection, an occupied room can only go dirty or out of order),
+   * so its refusal is shown rather than logged to the console.
+   */
   const setStatus = async (roomId: string, status: string) => {
     try {
       await roomOpsService.updateRoomStatus(roomId, status);
       await load();
     } catch (error) {
-      console.error('Failed to update room status', error);
+      const data = (error as { response?: { data?: { message?: string; error?: string } } }).response?.data;
+      enqueueSnackbar(data?.message || data?.error || 'Could not update the room status', { variant: 'warning' });
     }
   };
 
@@ -108,6 +118,7 @@ export const RoomStatusBoardPage = () => {
         (room) => room.status === 'AVAILABLE' || room.status === 'READY'
       ).length,
       occupied: rooms.filter((room) => room.status === 'OCCUPIED').length,
+      dirty: rooms.filter((room) => room.status === 'DIRTY').length,
       cleaning: rooms.filter((room) => room.status === 'CLEANING').length,
       maintenance: rooms.filter(
         (room) => room.status === 'MAINTENANCE'
@@ -154,6 +165,15 @@ export const RoomStatusBoardPage = () => {
           background: '#edf4ff',
           border: '#c8dcff',
           icon: <HotelOutlined sx={{ fontSize: 18 }} />
+        };
+
+      case 'DIRTY':
+        return {
+          label: 'DIRTY',
+          color: '#b4472a',
+          background: '#fff1ec',
+          border: '#f5c9b8',
+          icon: <CleaningServicesOutlined sx={{ fontSize: 18 }} />
         };
 
       case 'CLEANING':
@@ -212,6 +232,12 @@ export const RoomStatusBoardPage = () => {
       value: counts.occupied,
       icon: <HotelOutlined />,
       accent: '#2457a6'
+    },
+    {
+      label: 'Dirty',
+      value: counts.dirty,
+      icon: <CleaningServicesOutlined />,
+      accent: '#b4472a'
     },
     {
       label: 'Cleaning',
@@ -564,6 +590,20 @@ export const RoomStatusBoardPage = () => {
 
                 <Button
                   size="small"
+                  onClick={() => setFilter('DIRTY')}
+                  sx={{
+                    borderRadius: 1.8,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    backgroundColor: filter === 'DIRTY' ? '#fff1ec' : '#f8fafc',
+                    color: filter === 'DIRTY' ? '#b4472a' : '#526273'
+                  }}
+                >
+                  Dirty ({counts.dirty})
+                </Button>
+
+                <Button
+                  size="small"
                   onClick={() => setFilter('CLEANING')}
                   sx={{
                     borderRadius: 1.8,
@@ -844,6 +884,28 @@ export const RoomStatusBoardPage = () => {
                               Mark Ready
                             </Button>
 
+                            {/* Front desk may flag an occupied room dirty to
+                                request a clean during the stay. */}
+                            <Button
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              onClick={() => void setStatus(room.id, 'DIRTY')}
+                              disabled={room.status === 'DIRTY'}
+                              sx={{
+                                height: 32,
+                                borderRadius: 1.6,
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                fontSize: 12,
+                                color: '#b4472a',
+                                borderColor: '#f0c3b2',
+                                backgroundColor: '#fff6f2'
+                              }}
+                            >
+                              {room.status === 'OCCUPIED' ? 'Request clean (mark dirty)' : 'Mark Dirty'}
+                            </Button>
+
                             <Stack direction="row" spacing={1}>
                               <Button
                                 fullWidth
@@ -972,10 +1034,27 @@ export const RoomListPage = () => {
   const [error, setError] = useState('');
   const [rooms, setRooms] = useState<RoomRecord[]>([]);
   const [roomNumber, setRoomNumber] = useState('');
-  const [roomType, setRoomType] = useState('Standard');
+  const [roomName, setRoomName] = useState('');
+  const [roomType, setRoomType] = useState('');
   const [floor, setFloor] = useState(1);
-  const [rate, setRate] = useState(0);
-  const [status, setStatus] = useState('AVAILABLE');
+  const [rate, setRate] = useState<number | ''>('');
+  /**
+   * The hotel's room types, loaded live so a type created a moment ago in
+   * another tab is selectable without a reload (the list is refetched whenever
+   * the dropdown opens).
+   */
+  const [roomTypes, setRoomTypes] = useState<RoomTypeRecord[]>([]);
+
+  const loadRoomTypes = async () => {
+    try {
+      const rows = await roomOpsService.listRoomTypes();
+      setRoomTypes(rows.filter((row) => row.isActive));
+    } catch {
+      // The form still shows the last list it had.
+    }
+  };
+
+  const selectedType = roomTypes.find((row) => row.code === roomType);
 
   const load = async () => {
     setLoading(true);
@@ -983,7 +1062,7 @@ export const RoomListPage = () => {
     try {
       setRooms(await roomOpsService.listRooms());
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load rooms');
+      setError(getApiErrorMessage(err, 'Failed to load rooms'));
     } finally {
       setLoading(false);
     }
@@ -991,19 +1070,30 @@ export const RoomListPage = () => {
 
   useEffect(() => {
     void load();
+    void loadRoomTypes();
   }, []);
 
   const createRoom = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!roomType) {
+      setError('Choose a room type. Create one under Room Types first if the list is empty.');
+      return;
+    }
     try {
-      await roomOpsService.createRoom({ roomNumber, roomType, floor, rate, status });
+      await roomOpsService.createRoom({
+        roomNumber,
+        name: roomName.trim() || undefined,
+        roomType,
+        floor,
+        rate: rate === '' ? undefined : rate
+      });
       setRoomNumber('');
+      setRoomName('');
       setFloor(1);
-      setRate(0);
-      setStatus('AVAILABLE');
+      setRate(selectedType?.baseRate ?? '');
       await load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to create room');
+      setError(getApiErrorMessage(err, 'Failed to create room'));
     }
   };
 
@@ -1012,7 +1102,7 @@ export const RoomListPage = () => {
       await roomOpsService.updateRoomStatus(roomId, nextStatus);
       await load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to update room status');
+      setError(getApiErrorMessage(err, 'Failed to update room status'));
     }
   };
 
@@ -1031,16 +1121,37 @@ export const RoomListPage = () => {
           <Box component="form" onSubmit={createRoom}>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
               <TextField label="Room Number" value={roomNumber} onChange={(event) => setRoomNumber(event.target.value)} required />
-              <TextField label="Room Type" value={roomType} onChange={(event) => setRoomType(event.target.value)} required />
-              <TextField label="Floor" type="number" value={floor} onChange={(event) => setFloor(Number(event.target.value))} required />
-              <TextField label="Rate" type="number" value={rate} onChange={(event) => setRate(Number(event.target.value))} required />
-              <TextField select label="Status" value={status} onChange={(event) => setStatus(event.target.value)}>
-                <MenuItem value="AVAILABLE">AVAILABLE</MenuItem>
-                <MenuItem value="OCCUPIED">OCCUPIED</MenuItem>
-                <MenuItem value="CLEANING">CLEANING</MenuItem>
-                <MenuItem value="MAINTENANCE">MAINTENANCE</MenuItem>
-                <MenuItem value="RESERVED">RESERVED</MenuItem>
+              <TextField label="Room Name (optional)" value={roomName} onChange={(event) => setRoomName(event.target.value)} />
+              <TextField
+                select
+                label="Room Type"
+                value={roomType}
+                onChange={(event) => {
+                  const code = event.target.value;
+                  setRoomType(code);
+                  // Pre-fill the type's rate; it can still be adjusted per room.
+                  const type = roomTypes.find((row) => row.code === code);
+                  setRate(type ? type.baseRate : '');
+                }}
+                SelectProps={{ onOpen: () => void loadRoomTypes() }}
+                required
+                sx={{ minWidth: 200 }}
+                helperText={roomTypes.length === 0 ? 'No room types yet — add one under Room Types' : undefined}
+              >
+                {roomTypes.map((type) => (
+                  <MenuItem key={type.id} value={type.code}>
+                    {type.name} ({type.code}) — ₦{type.baseRate.toLocaleString()}
+                  </MenuItem>
+                ))}
               </TextField>
+              <TextField label="Floor" type="number" value={floor} onChange={(event) => setFloor(Number(event.target.value))} required />
+              <TextField
+                label="Rate"
+                type="number"
+                value={rate}
+                onChange={(event) => setRate(event.target.value === '' ? '' : Number(event.target.value))}
+                helperText={selectedType ? `Type rate ₦${selectedType.baseRate.toLocaleString()}` : undefined}
+              />
               <Button type="submit" variant="contained">Create Room</Button>
             </Stack>
           </Box>
@@ -1052,7 +1163,12 @@ export const RoomListPage = () => {
           defaultRowsPerPage={10}
           emptyText={loading ? 'Loading rooms...' : 'No rooms found.'}
           columns={[
-            { key: 'roomNumber', label: 'Room', minWidth: 120 },
+            {
+              key: 'roomNumber',
+              label: 'Room',
+              minWidth: 120,
+              render: (room) => (room.name ? `${room.roomNumber} · ${room.name}` : room.roomNumber)
+            },
             { key: 'roomType', label: 'Type', minWidth: 140 },
             { key: 'floor', label: 'Floor', minWidth: 90 },
             {
@@ -1077,7 +1193,7 @@ export const RoomListPage = () => {
                 <Stack direction="row" spacing={1}>
                   <Button size="small" onClick={() => navigate(`/business/rooms/${room.id}`)}>Detail</Button>
                   <Button size="small" onClick={() => void updateStatus(room.id, 'AVAILABLE')}>Ready</Button>
-                  <Button size="small" color="warning" onClick={() => void updateStatus(room.id, 'CLEANING')}>Dirty</Button>
+                  <Button size="small" color="warning" onClick={() => void updateStatus(room.id, 'DIRTY')}>Dirty</Button>
                 </Stack>
               )
             }
@@ -1180,7 +1296,7 @@ export const RoomTypeListPage = () => {
     try {
       setRows(await roomOpsService.listRoomTypes());
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load room types');
+      setError(getApiErrorMessage(err, 'Failed to load room types'));
     } finally {
       setLoading(false);
     }
@@ -1333,14 +1449,21 @@ const errorMessage = (err: unknown, fallback: string) =>
   ?? (err as { response?: { data?: { message?: string } } }).response?.data?.message
   ?? fallback;
 
+/** The standard amenity checklist. Anything else is added with "Add amenity". */
+const STANDARD_AMENITIES = ['AC', 'Water Heater', 'TV', 'Balcony', 'Sit-out', 'Microwave', 'Cushion'];
+const BED_SIZES = ['Single', 'Double', 'Queen', 'King', 'Twin', 'Super King'];
+
 const RoomTypeForm = ({
   initial,
   onSubmit,
-  submitLabel
+  submitLabel,
+  allowFirstRoom = false
 }: {
   initial?: Partial<RoomTypeRecord>;
   onSubmit: (payload: Omit<RoomTypeRecord, 'id'>) => void | Promise<void>;
   submitLabel: string;
+  /** Offers the optional Room Number / Room Name fields (create only). */
+  allowFirstRoom?: boolean;
 }) => {
   const [code, setCode] = useState(initial?.code || '');
   const [name, setName] = useState(initial?.name || '');
@@ -1348,6 +1471,31 @@ const RoomTypeForm = ({
   const [maxChildren, setMaxChildren] = useState(initial?.maxChildren || 0);
   const [baseRate, setBaseRate] = useState(initial?.baseRate || 0);
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
+  const [amenities, setAmenities] = useState<string[]>(initial?.amenities ?? []);
+  const [bedSize, setBedSize] = useState(initial?.bedSize ?? '');
+  const [customAmenity, setCustomAmenity] = useState('');
+  const [roomNumber, setRoomNumber] = useState('');
+  const [roomName, setRoomName] = useState('');
+
+  // Custom amenities are the ones not in the standard list; they render as
+  // removable chips beneath the checkboxes.
+  const custom = amenities.filter(
+    (item) => !STANDARD_AMENITIES.some((standard) => standard.toLowerCase() === item.toLowerCase())
+  );
+
+  const toggleAmenity = (label: string) =>
+    setAmenities((current) =>
+      current.includes(label) ? current.filter((item) => item !== label) : [...current, label]
+    );
+
+  const addCustom = () => {
+    const label = customAmenity.trim();
+    if (!label) return;
+    if (!amenities.some((item) => item.toLowerCase() === label.toLowerCase())) {
+      setAmenities((current) => [...current, label]);
+    }
+    setCustomAmenity('');
+  };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1357,7 +1505,12 @@ const RoomTypeForm = ({
       maxAdults,
       maxChildren,
       baseRate,
-      isActive
+      isActive,
+      amenities,
+      bedSize: bedSize || null,
+      ...(allowFirstRoom && roomNumber.trim()
+        ? { roomNumber: roomNumber.trim(), roomName: roomName.trim() || undefined }
+        : {})
     });
   };
 
@@ -1365,13 +1518,73 @@ const RoomTypeForm = ({
     <Paper sx={{ p: 3 }}>
       <Box component="form" onSubmit={submit}>
         <Stack spacing={2}>
-          <TextField label="Code" value={code} onChange={(event) => setCode(event.target.value)} required />
-          <TextField label="Name" value={name} onChange={(event) => setName(event.target.value)} required />
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            <TextField label="Max Adults" type="number" value={maxAdults} onChange={(event) => setMaxAdults(Number(event.target.value))} fullWidth />
-            <TextField label="Max Children" type="number" value={maxChildren} onChange={(event) => setMaxChildren(Number(event.target.value))} fullWidth />
-            <TextField label="Base Rate" type="number" value={baseRate} onChange={(event) => setBaseRate(Number(event.target.value))} fullWidth />
+            <TextField label="Code" value={code} onChange={(event) => setCode(event.target.value)} required fullWidth helperText="Short code, e.g. DLX" />
+            <TextField label="Name" value={name} onChange={(event) => setName(event.target.value)} required fullWidth helperText="e.g. Deluxe Room" />
           </Stack>
+
+          <Typography variant="subtitle2" fontWeight={700}>Capacity and price</Typography>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+            <TextField label="Max Adults" type="number" value={maxAdults} onChange={(event) => setMaxAdults(Number(event.target.value))} inputProps={{ min: 0, max: 20 }} fullWidth />
+            <TextField label="Max Children" type="number" value={maxChildren} onChange={(event) => setMaxChildren(Number(event.target.value))} inputProps={{ min: 0, max: 20 }} fullWidth />
+            <TextField label="Base Rate (₦ / night)" type="number" value={baseRate} onChange={(event) => setBaseRate(Number(event.target.value))} inputProps={{ min: 0 }} fullWidth />
+          </Stack>
+
+          <Typography variant="subtitle2" fontWeight={700}>Amenities</Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' }, gap: 0.5 }}>
+            {STANDARD_AMENITIES.map((label) => (
+              <FormControlLabel
+                key={label}
+                control={<Checkbox checked={amenities.includes(label)} onChange={() => toggleAmenity(label)} size="small" />}
+                label={label}
+              />
+            ))}
+          </Box>
+          <TextField select label="Bed Size" value={bedSize} onChange={(event) => setBedSize(event.target.value)} sx={{ maxWidth: 260 }}>
+            <MenuItem value="">Not specified</MenuItem>
+            {BED_SIZES.map((size) => (
+              <MenuItem key={size} value={size}>{size}</MenuItem>
+            ))}
+          </TextField>
+          {custom.length > 0 && (
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {custom.map((label) => (
+                <Chip key={label} label={label} onDelete={() => toggleAmenity(label)} />
+              ))}
+            </Stack>
+          )}
+          <Stack direction="row" spacing={1} alignItems="flex-start">
+            <TextField
+              size="small"
+              label="Other amenity"
+              value={customAmenity}
+              onChange={(event) => setCustomAmenity(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  addCustom();
+                }
+              }}
+              placeholder="e.g. Mini fridge"
+            />
+            <Button variant="outlined" onClick={addCustom} disabled={!customAmenity.trim()}>
+              Add amenity
+            </Button>
+          </Stack>
+
+          {allowFirstRoom && (
+            <>
+              <Typography variant="subtitle2" fontWeight={700}>First room (optional)</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: -1 }}>
+                Fill these to create a room of this type at the same time. Leave blank to add rooms later.
+              </Typography>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField label="Room Number" value={roomNumber} onChange={(event) => setRoomNumber(event.target.value)} fullWidth />
+                <TextField label="Room Name" value={roomName} onChange={(event) => setRoomName(event.target.value)} fullWidth disabled={!roomNumber.trim()} />
+              </Stack>
+            </>
+          )}
+
           <TextField select label="Active" value={isActive ? 'YES' : 'NO'} onChange={(event) => setIsActive(event.target.value === 'YES')}>
             <MenuItem value="YES">Yes</MenuItem>
             <MenuItem value="NO">No</MenuItem>
@@ -1394,6 +1607,7 @@ export const CreateRoomTypePage = () => {
         {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>{error}</Alert>}
         <RoomTypeForm
           submitLabel="Create"
+          allowFirstRoom
           onSubmit={async (payload) => {
             setError('');
             try {

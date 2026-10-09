@@ -328,27 +328,24 @@ const SuperAdminPage: React.FC = () => {
     }
   };
 
-  const handleDeleteBusiness = async (business: BusinessSummary) => {
-    setSaving(true);
-    try {
-      await superAdminService.deleteBusiness(business.id);
-      updateBusinessLocally(business.id, { status: 'DELETED' });
-      enqueueSnackbar(`${business.name} deleted. The record is kept and can be restored.`, {
-        variant: 'warning'
-      });
-    } catch (err: unknown) {
-      enqueueSnackbar(err instanceof Error ? err.message : 'Delete failed', { variant: 'error' });
-    } finally {
-      setSaving(false);
-    }
+  /**
+   * Throws on failure so the confirmation dialog stays open and shows why — a
+   * mistyped password should be retried, not reported as a toast.
+   */
+  const handleDeleteBusiness = async (business: BusinessSummary, password: string) => {
+    await superAdminService.deleteBusiness(business.id, password);
+    updateBusinessLocally(business.id, { status: 'DELETED' });
+    enqueueSnackbar(`${business.name} deleted. The record is kept and can be restored.`, {
+      variant: 'warning'
+    });
   };
 
   /**
    * Throws on failure rather than swallowing it: the dialog stays open and
    * shows why, instead of closing as though the business had been removed.
    */
-  const handlePurgeBusiness = async (business: BusinessSummary, confirmName: string) => {
-    await superAdminService.purgeBusiness(business.id, confirmName);
+  const handlePurgeBusiness = async (business: BusinessSummary, confirmName: string, password: string) => {
+    await superAdminService.purgeBusiness(business.id, confirmName, password);
     setBusinesses((rows) => rows.filter((row) => row.id !== business.id));
     enqueueSnackbar(`${business.name} and all of its data have been deleted`, {
       variant: 'success'
@@ -743,8 +740,8 @@ const SuperAdminPage: React.FC = () => {
                   business={business}
                   onManageModules={() => void openManageModules(business)}
                   onToggleStatus={() => handleStatusChange(business)}
-                  onDelete={() => handleDeleteBusiness(business)}
-                  onPurge={(confirmName) => handlePurgeBusiness(business, confirmName)}
+                  onDelete={(password) => handleDeleteBusiness(business, password)}
+                  onPurge={(confirmName, password) => handlePurgeBusiness(business, confirmName, password)}
                 />
               )
             }

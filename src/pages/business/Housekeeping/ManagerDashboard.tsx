@@ -71,7 +71,7 @@
 //       setHousekeepers(staff);
 //       setError('');
 //     } catch (err) {
-//       setError(err instanceof Error ? err.message : 'Failed to load housekeeping data');
+//       setError(getApiErrorMessage(err, 'Failed to load housekeeping data'));
 //     } finally {
 //       setLoading(false);
 //     }
@@ -133,7 +133,7 @@
 //       setAssignRoom(null);
 //       await load();
 //     } catch (err) {
-//       setError(err instanceof Error ? err.message : 'Failed to assign task');
+//       setError(getApiErrorMessage(err, 'Failed to assign task'));
 //     } finally {
 //       setSaving(false);
 //     }
@@ -145,7 +145,7 @@
 //       setToast(`Room ${task.room.roomNumber} approved and returned to inventory`);
 //       await load();
 //     } catch (err) {
-//       setError(err instanceof Error ? err.message : 'Failed to approve task');
+//       setError(getApiErrorMessage(err, 'Failed to approve task'));
 //     }
 //   };
 
@@ -161,7 +161,7 @@
 //       setRejectReason('');
 //       await load();
 //     } catch (err) {
-//       setError(err instanceof Error ? err.message : 'Failed to reject task');
+//       setError(getApiErrorMessage(err, 'Failed to reject task'));
 //     }
 //   };
 
@@ -486,7 +486,8 @@
 
 
 import Layout from '../../../components/Layout';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getApiErrorMessage } from '../../../utils/apiError';
 import {
   Alert,
   Box,
@@ -957,6 +958,21 @@ const HousekeepingManagerDashboard = () => {
   const [rejectTask, setRejectTask] =
     useState<HousekeepingTask | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [dialogError, setDialogError] = useState('');
+
+  /**
+   * Live refreshes are held while a dialog is open.
+   *
+   * Every socket event (another room started, completed, approved) reloaded
+   * the board, re-rendering the room list and staff menu under an open
+   * assignment dialog — the card being assigned could vanish mid-assignment
+   * and the staff selection reset. Events that arrive meanwhile are applied
+   * once the dialog closes.
+   */
+  const dialogOpen = Boolean(assignRoom) || Boolean(rejectTask);
+  const dialogOpenRef = useRef(false);
+  const pendingReload = useRef(false);
+  dialogOpenRef.current = dialogOpen;
 
   const load = useCallback(async (showRefresh = false) => {
     if (showRefresh) {
@@ -1001,7 +1017,13 @@ const HousekeepingManagerDashboard = () => {
     ];
 
     const unsubscribers = events.map((event) =>
-      on(event, () => void load())
+      on(event, () => {
+        if (dialogOpenRef.current) {
+          pendingReload.current = true;
+        } else {
+          void load();
+        }
+      })
     );
 
     return () => {
@@ -1012,6 +1034,16 @@ const HousekeepingManagerDashboard = () => {
       });
     };
   }, [on, load]);
+
+  useEffect(() => {
+    if (!dialogOpen && pendingReload.current) {
+      pendingReload.current = false;
+      void load();
+    }
+    if (!dialogOpen) {
+      setDialogError('');
+    }
+  }, [dialogOpen, load]);
 
   const awaitingApproval = useMemo(
     () => tasks.filter((task) => task.status === 'DONE'),
@@ -1043,15 +1075,17 @@ const HousekeepingManagerDashboard = () => {
         notes: assignNotes.trim() || undefined
       });
 
+      // The room leaves the list only after the server has accepted the task,
+      // and the dialog closes with it — never before.
+      const assignedId = assignRoom.id;
+      setDirtyRooms((rows) => rows.filter((row) => row.id !== assignedId));
       setToast(`Room ${assignRoom.roomNumber} assigned`);
       setAssignRoom(null);
       await load();
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to assign task'
-      );
+      // Shown inside the dialog, which stays open so the assignment can be
+      // retried; the page-level alert sat hidden behind the dialog.
+      setDialogError(getApiErrorMessage(err, 'Failed to assign task'));
     } finally {
       setSaving(false);
     }
@@ -1067,11 +1101,7 @@ const HousekeepingManagerDashboard = () => {
 
       await load();
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to approve task'
-      );
+      setError(getApiErrorMessage(err, 'Failed to approve task'));
     }
   };
 
@@ -1095,11 +1125,7 @@ const HousekeepingManagerDashboard = () => {
 
       await load();
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to reject task'
-      );
+      setDialogError(getApiErrorMessage(err, 'Failed to reject task'));
     }
   };
 
@@ -1869,6 +1895,11 @@ const HousekeepingManagerDashboard = () => {
         </Box>
 
         <DialogContent sx={{ p: 3 }}>
+          {dialogError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDialogError('')}>
+              {dialogError}
+            </Alert>
+          )}
           <Stack spacing={2.5}>
             <Box>
               <Typography
@@ -1962,8 +1993,15 @@ const HousekeepingManagerDashboard = () => {
                           }}
                         >
                           {person.openTasks} open tasks
+                          {person.consecutiveRejections
+                            ? ` · ${person.consecutiveRejections} rejected in a row`
+                            : ''}
                         </Typography>
                       </Box>
+
+                      {person.flagged && (
+                        <Chip size="small" color="error" label="Flagged" sx={{ fontWeight: 800 }} />
+                      )}
                     </Stack>
                   </MenuItem>
                 ))}
@@ -2107,6 +2145,11 @@ const HousekeepingManagerDashboard = () => {
         </Box>
 
         <DialogContent sx={{ p: 3 }}>
+          {dialogError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDialogError('')}>
+              {dialogError}
+            </Alert>
+          )}
           <TextField
             label="Reason for rejection"
             placeholder="Describe what needs to be corrected..."

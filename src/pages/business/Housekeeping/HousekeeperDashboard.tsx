@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from '../../../utils/apiError';
 import Layout from '../../../components/Layout';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -58,7 +59,7 @@ const HousekeeperDashboard = () => {
       setUnreadCount(notificationData.unreadCount);
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load your tasks');
+      setError(getApiErrorMessage(err, 'Failed to load your tasks'));
     } finally {
       setLoading(false);
     }
@@ -110,7 +111,7 @@ const HousekeeperDashboard = () => {
       }
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Action failed');
+      setError(getApiErrorMessage(err, 'Action failed'));
     } finally {
       setBusyTaskId(null);
     }

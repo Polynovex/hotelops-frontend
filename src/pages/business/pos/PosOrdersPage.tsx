@@ -1,6 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -14,7 +12,6 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
-
   MenuItem,
   Paper,
   Stack,
@@ -26,299 +23,207 @@ import { LocalOfferRounded } from '@mui/icons-material';
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import DataTable from '../../../components/common/DataTable';
-import { Outlet, PosOrder, posService } from '../../../services/api';
-import { CardPaymentButton } from '../../../components/payments/CardPaymentButton';
+import { posService } from '../../../services/api';
+import { formatNaira, posFlow, type Outlet, type PosOrderRow } from '../../../services/posFlow';
 import DiscountModal, { DiscountModalItem } from '../../../components/modals/DiscountModal';
-import { CreatePosOrderSchema, createPosOrderSchema } from '../../../validation/pos.schema';
-import { useAuthStore } from '../../../store/authStore';
+import { NewOrderDialog } from '../../../components/pos/NewOrderDialog';
+import { TakePaymentDialog } from '../../../components/pos/TakePaymentDialog';
+import { useWebSocket } from '../../../hooks/useWebSocket';
+import { getApiErrorMessage } from '../../../utils/apiError';
 
-const statusColor = (status: PosOrder['orderStatus']) => {
-  if (status === 'COMPLETED') return 'success';
-  if (status === 'SENT_TO_KITCHEN') return 'info';
-  if (status === 'VOIDED') return 'error';
-  return 'warning';
+/**
+ * POS orders: the agent's workspace.
+ *
+ * Consumer -> POS agent -> POS. Orders come in from the agent (rung up from
+ * the menu) or from guests by QR. The agent accepts and sends them to the
+ * kitchen/bar; the kitchen marks them ready; the agent serves, takes payment
+ * and closes them. The kitchen screen has no payment controls at all.
+ */
+
+const STATUS_LABEL: Record<PosOrderRow['orderStatus'], string> = {
+  OPEN: 'Open',
+  SENT_TO_KITCHEN: 'In kitchen',
+  READY: 'Ready to serve',
+  COMPLETED: 'Completed',
+  VOIDED: 'Voided'
 };
+const STATUS_COLOR: Record<PosOrderRow['orderStatus'], 'warning' | 'info' | 'success' | 'default' | 'error' | 'secondary'> = {
+  OPEN: 'warning',
+  SENT_TO_KITCHEN: 'info',
+  READY: 'secondary',
+  COMPLETED: 'success',
+  VOIDED: 'error'
+};
+
+/** Room service is charged to the folio and no-charge is free. */
+const needsPayment = (order: PosOrderRow) => order.orderType !== 'ROOM_SERVICE' && order.orderType !== 'NO_CHARGE';
+
+const where = (order: PosOrderRow) =>
+  [order.tableNumber ? `Table ${order.tableNumber}` : '', order.metadata?.roomNumber ? `Room ${order.metadata.roomNumber}` : '']
+    .filter(Boolean)
+    .join(' · ') || '—';
 
 const PosOrdersPage = () => {
   const { enqueueSnackbar } = useSnackbar();
-  const token = useAuthStore((s) => s.token);
-  const baseUrl = (import.meta as any).env?.VITE_API_URL ?? '';
+  const { on } = useWebSocket();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [openCreate, setOpenCreate] = useState(false);
-
   const [outlets, setOutlets] = useState<Outlet[]>([]);
-  const [orders, setOrders] = useState<PosOrder[]>([]);
-  const [tables, setTables] = useState<Array<{ id: string; tableNumber: string; outletId: string }>>([]);
-  const [serviceCharge, setServiceCharge] = useState<{ rate: number; label: string; isEnabled: boolean } | null>(null);
-  const [discountOrder, setDiscountOrder] = useState<PosOrder | null>(null);
+  const [orders, setOrders] = useState<PosOrderRow[]>([]);
+  const [filters, setFilters] = useState({ outletId: '', orderStatus: '' });
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [pendingClientIds, setPendingClientIds] = useState<string[]>([]);
+  const [creating, setCreating] = useState(false);
+  const [paying, setPaying] = useState<PosOrderRow | null>(null);
+  const [discountOrder, setDiscountOrder] = useState<PosOrderRow | null>(null);
+  const [stationBlock, setStationBlock] = useState<{ order: PosOrderRow; message: string } | null>(null);
+  const [voiding, setVoiding] = useState<PosOrderRow | null>(null);
+  const [voidReason, setVoidReason] = useState('');
 
-  const [filters, setFilters] = useState({ outletId: '', orderStatus: '' });
-  const {
-    setValue,
-    handleSubmit,
-    reset,
-    watch,
-    formState: { errors }
-  } = useForm<CreatePosOrderSchema>({
-    resolver: zodResolver(createPosOrderSchema),
-    defaultValues: {
-      outletId: '',
-      orderType: 'DINE_IN',
-      tableNumber: '',
-      bookingId: '',
-      subtotal: 0,
-      tax: 0,
-      total: 0
-    }
-  });
-  const form = watch();
-
-  const load = async () => {
-    setLoading(true);
+  const load = useCallback(async () => {
     setError('');
     try {
-      const [outletData, orderData, pending] = await Promise.all([
-        posService.getOutlets(),
-        posService.getOrders({
+      const [outletRows, orderRows, pending] = await Promise.all([
+        posFlow.outlets(),
+        posFlow.orders({
           ...(filters.outletId ? { outletId: filters.outletId } : {}),
           ...(filters.orderStatus ? { orderStatus: filters.orderStatus } : {})
         }),
-        posService.getPendingSync()
+        posService.getPendingSync().catch(() => ({ pendingCount: 0, items: [] }))
       ]);
-
-      setOutlets(outletData);
-      setOrders(orderData);
+      setOutlets(outletRows);
+      setOrders(orderRows);
       setPendingSyncCount(Number(pending.pendingCount || 0));
-
-      const ids = (pending.items || [])
-        .map((item) => String((item as Record<string, unknown>).clientId || ''))
-        .filter(Boolean);
-      setPendingClientIds(ids);
-
-      if (!form.outletId && outletData[0]) {
-        setValue('outletId', outletData[0].id);
-      }
-
-      // Fetch tables and service charge config
-      try {
-        const [tablesRes, scRes] = await Promise.all([
-          fetch(`${baseUrl}/pos/tables`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${baseUrl}/pos/service-charge`, { headers: { Authorization: `Bearer ${token}` } })
-        ]);
-        if (tablesRes.ok) setTables(await tablesRes.json());
-        if (scRes.ok) setServiceCharge(await scRes.json());
-      } catch {
-        // non-critical
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load POS orders');
+      setPendingClientIds(
+        (pending.items || []).map((item) => String((item as Record<string, unknown>).clientId || '')).filter(Boolean)
+      );
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to load POS orders'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters.outletId, filters.orderStatus]);
 
   useEffect(() => {
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.outletId, filters.orderStatus]);
+  }, [load]);
+
+  // Live: new QR orders, orders the kitchen marked ready, payments elsewhere.
+  useEffect(() => {
+    const unsubscribers = ['pos.qr_order.received', 'pos.order.ready', 'pos.order.paid', 'pos.order.sent_to_kds'].map((event) =>
+      on(event, () => void load())
+    );
+    const timer = window.setInterval(() => void load(), 30_000);
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      window.clearInterval(timer);
+    };
+  }, [on, load]);
 
   const stats = useMemo(() => {
-    const open = orders.filter((order) => order.orderStatus === 'OPEN').length;
-    const sent = orders.filter((order) => order.orderStatus === 'SENT_TO_KITCHEN').length;
-    const completed = orders.filter((order) => order.orderStatus === 'COMPLETED');
-    const revenue = completed.reduce((sum, order) => sum + Number(order.total || 0), 0);
-    return { open, sent, completed: completed.length, revenue };
+    const live = orders.filter((order) => order.orderStatus !== 'VOIDED');
+    return {
+      awaiting: live.filter((order) => order.isQrOrder && order.orderStatus === 'OPEN').length,
+      inKitchen: live.filter((order) => order.orderStatus === 'SENT_TO_KITCHEN').length,
+      ready: live.filter((order) => order.orderStatus === 'READY').length,
+      unpaid: live
+        .filter((order) => needsPayment(order) && order.paymentStatus !== 'COMPLETED')
+        .reduce((sum, order) => sum + Number(order.total || 0), 0)
+    };
   }, [orders]);
 
-  const createOrder = async (data: CreatePosOrderSchema) => {
+  const run = async (action: () => Promise<unknown>, success: string) => {
     setSaving(true);
     try {
-      await posService.createOrder({
-        outletId: data.outletId,
-        orderType: data.orderType,
-        tableNumber: data.tableNumber || undefined,
-        ...(data.orderType === 'ROOM_SERVICE' && data.bookingId
-          ? { bookingId: data.bookingId }
-          : {}),
-        subtotal: data.subtotal,
-        tax: data.tax,
-        total: data.total,
-        clientId: `web-${Date.now()}`,
-        items: [
-          {
-            name: 'Manual POS Item',
-            quantity: 1,
-            price: data.total
-          }
-        ]
-      });
-
-      setOpenCreate(false);
-      reset({
-        ...data,
-        tableNumber: '',
-        bookingId: '',
-        subtotal: 0,
-        tax: 0,
-        total: 0
-      });
-      enqueueSnackbar('Order created', { variant: 'success' });
+      await action();
+      enqueueSnackbar(success, { variant: 'success' });
       await load();
-    } catch (err: unknown) {
-      enqueueSnackbar(err instanceof Error ? err.message : 'Failed to create order', { variant: 'error' });
+    } catch (err) {
+      enqueueSnackbar(getApiErrorMessage(err, 'That did not work'), { variant: 'error' });
     } finally {
       setSaving(false);
     }
   };
 
-  const sendToKds = async (orderId: string) => {
+  const sendToKitchen = async (order: PosOrderRow, force = false) => {
     setSaving(true);
     try {
-      await posService.sendToKds(orderId);
-      enqueueSnackbar('Order sent to kitchen', { variant: 'success' });
+      await posFlow.sendToKitchen(order.id, force);
+      enqueueSnackbar(`${order.orderNumber} sent to the kitchen`, { variant: 'success' });
+      setStationBlock(null);
       await load();
-    } catch (err: unknown) {
-      enqueueSnackbar(err instanceof Error ? err.message : 'Failed to send order', { variant: 'error' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const completeOrder = async (orderId: string) => {
-    setSaving(true);
-    try {
-      await posService.completeOrder(orderId);
-      enqueueSnackbar('Order marked complete', { variant: 'success' });
-      await load();
-    } catch (err: unknown) {
-      enqueueSnackbar(err instanceof Error ? err.message : 'Failed to complete order', { variant: 'error' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const voidOrder = async (orderId: string) => {
-    setSaving(true);
-    try {
-      await posService.voidOrder(orderId, 'Voided from POS orders page');
-      enqueueSnackbar('Order voided', { variant: 'warning' });
-      await load();
-    } catch (err: unknown) {
-      enqueueSnackbar(err instanceof Error ? err.message : 'Failed to void order', { variant: 'error' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const runSync = async () => {
-    setSaving(true);
-    try {
-      await posService.bulkSyncOrders([]);
-      if (pendingClientIds.length > 0) {
-        await posService.acknowledgeSync(pendingClientIds);
+    } catch (err) {
+      const data = (err as { response?: { data?: { error?: string; message?: string } } }).response?.data;
+      if (data?.error === 'STATION_OUT_OF_ORDER') {
+        setStationBlock({ order, message: data.message ?? 'A station is out of order' });
+      } else {
+        enqueueSnackbar(getApiErrorMessage(err, 'Could not send to the kitchen'), { variant: 'error' });
       }
-      enqueueSnackbar('Sync completed', { variant: 'success' });
-      await load();
-    } catch (err: unknown) {
-      enqueueSnackbar(err instanceof Error ? err.message : 'Sync failed', { variant: 'error' });
     } finally {
       setSaving(false);
     }
   };
+
+  const runSync = () =>
+    run(async () => {
+      await posService.bulkSyncOrders([]);
+      if (pendingClientIds.length > 0) await posService.acknowledgeSync(pendingClientIds);
+    }, 'Sync completed');
 
   return (
     <Layout>
       <Container maxWidth="xl" sx={{ py: 4, overflowX: 'hidden' }}>
-        <Box
-          sx={{
-            mb: 3,
-            display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            justifyContent: 'space-between',
-            alignItems: { xs: 'stretch', md: 'center' },
-            gap: 2
-          }}
-        >
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} spacing={2} sx={{ mb: 3 }}>
           <Box>
-            <Typography variant="h4" sx={{ fontWeight: 700 }}>
-              POS Orders
-            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 700 }}>POS Orders</Typography>
             <Typography variant="body2" color="text.secondary">
-              v3 order lifecycle: create, send to KDS, complete, void, and sync acknowledgement.
+              Accept orders, send them to the kitchen or bar, serve when ready, then take payment.
             </Typography>
           </Box>
-
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-            <Button variant="outlined" onClick={() => void load()} disabled={loading || saving}>
-              Refresh
-            </Button>
-            <Button variant="outlined" onClick={() => void runSync()} disabled={loading || saving}>
-              Run Sync
-            </Button>
-            <Button variant="contained" onClick={() => setOpenCreate(true)} disabled={saving}>
-              New Order
-            </Button>
+            <Button variant="outlined" onClick={() => void load()} disabled={saving}>Refresh</Button>
+            <Button variant="outlined" onClick={() => void runSync()} disabled={saving}>Run Sync</Button>
+            <Button variant="contained" onClick={() => setCreating(true)} disabled={saving}>New Order</Button>
           </Stack>
-        </Box>
+        </Stack>
 
         {loading && <LogoLoader inline minHeight={160} label="Loading orders" />}
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} md={3}>
-            <Card><CardContent><Typography color="textSecondary">Open</Typography><Typography variant="h5" sx={{ fontWeight: 700 }}>{stats.open}</Typography></CardContent></Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card><CardContent><Typography color="textSecondary">Sent to Kitchen</Typography><Typography variant="h5" sx={{ fontWeight: 700 }}>{stats.sent}</Typography></CardContent></Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card><CardContent><Typography color="textSecondary">Completed</Typography><Typography variant="h5" sx={{ fontWeight: 700 }}>{stats.completed}</Typography></CardContent></Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card><CardContent><Typography color="textSecondary">Revenue</Typography><Typography variant="h5" sx={{ fontWeight: 700 }}>₦{stats.revenue.toLocaleString()}</Typography></CardContent></Card>
-          </Grid>
+          {[
+            ['QR orders to accept', stats.awaiting],
+            ['In the kitchen', stats.inKitchen],
+            ['Ready to serve', stats.ready],
+            ['Awaiting payment', formatNaira(stats.unpaid)]
+          ].map(([label, value]) => (
+            <Grid item xs={6} md={3} key={String(label)}>
+              <Card>
+                <CardContent>
+                  <Typography color="text.secondary" variant="body2">{label}</Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 700 }}>{value}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
         </Grid>
 
         <Paper sx={{ p: 2, mb: 2 }}>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>
-            <TextField
-              select
-              label="Outlet"
-              value={filters.outletId}
-              onChange={(event) => setFilters((prev) => ({ ...prev, outletId: event.target.value }))}
-              sx={{ minWidth: { sm: 220 } }}
-              fullWidth
-            >
-              <MenuItem value="">All Outlets</MenuItem>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
+            <TextField select label="Outlet" value={filters.outletId} onChange={(event) => setFilters((prev) => ({ ...prev, outletId: event.target.value }))} sx={{ minWidth: { sm: 220 } }} fullWidth>
+              <MenuItem value="">All outlets</MenuItem>
               {outlets.map((outlet) => (
                 <MenuItem key={outlet.id} value={outlet.id}>{outlet.name}</MenuItem>
               ))}
             </TextField>
-
-            <TextField
-              select
-              label="Status"
-              value={filters.orderStatus}
-              onChange={(event) => setFilters((prev) => ({ ...prev, orderStatus: event.target.value }))}
-              sx={{ minWidth: { sm: 200 } }}
-              fullWidth
-            >
-              <MenuItem value="">All Statuses</MenuItem>
-              <MenuItem value="OPEN">OPEN</MenuItem>
-              <MenuItem value="SENT_TO_KITCHEN">SENT_TO_KITCHEN</MenuItem>
-              <MenuItem value="COMPLETED">COMPLETED</MenuItem>
-              <MenuItem value="VOIDED">VOIDED</MenuItem>
+            <TextField select label="Status" value={filters.orderStatus} onChange={(event) => setFilters((prev) => ({ ...prev, orderStatus: event.target.value }))} sx={{ minWidth: { sm: 200 } }} fullWidth>
+              <MenuItem value="">All statuses</MenuItem>
+              {(Object.keys(STATUS_LABEL) as Array<PosOrderRow['orderStatus']>).map((status) => (
+                <MenuItem key={status} value={status}>{STATUS_LABEL[status]}</MenuItem>
+              ))}
             </TextField>
-
-            <Chip color={pendingSyncCount > 0 ? 'warning' : 'success'} label={`Pending Sync: ${pendingSyncCount}`} />
+            <Chip color={pendingSyncCount > 0 ? 'warning' : 'success'} label={`Pending sync: ${pendingSyncCount}`} />
           </Stack>
         </Paper>
 
@@ -328,185 +233,159 @@ const PosOrdersPage = () => {
           defaultRowsPerPage={10}
           emptyText={loading ? 'Loading orders...' : 'No orders found for the current filter.'}
           columns={[
-            { key: 'orderNumber', label: 'Order', minWidth: 140 },
             {
-              key: 'outlet',
-              label: 'Outlet',
-              minWidth: 160,
-              render: (order) => order.outlet?.name || order.outletId
-            },
-            { key: 'orderType', label: 'Type', minWidth: 130 },
-            {
-              key: 'tableNumber',
-              label: 'Table',
-              minWidth: 100,
-              render: (order) => order.tableNumber || '—'
-            },
-            {
-              key: 'total',
-              label: 'Total',
-              minWidth: 140,
-              render: (order) => `₦${Number(order.total || 0).toLocaleString()}`
-            },
-            {
-              key: 'orderStatus',
-              label: 'Status',
+              key: 'orderNumber',
+              label: 'Order',
               minWidth: 170,
               render: (order) => (
-                <Chip size="small" label={order.orderStatus} color={statusColor(order.orderStatus)} />
-              )
-            },
-            {
-              key: 'createdAt',
-              label: 'Created',
-              minWidth: 180,
-              render: (order) => new Date(order.createdAt).toLocaleString()
-            },
-            {
-              key: 'actions',
-              label: 'Actions',
-              minWidth: 250,
-              render: (order) => (
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  {order.orderStatus !== 'VOIDED' && order.orderStatus !== 'COMPLETED' && (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="secondary"
-                      startIcon={<LocalOfferRounded fontSize="small" />}
-                      onClick={() => setDiscountOrder(order)}
-                    >
-                      Discount
-                    </Button>
-                  )}
-                  {order.orderStatus === 'OPEN' && (
-                    <Button size="small" onClick={() => void sendToKds(order.id)}>Send KDS</Button>
-                  )}
-                  {order.orderStatus === 'SENT_TO_KITCHEN' && (
-                    <Button size="small" onClick={() => void completeOrder(order.id)}>Complete</Button>
-                  )}
-                  {/*
-                    Card payment is offered on any order that is not voided and
-                    not already settled — including completed ones, since a
-                    table is routinely served before it pays.
-                  */}
-                  {order.orderStatus !== 'VOIDED' && order.paymentStatus !== 'COMPLETED' && (
-                    <CardPaymentButton
-                      posOrderId={order.id}
-                      amount={order.total}
-                      onStarted={() => void load()}
-                    />
-                  )}
-                  {order.orderStatus !== 'VOIDED' && order.orderStatus !== 'COMPLETED' && (
-                    <Button size="small" color="error" onClick={() => void voidOrder(order.id)}>Void</Button>
+                <Stack spacing={0.25}>
+                  <Typography variant="body2" fontWeight={700}>{order.orderNumber}</Typography>
+                  {order.isQrOrder && (
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <Chip size="small" label="QR" color="primary" variant="outlined" />
+                      <Typography variant="caption">{order.customerName}</Typography>
+                    </Stack>
                   )}
                 </Stack>
               )
+            },
+            { key: 'outlet', label: 'Outlet', minWidth: 130, render: (order) => order.outlet?.name || '—' },
+            { key: 'where', label: 'Where', minWidth: 130, render: where },
+            {
+              key: 'items',
+              label: 'Items',
+              minWidth: 200,
+              render: (order) =>
+                (Array.isArray(order.items) ? order.items : []).map((line) => `${line.quantity}× ${line.name}`).join(', ') || '—'
+            },
+            { key: 'total', label: 'Total', minWidth: 110, render: (order) => formatNaira(order.total) },
+            {
+              key: 'orderStatus',
+              label: 'Status',
+              minWidth: 140,
+              render: (order) => <Chip size="small" label={STATUS_LABEL[order.orderStatus]} color={STATUS_COLOR[order.orderStatus]} />
+            },
+            {
+              key: 'payment',
+              label: 'Payment',
+              minWidth: 150,
+              render: (order) =>
+                !needsPayment(order) ? (
+                  <Typography variant="caption">{order.orderType === 'ROOM_SERVICE' ? 'Charged to room' : 'No charge'}</Typography>
+                ) : order.paymentStatus === 'COMPLETED' ? (
+                  <Chip size="small" color="success" label={`Paid · ${(order.paymentMethod || '').toLowerCase()}`} />
+                ) : (
+                  <Typography variant="caption" color="warning.main">
+                    Unpaid{order.metadata?.paymentPreference && order.metadata.paymentPreference !== 'ONLINE' ? ` · guest pays by ${order.metadata.paymentPreference.toLowerCase()}` : ''}
+                  </Typography>
+                )
+            },
+            { key: 'createdAt', label: 'Created', minWidth: 160, render: (order) => new Date(order.createdAt).toLocaleString() },
+            {
+              key: 'actions',
+              label: 'Actions',
+              minWidth: 300,
+              render: (order) => {
+                const live = order.orderStatus !== 'VOIDED' && order.orderStatus !== 'COMPLETED';
+                const unpaid = needsPayment(order) && order.paymentStatus !== 'COMPLETED';
+                return (
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    {order.orderStatus === 'OPEN' && (
+                      <Button size="small" variant="contained" onClick={() => void sendToKitchen(order)} disabled={saving}>
+                        {order.isQrOrder ? 'Accept & send to kitchen' : 'Send to kitchen'}
+                      </Button>
+                    )}
+                    {live && unpaid && (
+                      <Button size="small" variant="outlined" color="success" onClick={() => setPaying(order)}>
+                        Take payment
+                      </Button>
+                    )}
+                    {order.orderStatus === 'READY' && !unpaid && (
+                      <Button size="small" variant="contained" color="success" onClick={() => void run(() => posFlow.complete(order.id), `${order.orderNumber} served and closed`)} disabled={saving}>
+                        Serve & close
+                      </Button>
+                    )}
+                    {live && (
+                      <Button size="small" variant="outlined" color="secondary" startIcon={<LocalOfferRounded fontSize="small" />} onClick={() => setDiscountOrder(order)}>
+                        Discount
+                      </Button>
+                    )}
+                    {live && order.paymentStatus !== 'COMPLETED' && (
+                      <Button size="small" color="error" onClick={() => { setVoiding(order); setVoidReason(''); }}>Void</Button>
+                    )}
+                  </Stack>
+                );
+              }
             }
           ]}
         />
 
-        <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Create POS Order</DialogTitle>
-          <DialogContent sx={{ pt: 2 }}>
-            <Box component="form" id="create-pos-order-form" onSubmit={handleSubmit(createOrder)}>
-            <Stack spacing={2}>
-              <TextField
-                select
-                label="Outlet"
-                value={form.outletId || ''}
-                error={Boolean(errors.outletId)}
-                helperText={errors.outletId?.message}
-                onChange={(event) => setValue('outletId', event.target.value)}
-              >
-                {outlets.map((outlet) => (
-                  <MenuItem key={outlet.id} value={outlet.id}>{outlet.name}</MenuItem>
-                ))}
-              </TextField>
+        <NewOrderDialog
+          open={creating}
+          onClose={() => setCreating(false)}
+          onCreated={(orderNumber) => {
+            setCreating(false);
+            enqueueSnackbar(`Order ${orderNumber} created`, { variant: 'success' });
+            void load();
+          }}
+        />
 
-              <TextField
-                select
-                label="Order Type"
-                value={form.orderType}
-                onChange={(event) => setValue('orderType', event.target.value as CreatePosOrderSchema['orderType'])}
-              >
-                <MenuItem value="DINE_IN">DINE_IN</MenuItem>
-                <MenuItem value="TAKEAWAY">TAKEAWAY</MenuItem>
-                <MenuItem value="DELIVERY">DELIVERY</MenuItem>
-                <MenuItem value="ROOM_SERVICE">ROOM_SERVICE</MenuItem>
-                <MenuItem value="NO_CHARGE">NO_CHARGE</MenuItem>
-              </TextField>
+        <TakePaymentDialog
+          order={paying}
+          onClose={() => setPaying(null)}
+          onPaid={(message) => {
+            setPaying(null);
+            enqueueSnackbar(message, { variant: 'success' });
+            void load();
+          }}
+        />
 
-              {tables.filter((t) => !form.outletId || t.outletId === form.outletId).length > 0 ? (
-                <TextField
-                  select
-                  label="Table Number"
-                  value={form.tableNumber || ''}
-                  onChange={(e) => setValue('tableNumber', e.target.value)}
-                  fullWidth
-                >
-                  <MenuItem value="">— No table —</MenuItem>
-                  {tables
-                    .filter((t) => !form.outletId || t.outletId === form.outletId)
-                    .map((t) => (
-                      <MenuItem key={t.id} value={t.tableNumber}>Table {t.tableNumber}</MenuItem>
-                    ))}
-                </TextField>
-              ) : (
-                <TextField
-                  label="Table Number"
-                  value={form.tableNumber || ''}
-                  onChange={(e) => setValue('tableNumber', e.target.value)}
-                  fullWidth
-                />
-              )}
-              {form.orderType === 'ROOM_SERVICE' && (
-                <TextField
-                  label="Reservation ID"
-                  value={form.bookingId || ''}
-                  error={Boolean(errors.bookingId)}
-                  helperText={errors.bookingId?.message || 'Required for guest folio posting'}
-                  onChange={(event) => setValue('bookingId', event.target.value)}
-                />
-              )}
-
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <TextField type="number" label="Subtotal" value={form.subtotal} error={Boolean(errors.subtotal)} helperText={errors.subtotal?.message} onChange={(event) => setValue('subtotal', Number(event.target.value || 0))} fullWidth />
-                <TextField type="number" label="Tax" value={form.tax} error={Boolean(errors.tax)} helperText={errors.tax?.message} onChange={(event) => setValue('tax', Number(event.target.value || 0))} fullWidth />
-                <TextField type="number" label="Total" value={form.total} error={Boolean(errors.total)} helperText={errors.total?.message} onChange={(event) => setValue('total', Number(event.target.value || 0))} fullWidth />
-              </Stack>
-              {serviceCharge?.isEnabled && (
-                <Alert severity="info" sx={{ py: 0.5 }}>
-                  {serviceCharge.label}: {(serviceCharge.rate * 100).toFixed(0)}% will be auto-applied on subtotal.
-                  Estimated: ₦{(form.subtotal * serviceCharge.rate).toLocaleString()}
-                </Alert>
-              )}
-            </Stack>
-            </Box>
+        <Dialog open={Boolean(stationBlock)} onClose={() => setStationBlock(null)} maxWidth="xs" fullWidth>
+          <DialogTitle>Station out of order</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">{stationBlock?.message}</Typography>
+            <Typography variant="body2" sx={{ mt: 1 }}>Change the order, or send it anyway if the kitchen will reroute it.</Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setOpenCreate(false)}>Cancel</Button>
-            <Button variant="contained" type="submit" form="create-pos-order-form" disabled={saving}>Create</Button>
+            <Button onClick={() => setStationBlock(null)}>Back</Button>
+            <Button color="warning" variant="contained" onClick={() => stationBlock && void sendToKitchen(stationBlock.order, true)}>Send anyway</Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={Boolean(voiding)} onClose={() => setVoiding(null)} maxWidth="xs" fullWidth>
+          <DialogTitle>Void {voiding?.orderNumber}?</DialogTitle>
+          <DialogContent>
+            <TextField autoFocus fullWidth label="Reason" value={voidReason} onChange={(event) => setVoidReason(event.target.value)} sx={{ mt: 1 }} />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setVoiding(null)}>Cancel</Button>
+            <Button
+              color="error"
+              variant="contained"
+              disabled={!voidReason.trim() || saving}
+              onClick={() => {
+                const target = voiding;
+                setVoiding(null);
+                if (target) void run(() => posFlow.voidOrder(target.id, voidReason.trim()), `${target.orderNumber} voided`);
+              }}
+            >
+              Void order
+            </Button>
           </DialogActions>
         </Dialog>
 
         {discountOrder && (
           <DiscountModal
-            open={!!discountOrder}
+            open={Boolean(discountOrder)}
             onClose={() => setDiscountOrder(null)}
             orderId={discountOrder.id}
-            items={
-              (Array.isArray((discountOrder as any).items)
-                ? ((discountOrder as any).items as any[])
-                : []
-              ).map<DiscountModalItem>((it, idx) => ({
-                id: it.id || it.menuItemId || it.sku || `item-${idx}`,
-                name: it.name || it.title || 'Item',
-                price: Number(it.price || 0),
-                quantity: Number(it.quantity || 1),
-                discountAmount: Number(it.discountAmount || 0)
-              }))
-            }
+            items={(Array.isArray(discountOrder.items) ? discountOrder.items : []).map<DiscountModalItem>((line, index) => ({
+              id: line.menuItemId || `item-${index}`,
+              name: line.name || 'Item',
+              price: Number(line.unitPrice || 0),
+              quantity: Number(line.quantity || 1),
+              discountAmount: 0
+            }))}
             onApplied={() => {
               enqueueSnackbar('Discount applied', { variant: 'success' });
               setDiscountOrder(null);

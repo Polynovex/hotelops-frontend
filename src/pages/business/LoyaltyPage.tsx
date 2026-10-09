@@ -51,6 +51,39 @@ const LoyaltyPage = () => {
   const [action, setAction] = useState<{ account: LoyaltyAccount; mode: 'earn' | 'redeem' } | null>(null);
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<Partial<LoyaltyProgram> | null>(null);
+
+  /** Saves the programme rules; tiers must rise silver < gold < platinum. */
+  const saveProgram = async () => {
+    if (!editing) return;
+    const { silverThreshold = 0, goldThreshold = 0, platinumThreshold = 0 } = editing;
+    if (!(silverThreshold < goldThreshold && goldThreshold < platinumThreshold)) {
+      setError('Tier thresholds must rise: silver < gold < platinum.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await loyaltyService.updateProgram({
+        name: editing.name,
+        isActive: editing.isActive,
+        pointsPerNaira: Number(editing.pointsPerNaira),
+        nairaPerPoint: Number(editing.nairaPerPoint),
+        minRedemption: Number(editing.minRedemption),
+        expiryMonths: Number(editing.expiryMonths),
+        silverThreshold: Number(silverThreshold),
+        goldThreshold: Number(goldThreshold),
+        platinumThreshold: Number(platinumThreshold)
+      });
+      setEditing(null);
+      setToast('Loyalty programme updated');
+      await load();
+    } catch (err: unknown) {
+      const response = (err as { response?: { data?: { error?: string; message?: string } } }).response;
+      setError(response?.data?.message || response?.data?.error || 'Could not update the programme');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -128,6 +161,56 @@ const LoyaltyPage = () => {
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <PageHeader title="Loyalty" subtitle="Guest rewards, points balances, and redemption." />
+      {program && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: -2, mb: 2 }}>
+          <Button variant="outlined" onClick={() => setEditing({ ...program })}>
+            Edit programme
+          </Button>
+        </Box>
+      )}
+
+      <Dialog open={Boolean(editing)} onClose={() => !busy && setEditing(null)} fullWidth maxWidth="sm">
+        <DialogTitle>Edit loyalty programme</DialogTitle>
+        <DialogContent>
+          {editing && (
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid item xs={12} sm={8}>
+                <TextField fullWidth label="Programme name" value={editing.name ?? ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField select fullWidth label="Status" value={editing.isActive ? 'ON' : 'OFF'} onChange={(e) => setEditing({ ...editing, isActive: e.target.value === 'ON' })} SelectProps={{ native: true }}>
+                  <option value="ON">Active</option>
+                  <option value="OFF">Paused</option>
+                </TextField>
+              </Grid>
+              {([
+                ['pointsPerNaira', 'Points per ₦1 spent', 0.0001],
+                ['nairaPerPoint', '₦ value of 1 point', 0.01],
+                ['minRedemption', 'Minimum points to redeem', 1],
+                ['expiryMonths', 'Points expire after (months, 0 = never)', 1],
+                ['silverThreshold', 'Silver tier at (points)', 1],
+                ['goldThreshold', 'Gold tier at (points)', 1],
+                ['platinumThreshold', 'Platinum tier at (points)', 1]
+              ] as const).map(([key, label, step]) => (
+                <Grid item xs={12} sm={6} key={key}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label={label}
+                    value={editing[key] ?? ''}
+                    inputProps={{ min: 0, step }}
+                    onChange={(e) => setEditing({ ...editing, [key]: e.target.value === '' ? '' : Number(e.target.value) })}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditing(null)} disabled={busy}>Cancel</Button>
+          <Button variant="contained" onClick={() => void saveProgram()} disabled={busy}>Save</Button>
+        </DialogActions>
+      </Dialog>
 
       {error && (
         <Alert severity={error.includes('plan') ? 'warning' : 'error'} sx={{ mb: 2 }} onClose={() => setError('')}>

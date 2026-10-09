@@ -9,6 +9,58 @@ import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
 import { api } from '../../../services/api';
 import { getApiErrorMessage } from '../../../utils/apiError';
 import { SettingsTabs } from './SettingsTabs';
+import { posFlow, type PaymentOptions } from '../../../services/posFlow';
+
+/**
+ * What guests and the till are offered. Card and transfer are always
+ * available; cash is the owner's choice, since not every hotel takes it.
+ * Paystack and Flutterwave appear on QR orders only once their keys are saved
+ * below — neither, either or both.
+ */
+function AcceptedMethodsCard() {
+  const [options, setOptions] = useState<PaymentOptions | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    posFlow.paymentOptions().then(setOptions).catch(() => undefined);
+  }, []);
+
+  const toggleCash = async (acceptCash: boolean) => {
+    setSaving(true);
+    setError('');
+    try {
+      setOptions(await posFlow.setAcceptCash(acceptCash));
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not save'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!options) return null;
+  const online = options.online.map((option) => option.provider.charAt(0) + option.provider.slice(1).toLowerCase());
+
+  return (
+    <Paper variant="outlined" sx={{ p: 2.5, mb: 3 }}>
+      <Typography fontWeight={800}>Accepted payment methods</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        Shown to guests on QR orders and to staff at the till.
+      </Typography>
+      {error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
+      <FormControlLabel
+        control={<Switch checked={options.acceptCash} onChange={(event) => void toggleCash(event.target.checked)} disabled={saving} />}
+        label="Accept cash"
+      />
+      <Typography variant="body2" sx={{ mt: 1 }}>
+        Card and bank transfer: always offered.
+      </Typography>
+      <Typography variant="body2">
+        Online on QR orders: {online.length > 0 ? online.join(' and ') : 'none — save Paystack or Flutterwave keys below to offer it'}.
+      </Typography>
+    </Paper>
+  );
+}
 
 interface Gateway {
   provider: 'PAYSTACK' | 'FLUTTERWAVE';
@@ -128,6 +180,8 @@ const PaymentGatewaysSettingsPage = () => {
             {error}
           </Alert>
         ) : null}
+
+        <AcceptedMethodsCard />
 
         <Alert severity="info" icon={<LockRounded fontSize="inherit" />} sx={{ mb: 3 }}>
           Secret keys are encrypted before they are stored and are never sent back to
