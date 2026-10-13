@@ -31,9 +31,12 @@ export interface DailyRecordData {
   revenue: RevenueLine[];
   cogs: number;
   expenses: ExpenseLine[];
-  belowTheLine: { loanTaken: number; loanRepaid: number; ownerWithdrawal: number; capitalExpenditure: number; taxes: number };
+  belowTheLine: { loanTaken: number; loanRepaid: number; ownerWithdrawal: number; capitalExpenditure: number; taxes: number; otherNonOperating?: number };
   positions: PositionLine[];
   rooms: {
+    /** All rooms in the property. */
+    totalRooms?: number;
+    /** Rooms that could be sold (total less out of order). */
     available: number;
     sold: number;
     complimentary: number;

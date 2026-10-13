@@ -57,6 +57,8 @@ interface Bucket {
   };
   closingPositions: Array<{ account: string; type: string; closing: number; variance: number }>;
   cashVariance: number;
+  management?: { roomRevenue: number; foodRevenue: number; barRevenue: number; otherRevenue: number; cashAvailable: number; bankBalance: number };
+  budgetVsActual?: Array<{ category: string; budget: number; actual: number; difference: number }>;
 }
 
 const BELOW: Record<string, string> = {
@@ -64,14 +66,15 @@ const BELOW: Record<string, string> = {
   loanRepaid: 'Loan repayments',
   ownerWithdrawal: 'Owner withdrawals',
   capitalExpenditure: 'Capital expenditure',
-  taxes: 'Taxes'
+  taxes: 'Taxes',
+  otherNonOperating: 'Other non-operating payments'
 };
 
 export default function FinanceReportsPage() {
   const [period, setPeriod] = useState<Period>('monthly');
   const [range, setRange] = useState({ from: '', to: new Date().toISOString().slice(0, 10) });
   const [meta, setMeta] = useState<Meta | null>(null);
-  const [data, setData] = useState<{ periods: Bucket[]; overall: Bucket | null; approvedDays: number; pendingDays: number; visibleFrom: string } | null>(null);
+  const [data, setData] = useState<{ periods: Bucket[]; overall: Bucket | null; approvedDays: number; pendingDays: number; visibleFrom: string; outstandingSupplierDebt?: number; outstandingLoans?: number } | null>(null);
   const [focus, setFocus] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -130,6 +133,31 @@ export default function FinanceReportsPage() {
           <>
             {/* Management summary: one row per period. */}
             <Typography variant="h6" fontWeight={800} sx={{ mb: 1 }}>Management summary</Typography>
+            {/* Daily sales record: one row per period, one column per revenue source. */}
+            {period === 'daily' && (
+              <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
+                <Typography fontWeight={800} sx={{ p: 2, pb: 0 }}>Daily sales record</Typography>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Date</TableCell>
+                      {(meta?.revenueSources ?? []).map((source) => <TableCell key={source.key} align="right">{source.label}</TableCell>)}
+                      <TableCell align="right">Total</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {data.periods.map((row) => (
+                      <TableRow key={row.period}>
+                        <TableCell>{row.period}</TableCell>
+                        {(meta?.revenueSources ?? []).map((source) => <TableCell key={source.key} align="right">{naira(row.revenueBySource[source.key] ?? 0)}</TableCell>)}
+                        <TableCell align="right"><strong>{naira(row.totalRevenue)}</strong></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+
             <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
               <Table size="small">
                 <TableHead>
@@ -168,6 +196,54 @@ export default function FinanceReportsPage() {
                   </TextField>
                 </Stack>
                 <Grid container spacing={2}>
+                  {/* The finance template's management summary, in its order. */}
+                  <Grid item xs={12}>
+                    <Card variant="outlined"><CardContent>
+                      <Typography fontWeight={800} sx={{ mb: 1 }}>Management summary — {bucket.period}</Typography>
+                      <Grid container spacing={1}>
+                        {([
+                          ['Total revenue', bucket.totalRevenue],
+                          ['Room revenue', bucket.management?.roomRevenue ?? bucket.rooms.roomRevenue],
+                          ['Food revenue', bucket.management?.foodRevenue ?? 0],
+                          ['Bar revenue', bucket.management?.barRevenue ?? 0],
+                          ['Other revenue', bucket.management?.otherRevenue ?? 0],
+                          ['Cost of sales', bucket.cogs],
+                          ['Gross profit', bucket.grossProfit],
+                          ['Operating expenses', bucket.operatingExpenses],
+                          ['Net operating profit', bucket.netOperatingProfit],
+                          ['Cash available', bucket.management?.cashAvailable ?? 0],
+                          ['Bank balance', bucket.management?.bankBalance ?? 0],
+                          ['Outstanding supplier debt', data.outstandingSupplierDebt ?? 0],
+                          ['Outstanding loans', data.outstandingLoans ?? 0]
+                        ] as Array<[string, number]>).map(([label, value]) => (
+                          <Grid item xs={6} sm={4} md={3} key={label}>
+                            <Typography variant="caption" color="text.secondary">{label}</Typography>
+                            <Typography fontWeight={800} color={value < 0 ? 'error.main' : undefined}>{naira(value)}</Typography>
+                          </Grid>
+                        ))}
+                      </Grid>
+                    </CardContent></Card>
+                  </Grid>
+                  {bucket.budgetVsActual?.length ? (
+                    <Grid item xs={12}>
+                      <Card variant="outlined"><CardContent>
+                        <Typography fontWeight={800} sx={{ mb: 1 }}>Operating expenses: budget vs actual</Typography>
+                        <Table size="small">
+                          <TableHead><TableRow><TableCell>Expense</TableCell><TableCell align="right">Budget</TableCell><TableCell align="right">Actual</TableCell><TableCell align="right">Difference</TableCell></TableRow></TableHead>
+                          <TableBody>
+                            {bucket.budgetVsActual.map((row) => (
+                              <TableRow key={row.category}>
+                                <TableCell>{labelOf(row.category, meta?.expenseCategories)}</TableCell>
+                                <TableCell align="right">{naira(row.budget)}</TableCell>
+                                <TableCell align="right">{naira(row.actual)}</TableCell>
+                                <TableCell align="right" sx={{ color: row.difference < 0 ? 'error.main' : 'success.main', fontWeight: 700 }}>{naira(row.difference)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </CardContent></Card>
+                    </Grid>
+                  ) : null}
                   <Grid item xs={12} md={6}>
                     <Card variant="outlined"><CardContent>
                       <Typography fontWeight={800} sx={{ mb: 1 }}>Revenue by source</Typography>

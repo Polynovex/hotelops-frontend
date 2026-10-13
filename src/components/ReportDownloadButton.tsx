@@ -1,3 +1,4 @@
+import { useAuthStore } from '../store/authStore';
 import React, { useState } from 'react';
 import { useSnackbar } from 'notistack';
 import {
@@ -175,6 +176,10 @@ function ReportDownloadButton<T extends Record<string, any>>({
 
     const escape = (s: string) =>
       s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // The business leads the page; HotelOpX is the footer credit.
+    const owner = useAuthStore.getState().user;
+    const businessName = owner?.role !== 'SUPER_ADMIN' && owner?.hotelName ? owner.hotelName : 'HotelOpX';
+    const businessLogo = owner?.role !== 'SUPER_ADMIN' && owner?.logoUrl && /^https:\/\//.test(owner.logoUrl) ? owner.logoUrl : null;
 
     const tableHtml = `
       <table>
@@ -297,8 +302,8 @@ function ReportDownloadButton<T extends Record<string, any>>({
 </head>
 <body>
   <div class="brand">
-    <div class="mark">H</div>
-    <div class="name">HotelOpX</div>
+    ${businessLogo ? `<img src="${escape(businessLogo)}" alt="" style="height:36px;max-width:140px;object-fit:contain" />` : `<div class="mark">${escape(businessName.charAt(0).toUpperCase())}</div>`}
+    <div class="name">${escape(businessName)}</div>
   </div>
   <h1>${escape(title)}</h1>
   ${subtitle ? `<div class="subtitle">${escape(subtitle)}</div>` : ''}
@@ -308,7 +313,7 @@ function ReportDownloadButton<T extends Record<string, any>>({
   </div>
   ${tableHtml}
   <footer>
-    <span>HotelOpX · Hotel Operations Platform</span>
+    <span>${escape(businessName)} · Powered by HotelOpX</span>
     <span>${new Date().toLocaleDateString()}</span>
   </footer>
   <script>

@@ -3,6 +3,7 @@ import { PaletteMode } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
 import { createAppTheme } from './theme';
+import { useAuthStore } from '../store/authStore';
 
 const STORAGE_KEY = 'hotelopx-color-mode';
 
@@ -36,7 +37,12 @@ export const ColorModeProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [mode]);
 
-  const theme = useMemo(() => createAppTheme(mode), [mode]);
+  // The signed-in business's colours, like a browser theme. Super admins and
+  // the sign-in screen keep the HotelOpX palette.
+  const brandColors = useAuthStore((state) => (state.user?.role === 'SUPER_ADMIN' ? undefined : state.user?.brandColors));
+  const primary = brandColors?.primary ?? null;
+  const accent = brandColors?.accent ?? null;
+  const theme = useMemo(() => createAppTheme(mode, { primary, accent }), [mode, primary, accent]);
   const value = useMemo<ColorModeValue>(
     () => ({
       mode,

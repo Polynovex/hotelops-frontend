@@ -47,6 +47,25 @@ import { SettingsTabs } from './SettingsTabs';
 import { PasswordConfirmDialog } from '../../../components/common/PasswordConfirmDialog';
 import { AuditTrailViewer } from '../../../components/audit/AuditTrailViewer';
 
+/**
+ * Logos are stored as PNG (at most 512px) whatever was picked, so the same
+ * file can sit in the middle of the business's QR codes and on receipts.
+ */
+const logoAsPng = async (file: File): Promise<File> => {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(512 / bitmap.width, 512 / bitmap.height, 1);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(Math.round(bitmap.width * scale), 1);
+    canvas.height = Math.max(Math.round(bitmap.height * scale), 1);
+    canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    return blob ? new File([blob], file.name.replace(/\.[^.]+$/, '') + '.png', { type: 'image/png' }) : file;
+  } catch {
+    return file;
+  }
+};
+
 export const BusinessProfileSettingsPage = () => {
   const { setUser } = useAuthStore();
   const profile = settingsOpsService.getBusinessProfile();
@@ -60,7 +79,24 @@ export const BusinessProfileSettingsPage = () => {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const currentUser = useAuthStore((state) => state.user);
+  const [logoUrl, setLogoUrl] = useState<string | null>(currentUser?.logoUrl ?? null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [removeLogo, setRemoveLogo] = useState(false);
+  const [primaryColor, setPrimaryColor] = useState(currentUser?.brandColors?.primary ?? '');
+  const [accentColor, setAccentColor] = useState(currentUser?.brandColors?.accent ?? '');
+  const logoPreview = useMemo(() => (logoFile ? URL.createObjectURL(logoFile) : removeLogo ? null : logoUrl), [logoFile, removeLogo, logoUrl]);
 
+  useEffect(() => {
+    apiClient
+      .get('/settings/branding')
+      .then(({ data }) => {
+        setLogoUrl(data.logoUrl ?? null);
+        setPrimaryColor(data.colors?.primary ?? '');
+        setAccentColor(data.colors?.accent ?? '');
+      })
+      .catch(() => undefined);
+  }, []);
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -71,16 +107,21 @@ export const BusinessProfileSettingsPage = () => {
       // Always save local profile fields
       settingsOpsService.updateBusinessProfile({ name, email, phone, address, timezone, currency });
 
-      // Business name still goes to the branding endpoint; the logo no longer
-      // does, since it is fixed platform-wide.
-      if (name) {
-        const formData = new FormData();
-        formData.append('businessName', name);
-        const { data } = await apiClient.put('/settings/branding', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        setUser({ hotelName: data.businessName || data.name });
-      }
+      // Name, logo and colours: what staff and guests see first.
+      const formData = new FormData();
+      if (name) formData.append('businessName', name);
+      formData.append('primaryColor', primaryColor);
+      formData.append('accentColor', accentColor);
+      if (logoFile) formData.append('logo', await logoAsPng(logoFile));
+      else if (removeLogo) formData.append('removeLogo', 'true');
+      const { data } = await apiClient.put('/settings/branding', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setLogoUrl(data.logoUrl ?? null);
+      setLogoFile(null);
+      setRemoveLogo(false);
+      // Applies the new theme straight away, like picking a browser colour.
+      setUser({ hotelName: data.businessName || data.name, logoUrl: data.logoUrl ?? null, brandColors: data.colors ?? null });
       setSaveSuccess(true);
     } catch (err: any) {
       setSaveError(getApiErrorMessage(err, 'Failed to save'));
@@ -95,7 +136,7 @@ export const BusinessProfileSettingsPage = () => {
         <SettingsTabs />
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>Business Profile</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Core property settings. The logo and business name appear on the sidebar and all dashboards.
+          Core property settings. Your business name, logo and colours lead every screen, receipt and QR menu; HotelOpX appears only as a small "Powered by" credit.
         </Typography>
 
         <Paper sx={{ p: 3 }}>
@@ -104,27 +145,84 @@ export const BusinessProfileSettingsPage = () => {
               {saveError && <Alert severity="error" onClose={() => setSaveError(null)}>{saveError}</Alert>}
               {saveSuccess && <Alert severity="success" onClose={() => setSaveSuccess(false)}>Saved successfully</Alert>}
 
-              {/*
-                Branding is fixed to the HotelOpX mark across every business, so
-                the upload control is gone. The logo is shown read-only rather
-                than removed entirely — businesses still need to see what appears
-                on their payslips, invoices and guest-facing pages.
-              */}
-              <Stack direction="row" spacing={2} alignItems="center">
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
                 <Box
-                  component="img"
-                  src="/logo.png"
-                  alt="HotelOpX"
-                  sx={{ width: 72, height: 72, borderRadius: 2, objectFit: 'contain', border: '1px solid', borderColor: 'divider', p: 0.5 }}
-                />
-                <Stack spacing={0.5}>
-                  <Typography variant="subtitle2">Branding</Typography>
+                  sx={{ width: 96, height: 96, borderRadius: 2, border: '1px solid', borderColor: 'divider', p: 0.75, display: 'grid', placeItems: 'center', bgcolor: 'background.default' }}
+                >
+                  {logoPreview ? (
+                    <Box component="img" src={logoPreview} alt={name} sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    <Typography variant="h4" fontWeight={800} color="primary">{(name || '?').charAt(0).toUpperCase()}</Typography>
+                  )}
+                </Box>
+                <Stack spacing={1}>
+                  <Typography variant="subtitle2">Your logo</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    The HotelOpX logo is applied across the platform and on documents
-                    issued to your staff and guests.
+                    Shown on the sidebar, receipts, reports and your QR ordering menu. PNG, JPG or WebP up to 5 MB.
                   </Typography>
+                  <Stack direction="row" spacing={1}>
+                    <Button component="label" variant="outlined" size="small">
+                      {logoPreview ? 'Change logo' : 'Upload logo'}
+                      <input
+                        hidden
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) {
+                            setLogoFile(file);
+                            setRemoveLogo(false);
+                          }
+                        }}
+                      />
+                    </Button>
+                    {logoPreview && (
+                      <Button size="small" color="inherit" onClick={() => { setLogoFile(null); setRemoveLogo(true); }}>
+                        Remove
+                      </Button>
+                    )}
+                  </Stack>
                 </Stack>
               </Stack>
+
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>App colours</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                  Pick your business's colours, like a browser theme. Everyone in your business sees them; leave blank for the HotelOpX defaults.
+                </Typography>
+                {([
+                  ['Primary (sidebar, buttons)', primaryColor, setPrimaryColor, ['#0F2A44', '#1A73E8', '#0B6E4F', '#7B1E3A', '#4A148C', '#263238', '#B23A00']],
+                  ['Accent (highlights)', accentColor, setAccentColor, ['#C49355', '#F2A900', '#00A3A3', '#E91E63', '#8BC34A', '#FF7043', '#90A4AE']]
+                ] as Array<[string, string, (value: string) => void, string[]]>).map(([label, value, set, presets]) => (
+                  <Stack key={label} direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }} sx={{ mb: 1.5 }}>
+                    <Typography variant="body2" sx={{ minWidth: 190 }}>{label}</Typography>
+                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap alignItems="center">
+                      {presets.map((preset) => (
+                        <Tooltip key={preset} title={preset}>
+                          <Box
+                            role="button"
+                            aria-label={`Use ${preset}`}
+                            onClick={() => set(preset)}
+                            sx={{
+                              width: 26, height: 26, borderRadius: '50%', bgcolor: preset, cursor: 'pointer',
+                              outline: value.toUpperCase() === preset ? '3px solid' : 'none', outlineColor: 'text.primary', outlineOffset: 2
+                            }}
+                          />
+                        </Tooltip>
+                      ))}
+                      <Box
+                        component="input"
+                        type="color"
+                        aria-label={`Custom ${label}`}
+                        value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#0F2A44'}
+                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => set(event.target.value.toUpperCase())}
+                        sx={{ width: 32, height: 28, border: 'none', bgcolor: 'transparent', cursor: 'pointer' }}
+                      />
+                      {value && <Button size="small" onClick={() => set('')}>Default</Button>}
+                    </Stack>
+                  </Stack>
+                ))}
+              </Box>
 
               <TextField label="Business Name" value={name} onChange={(e) => setName(e.target.value)} required />
               <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -303,7 +401,6 @@ export const UsersSettingsPage = () => {
   return (
     <Layout>
       <Container maxWidth="xl" sx={{ py: 4, overflowX: 'hidden' }}>
-        <SettingsTabs />
         <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} justifyContent="space-between" mb={3}>
           <Box>
             <Typography variant="caption">Staff & access</Typography>

@@ -78,6 +78,7 @@ import { useColorMode } from '../theme/colorMode';
 import { DemoModeBanner } from './DemoModeBanner';
 import DesktopUpdateBanner from './DesktopUpdateBanner';
 import { usePermissionStore } from '../store/permissionStore';
+import PoweredBy from './branding/PoweredBy';
 import TenantLogo from './branding/TenantLogo';
 import { getApiErrorMessage } from '../utils/apiError';
 import { AlertSoundToggle } from './AlertSoundToggle';
@@ -130,7 +131,6 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Testimonials', icon: AssessmentIcon, path: '/super-admin/testimonials' },
     { label: 'Blog', icon: ArticleIcon, path: '/super-admin/blog' },
     { label: 'Website Metrics', icon: AssessmentIcon, path: '/super-admin/metrics' },
-    { label: 'Data Import', icon: BusinessIcon, path: '/super-admin/data-import' },
     { label: 'Package Configuration', icon: WorkspacePremium, path: '/super-admin/plans' },
     { label: 'System Stats', icon: AssessmentIcon, path: '/super-admin/stats' },
     { label: 'Blocked Emails', icon: BlockIcon, path: '/super-admin/email-suppressions' },
@@ -138,107 +138,82 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Live Logs', icon: LogsIcon, path: '/super-admin/logs' },
     { label: 'Audit Log', icon: AuditIcon, path: '/super-admin/audit' }
   ],
+  /**
+   * The owner's menu, in six modules: Dashboard; Property & Guest; Food &
+   * Beverages; Workforce & Admin; Finance & Intelligence; System Management.
+   */
   BUSINESS_ADMIN: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/business/dashboard' },
-    { label: 'Staff', icon: UserIcon, path: '/business/users' },
-    { label: 'Roles & Permissions', icon: LockOutlined, path: '/business/permissions' },
-    /**
-     * One heading, two related screens.
-     *
-     * These sat side by side as peers and read as duplicates. They are not:
-     * a room type is the template — what a Deluxe is, what it holds and what
-     * it costs — and a room is the physical inventory, 201 and 202, each of a
-     * type. You set the types up once and add rooms against them, so they
-     * belong under one heading in that order.
-     */
     {
-      label: 'Rooms',
-      icon: RoomIcon,
-      module: 'pms',
+      label: 'Property & Guest',
+      icon: HotelIcon,
       children: [
+        // Room types are the templates; rooms are the inventory set up against them.
         { label: 'Room Types', icon: HotelIcon, path: '/business/room-types', module: 'pms' },
-        { label: 'All Rooms', icon: RoomIcon, path: '/business/rooms', module: 'pms' }
+        { label: 'All Rooms', icon: RoomIcon, path: '/business/rooms', module: 'pms' },
+        { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
+        { label: 'Guest Book', icon: PeopleIcon, path: '/business/guests', module: 'pms' },
+        { label: 'Guest Self-Registration', icon: PosIcon, path: '/business/guests/registration-links', module: 'pms' },
+        // Company and travel-agent records, plus merge and blacklist.
+        { label: 'Profile Management', icon: PeopleIcon, path: '/business/profiles', module: 'pms' },
+        { label: 'Birthday Wishes', icon: CalendarIcon, path: '/business/settings/birthdays' },
+        { label: 'Loyalty', icon: WorkspacePremium, path: '/business/loyalty' },
+        { label: 'Room Promotions', icon: WorkspacePremium, path: '/business/promotions', module: 'pms' }
       ]
     },
-    { label: 'Menu Configuration', icon: MenuBookIcon, path: '/business/menu', module: 'pos' },
-    { label: 'QR Ordering', icon: PosIcon, path: '/business/pos/qr-codes', module: 'pos' },
-    { label: 'Tables', icon: RoomIcon, path: '/business/pos/tables', module: 'pos' },
-    { label: 'Kitchen', icon: KdsIcon, path: '/business/kitchen', module: 'pos' },
-    { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
     {
-      label: 'HR & Payroll',
+      label: 'Food & Beverages',
+      icon: RestaurantRounded,
+      children: [
+        { label: 'Menu Configuration', icon: MenuBookIcon, path: '/business/menu', module: 'pos' },
+        { label: 'Menu Engineering', icon: AssessmentIcon, path: '/business/pos/menu-engineering', module: 'pos' },
+        { label: 'QR Ordering', icon: PosIcon, path: '/business/pos/qr-codes', module: 'pos' },
+        { label: 'Table Management', icon: RoomIcon, path: '/business/pos/tables', module: 'pos' },
+        { label: 'Kitchen Management', icon: KdsIcon, path: '/business/kitchen', module: 'pos' },
+        { label: 'Sales', icon: TrendingUpRounded, path: '/business/pos/sales', module: 'pos' },
+        { label: 'F&B Promotions', icon: WorkspacePremium, path: '/business/promotions?tab=FOOD_BEVERAGE', module: 'pos' }
+      ]
+    },
+    {
+      label: 'Workforce & Admin',
       icon: UserIcon,
       children: [
+        { label: 'Staff', icon: UserIcon, path: '/business/users' },
+        { label: 'Roles & Permissions', icon: LockOutlined, path: '/business/permissions' },
         { label: 'HR Dashboard', icon: UserIcon, path: '/business/hr' },
         { label: 'Payroll', icon: ReceiptIcon, path: '/business/hr/payroll' },
         { label: 'Staff Rota', icon: CalendarIcon, path: '/business/hr/rota' },
-        { label: 'Attendance Approvals', icon: CalendarIcon, path: '/business/hr/attendance' }
+        { label: 'Attendance Approvals', icon: CalendarIcon, path: '/business/hr/attendance' },
+        { label: 'Audit Trail', icon: AuditIcon, path: '/business/audit' }
       ]
     },
-    /*
-     * Finance, with the owner's approval queue first: daily records reach
-     * reports only once approved here.
-     */
     {
-      label: 'Finance',
+      label: 'Finance & Intelligence',
       icon: AssessmentIcon,
       children: [
+        // The approval queue first: daily records reach reports only once approved.
         { label: 'Approve Requests', icon: AuditIcon, path: '/business/finance/approvals' },
         { label: 'Daily Records', icon: CalendarIcon, path: '/business/finance/daily-records' },
         { label: 'Finance Reports', icon: AssessmentIcon, path: '/business/finance/reports' },
+        { label: 'Budgets', icon: AccountBalanceWalletRounded, path: '/business/finance/budgets' },
         { label: 'Suppliers & Creditors', icon: ReceiptIcon, path: '/business/finance/suppliers' },
         { label: 'Daily Expenditure', icon: AssessmentIcon, path: '/business/finance/expenses' },
         { label: 'Transaction History', icon: AssessmentIcon, path: '/business/finance/transactions' },
-        { label: 'POS Payments', icon: PosIcon, path: '/business/pos/payments', module: 'pos' }
+        { label: 'POS Payments', icon: PosIcon, path: '/business/pos/payments', module: 'pos' },
+        { label: 'Inventory', icon: ReceiptIcon, path: '/business/accounting/inventory', module: 'finance' },
+        { label: 'Reports', icon: AssessmentIcon, path: '/business/reports/revenue', module: 'finance' },
+        { label: 'Forecasting', icon: TrendingUpRounded, path: '/business/accounting/forecasting', module: 'finance' },
+        { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' }
       ]
     },
     {
-      label: 'Guest Portal',
-      icon: PeopleIcon,
+      label: 'System Management',
+      icon: Settings,
       children: [
-        { label: 'Guest Book', icon: PeopleIcon, path: '/business/guests', module: 'pms' },
-        {
-          label: 'Guest Self-Registration',
-          icon: PosIcon,
-          path: '/business/guests/registration-links',
-          module: 'pms'
-        },
-        // Not a duplicate of Guest Book: this covers company and travel-agent
-        // records, plus merge and blacklist. The old "Profiles (View)" label
-        // undersold it and read like a lesser copy of the guest list.
-        { label: 'Profile Management', icon: PeopleIcon, path: '/business/profiles', module: 'pms' }
+        { label: 'Subscription', icon: WorkspacePremium, path: '/business/subscription' },
+        { label: 'Settings', icon: Settings, path: '/business/settings' }
       ]
-    },
-    { label: 'Loyalty', icon: WorkspacePremium, path: '/business/loyalty' },
-    {
-      label: 'Menu Engineering',
-      icon: AssessmentIcon,
-      path: '/business/pos/menu-engineering',
-      module: 'pos'
-    },
-    { label: 'Promotions', icon: WorkspacePremium, path: '/business/promotions', module: 'pos' },
-    { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
-    {
-      label: 'Inventory',
-      icon: ReceiptIcon,
-      path: '/business/accounting/inventory',
-      module: 'finance'
-    },
-    {
-      label: 'Forecasting',
-      icon: TrendingUpRounded,
-      path: '/business/accounting/forecasting',
-      module: 'finance'
-    },
-    {
-      label: 'Reports',
-      icon: AssessmentIcon,
-      path: '/business/reports/revenue',
-      module: 'finance'
-    },
-    { label: 'Subscription', icon: WorkspacePremium, path: '/business/subscription' },
-    { label: 'Audit Trail', icon: AuditIcon, path: '/business/audit' },
-    { label: 'Settings', icon: Settings, path: '/business/settings' }
+    }
   ],
   /**
    * Non-operational staff — security, laundry, grounds. They hold an account
@@ -425,9 +400,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isDark = mode === 'dark';
 
   const isSuperAdmin = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
-  // The HotelOpX mark is used platform-wide; per-business logos are not
-  // supported, and the server refuses uploads that would set one.
-  const logoSrc = '/logo.png';
+  // The business's own logo leads; HotelOpX is the "Powered by" credit.
+  const businessLogo = !isSuperAdmin && user?.logoUrl ? user.logoUrl : null;
+  const logoSrc = businessLogo ?? '/logo.png';
   /**
    * The light-text mark, for the dark sidebar.
    *
@@ -438,7 +413,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
    * light-surface variant the container stays transparent and the mark sits
    * directly on the navy.
    */
-  const logoDarkSrc = '/logo1.png';
+  const logoDarkSrc = businessLogo ?? '/logo1.png';
   const brandName = isSuperAdmin ? 'HotelOpX' : user?.hotelName || 'HotelOpX';
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -619,14 +594,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
    * others as a single link, and checking only for a group appended a second
    * item with the same label — which React reported as a duplicate key.
    */
-  const alreadyHasHr = menuItems.some((item) => item.label === 'HR & Payroll');
+  const alreadyHasHr = menuItems.some(
+    (item) => item.label === 'HR & Payroll' || (isGroup(item) && item.children.some((child) => child.path === '/business/hr'))
+  );
 
   if (hrChildren.length > 0 && !alreadyHasHr) {
     menuItems.push({ label: 'HR & Payroll', icon: UserIcon, children: hrChildren });
   }
 
-  const matchesPath = (path: string) =>
-    location.pathname === path || location.pathname.startsWith(`${path}/`);
+  const matchesPath = (target: string) => {
+    // Links may carry a query (F&B Promotions → ?tab=FOOD_BEVERAGE); it must match too.
+    const [path, query] = target.split('?');
+    if (query && !location.search.includes(query)) return false;
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+  };
 
   /** Flattened links, used for the header title and the active highlight. */
   const flatLinks = menuItems.flatMap((item) => (isGroup(item) ? item.children : [item]));
@@ -660,9 +641,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           height={72}
           maxWidth={220}
         />
-        <Typography variant="body2" sx={{ color: 'rgba(248,244,236,0.76)', mt: 2.5 }}>
-          Premium hotel operations control with PMS, POS, and finance in one command layer.
-        </Typography>
+        {!isSuperAdmin && (
+          <Typography variant="h6" sx={{ color: '#F8F4EC', mt: 2, fontWeight: 800, lineHeight: 1.2 }}>
+            {brandName}
+          </Typography>
+        )}
         <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 2.5 }}>
           {enabledModules.map((moduleItem) => (
             <Chip
@@ -818,6 +801,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Typography>
           </Stack>
         </Paper>
+        <PoweredBy tone="light" sx={{ mt: 1 }} />
       </Box>
     </Box>
   );
@@ -1202,7 +1186,29 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       >
         <DemoModeBanner />
         <DesktopUpdateBanner />
-        <Box sx={{ mt: 2 }}>{children}</Box>
+        {/* HotelOpX watermark: present, never louder than the business's own name. */}
+        <Box
+          aria-hidden
+          sx={{
+            position: 'fixed',
+            right: 24,
+            bottom: 16,
+            pointerEvents: 'none',
+            userSelect: 'none',
+            zIndex: 0,
+            fontFamily: '"Cormorant Garamond", serif',
+            fontWeight: 700,
+            fontSize: { xs: 36, md: 64 },
+            letterSpacing: 2,
+            color: 'text.primary',
+            opacity: 0.035,
+            '@media print': { display: 'none' }
+          }}
+        >
+          HotelOpX
+        </Box>
+        <Box sx={{ mt: 2, position: 'relative', zIndex: 1 }}>{children}</Box>
+        <PoweredBy sx={{ mt: 4 }} />
       </Box>
     </Box>
   );

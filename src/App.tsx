@@ -10,7 +10,10 @@ import { authService } from './services/api';
 import LoginPage from './pages/LoginPage';
 import UserCodeLoginPage from './pages/auth/UserCodeLogin';
 import ShiftDashboardPage from './pages/business/ShiftDashboard';
-import PromotionsAdminPage from './pages/business/PromotionsAdmin';
+import PromotionsAdminPage from './pages/business/promotions/PromotionsPage';
+import SalesSummaryPage from './pages/business/pos/SalesSummaryPage';
+import ExpenseBudgetsPage from './pages/business/finance/BudgetsPage';
+import BirthdayWishesPage from './pages/business/guests/BirthdayWishesPage';
 import AnomaliesPage from './pages/business/AnomaliesPage';
 import DashboardPage from './pages/DashboardPage';
 import SuperAdminPage from './pages/SuperAdminPage';
@@ -91,7 +94,6 @@ import InspectionViewPage from './pages/business/Housekeeping/InspectionView';
 import LostAndFoundPage from './pages/business/Housekeeping/LostAndFound';
 import BusinessProfileSettingsPage from './pages/business/Settings/BusinessProfile';
 import UsersSettingsPage from './pages/business/Settings/Users';
-import RolesSettingsPage from './pages/business/Settings/Roles';
 import TaxSettingsPage from './pages/business/Settings/TaxSettings';
 import SessionPolicyPage from './pages/business/Settings/SessionPolicy';
 import PaymentGatewaysSettingsPage from './pages/business/Settings/PaymentGateways';
@@ -121,7 +123,6 @@ import NotFoundPage from './pages/errors/NotFound';
 import DesktopOfflineIndicator from './components/DesktopOfflineIndicator';
 import ShiftGatedRoute from './components/ShiftGatedRoute';
 import DemoRequestsPage from './pages/super-admin/DemoRequests';
-import DataImportPage from './pages/super-admin/DataImport';
 import TestimonialsPage from './pages/super-admin/Testimonials';
 import ReceptionDashboard from './pages/roles/ReceptionDashboard';
 import PosDashboard from './pages/roles/PosDashboard';
@@ -462,14 +463,6 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/super-admin/data-import"
-                element={
-                  <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
-                    <DataImportPage />
-                  </ProtectedRoute>
-                }
-              />
 
               <Route
                 path="/super-admin/testimonials"
@@ -622,9 +615,34 @@ function App() {
               />
 
               <Route
+                path="/business/pos/sales"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']} anyPermission={['VIEW_SALES']}>
+                    <SalesSummaryPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/finance/budgets"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN']} anyPermission={['FINANCE_ACCESS', 'VIEW_REPORTS']}>
+                    <ExpenseBudgetsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/settings/birthdays"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN']}>
+                    <BirthdayWishesPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
                 path="/business/promotions"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']} anyPermission={['MANAGE_PROMOTIONS', 'APPROVE_PROMOTIONS']}>
                     <PromotionsAdminPage />
                   </ProtectedRoute>
                 }
@@ -1457,11 +1475,7 @@ function App() {
 
               <Route
                 path="/business/settings/roles"
-                element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN']}>
-                    <RolesSettingsPage />
-                  </ProtectedRoute>
-                }
+                element={<Navigate to="/business/permissions" replace />}
               />
 
               <Route

@@ -34,10 +34,11 @@ import {
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
-import { authService, UserRole } from '../services/api';
+import { authService, UserRole, type SignInChallenge } from '../services/api';
 import { useColorMode } from '../theme/colorMode';
 import { LoginSchema, loginSchema } from '../validation/auth.schema';
 import { getApiErrorMessage } from '../utils/apiError';
+import SignInCodeStep from '../components/auth/SignInCodeStep';
 import { postLoginPath } from '../utils/roleLanding';
 
 type LoginMode = 'USERCODE' | 'EMAIL';
@@ -72,7 +73,10 @@ const LoginPage: React.FC = () => {
   const { mode: colorMode, toggleColorMode } = useColorMode();
   const isDark = colorMode === 'dark';
 
-  const [mode, setMode] = useState<LoginMode>('USERCODE');
+  // Email first; usercode is the second option.
+  const [mode, setMode] = useState<LoginMode>('EMAIL');
+  /** Set once the first factor passes and the emailed code is needed. */
+  const [challenge, setChallenge] = useState<SignInChallenge | null>(null);
   /** Shown once the server says this account needs a second factor. */
   const [mfaRequired, setMfaRequired] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
@@ -130,6 +134,10 @@ const LoginPage: React.FC = () => {
     setError('');
     try {
       const auth = await authService.login(data.email, data.password, mfaCode || undefined);
+      if ('challenge' in auth) {
+        setChallenge(auth.challenge);
+        return;
+      }
       useAuthStore.getState().setAuth(auth.user, auth.token, auth.refreshToken);
       completeLogin(auth.user.role, auth.user.mustResetPassword);
     } catch (err: any) {
@@ -181,6 +189,10 @@ const LoginPage: React.FC = () => {
       if ('requiresPin' in result) {
         setActiveField('pin');
         setError('This account also needs its PIN. Enter it below and sign in.');
+        return;
+      }
+      if ('challenge' in result) {
+        setChallenge(result.challenge);
         return;
       }
       useAuthStore.getState().setAuth(result.user, result.token, result.refreshToken);
@@ -448,11 +460,11 @@ const LoginPage: React.FC = () => {
                   }}
                   sx={{ mb: 3 }}
                 >
-                  <ToggleButton value="USERCODE">
-                    <BadgeRounded fontSize="small" sx={{ mr: 1 }} /> Usercode
-                  </ToggleButton>
                   <ToggleButton value="EMAIL">
                     <MailOutlineRounded fontSize="small" sx={{ mr: 1 }} /> Email & password
+                  </ToggleButton>
+                  <ToggleButton value="USERCODE">
+                    <BadgeRounded fontSize="small" sx={{ mr: 1 }} /> Usercode
                   </ToggleButton>
                 </ToggleButtonGroup>
 
@@ -468,7 +480,20 @@ const LoginPage: React.FC = () => {
                   </Alert>
                 )}
 
-                {mode === 'USERCODE' ? (
+                {challenge ? (
+                  <SignInCodeStep
+                    challenge={challenge}
+                    onCancel={() => {
+                      setChallenge(null);
+                      setPin('');
+                    }}
+                    onSignedIn={(auth) => {
+                      useAuthStore.getState().setAuth(auth.user, auth.token, auth.refreshToken);
+                      setChallenge(null);
+                      completeLogin(auth.user.role, auth.user.mustResetPassword);
+                    }}
+                  />
+                ) : mode === 'USERCODE' ? (
                   <Stack component="form" onSubmit={handleUsercodeSubmit} spacing={1.75}>
                     {/*
                       Code and PIN are asked for together.

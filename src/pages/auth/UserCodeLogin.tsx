@@ -18,7 +18,8 @@ import {
 } from '@mui/material';
 import { BadgeOutlined, LockOutlined, MailOutline } from '@mui/icons-material';
 import { useAuthStore } from '../../store/authStore';
-import { authService } from '../../services/api';
+import { authService, type SignInChallenge } from '../../services/api';
+import SignInCodeStep from '../../components/auth/SignInCodeStep';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { landingPathForRole } from '../../utils/roleLanding';
 
@@ -30,13 +31,14 @@ const UserCodeLogin: React.FC = () => {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
 
-  const [mode, setMode] = useState<LoginMode>('USERCODE');
+  const [mode, setMode] = useState<LoginMode>('PASSWORD');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [pin, setPin] = useState('');
   const [pinRequired, setPinRequired] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [challenge, setChallenge] = useState<SignInChallenge | null>(null);
   /** Offers the way forward when this sign-in method is unavailable. */
   const [needsEmailLogin, setNeedsEmailLogin] = useState(false);
 
@@ -58,10 +60,18 @@ const UserCodeLogin: React.FC = () => {
           setLoading(false);
           return;
         }
+        if ('challenge' in result) {
+          setChallenge(result.challenge);
+          return;
+        }
         setAuth(result.user, result.token, result.refreshToken);
         navigate(landingPathForRole(result.user.role));
       } else {
         const result = await authService.login(identifier, password);
+        if ('challenge' in result) {
+          setChallenge(result.challenge);
+          return;
+        }
         setAuth(result.user, result.token, result.refreshToken);
         navigate(landingPathForRole(result.user.role));
       }
@@ -109,6 +119,17 @@ const UserCodeLogin: React.FC = () => {
 
         <Card elevation={3} sx={{ borderRadius: 3 }}>
           <CardContent sx={{ p: 3 }}>
+            {challenge ? (
+              <SignInCodeStep
+                challenge={challenge}
+                onCancel={() => setChallenge(null)}
+                onSignedIn={(auth) => {
+                  setAuth(auth.user, auth.token, auth.refreshToken);
+                  navigate(landingPathForRole(auth.user.role));
+                }}
+              />
+            ) : (
+            <>
             <ToggleButtonGroup
               fullWidth
               exclusive
@@ -122,11 +143,11 @@ const UserCodeLogin: React.FC = () => {
               }}
               sx={{ mb: 2 }}
             >
-              <ToggleButton value="USERCODE">
-                <BadgeOutlined fontSize="small" sx={{ mr: 1 }} /> Usercode
-              </ToggleButton>
               <ToggleButton value="PASSWORD">
                 <MailOutline fontSize="small" sx={{ mr: 1 }} /> Email
+              </ToggleButton>
+              <ToggleButton value="USERCODE">
+                <BadgeOutlined fontSize="small" sx={{ mr: 1 }} /> Usercode
               </ToggleButton>
             </ToggleButtonGroup>
 
@@ -235,6 +256,8 @@ const UserCodeLogin: React.FC = () => {
                 50001 POS · 60001 Housekeeping · 70001 Accountant
               </Typography>
             </Stack>
+            </>
+            )}
           </CardContent>
         </Card>
       </Container>

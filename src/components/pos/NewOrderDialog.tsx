@@ -61,6 +61,7 @@ export function NewOrderDialog({
   const [cart, setCart] = useState<CartLine[]>([]);
   const [orderType, setOrderType] = useState('DINE_IN');
   const [tableNumber, setTableNumber] = useState('');
+  const [promoCode, setPromoCode] = useState('');
   const [bookingId, setBookingId] = useState('');
   const [loadingMenu, setLoadingMenu] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -148,9 +149,11 @@ export function NewOrderDialog({
         orderType,
         tableNumber: tableNumber || undefined,
         bookingId: orderType === 'ROOM_SERVICE' ? bookingId.trim() : undefined,
+        ...(promoCode.trim() ? { promotionCodes: [promoCode.trim().toUpperCase()] } : {}),
         items: cart.map((line) => ({ menuItemId: line.item.id, quantity: line.quantity, notes: line.notes || undefined }))
       });
       reset();
+      setPromoCode('');
       onCreated(order.orderNumber);
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not create the order'));
@@ -237,6 +240,13 @@ export function NewOrderDialog({
               ) : (
                 <TextField size="small" label="Table (optional)" value={tableNumber} onChange={(event) => setTableNumber(event.target.value)} />
               )}
+              <TextField
+                size="small"
+                label="Promo code (optional)"
+                value={promoCode}
+                onChange={(event) => setPromoCode(event.target.value.toUpperCase().slice(0, 40))}
+                helperText="Automatic promotions are applied without a code"
+              />
               {orderType === 'ROOM_SERVICE' && (
                 <TextField size="small" label="Reservation ID" value={bookingId} onChange={(event) => setBookingId(event.target.value)} helperText="The checked-in reservation to charge" />
               )}

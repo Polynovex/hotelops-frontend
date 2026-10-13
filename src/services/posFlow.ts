@@ -112,6 +112,25 @@ export interface TimetableEntry {
   dishName: string;
   stationCode: string | null;
   notes: string | null;
+  /** How much the timetable expects to be made, e.g. 40 portions. */
+  plannedQuantity?: number | null;
+  unit?: string | null;
+}
+
+/** Planned vs actually made, for one day. */
+export interface KitchenProduction {
+  date: string;
+  rows: Array<{
+    timetableEntryId: string;
+    dishName: string;
+    mealPeriod: TimetableEntry['mealPeriod'];
+    unit: string;
+    planned: number | null;
+    produced: number;
+    wasted: number;
+    variance: number | null;
+  }>;
+  unplanned: Array<{ id: string; dishName: string; producedQuantity: number; wastedQuantity: number; unit: string; notes: string | null }>;
 }
 
 export interface KitchenOverview {
@@ -168,6 +187,8 @@ export const posFlow = {
     orderType: string;
     tableNumber?: string;
     bookingId?: string;
+    /** Codes the guest presented; auto-apply promotions need none. */
+    promotionCodes?: string[];
     items: Array<{ menuItemId: string; quantity: number; notes?: string }>;
   }) {
     const { data } = await api.post('/pos/orders', { ...payload, clientId: `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
@@ -228,6 +249,20 @@ export const posFlow = {
   },
   async timetable(): Promise<TimetableEntry[]> {
     return list<TimetableEntry>((await api.get('/kitchen/timetable')).data);
+  },
+  async production(date?: string): Promise<KitchenProduction> {
+    return (await api.get('/kitchen/production', { params: date ? { date } : undefined })).data as KitchenProduction;
+  },
+  async recordProduction(payload: {
+    timetableEntryId?: string;
+    dishName?: string;
+    producedQuantity: number;
+    wastedQuantity?: number;
+    unit?: string;
+    notes?: string;
+    date?: string;
+  }) {
+    return (await api.post('/kitchen/production', payload)).data;
   },
   async addTimetableEntry(payload: Omit<TimetableEntry, 'id' | 'stationCode' | 'notes'> & { stationCode?: string; notes?: string }) {
     return (await api.post('/kitchen/timetable', payload)).data as TimetableEntry;

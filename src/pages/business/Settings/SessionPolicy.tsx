@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Alert, Box, Button, Container, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Container, FormControlLabel, MenuItem, Paper, Stack, Switch, TextField, Typography } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
@@ -23,12 +23,14 @@ export default function SessionPolicyPage() {
   const [error, setError] = useState('');
   const [minutes, setMinutes] = useState(15);
   const [bounds, setBounds] = useState({ min: 5, max: 240 });
+  const [emailCode, setEmailCode] = useState(true);
 
   useEffect(() => {
     api
       .get('/settings/security')
       .then(({ data }) => {
         setMinutes(Number(data.idleTimeoutMinutes) || 15);
+        setEmailCode(data.emailSignInCode !== false);
         setBounds({ min: Number(data.minIdleTimeoutMinutes) || 5, max: Number(data.maxIdleTimeoutMinutes) || 240 });
       })
       .catch((err) => setError(getApiErrorMessage(err, 'Could not load security settings.')))
@@ -40,7 +42,7 @@ export default function SessionPolicyPage() {
     setSaving(true);
     setError('');
     try {
-      const { data } = await api.put('/settings/security', { idleTimeoutMinutes: minutes });
+      const { data } = await api.put('/settings/security', { idleTimeoutMinutes: minutes, emailSignInCode: emailCode });
       // Takes effect here immediately; other staff pick it up on their next sync.
       setUser({ idleTimeoutMinutes: data.idleTimeoutMinutes });
       enqueueSnackbar('Security settings saved', { variant: 'success' });
@@ -61,7 +63,7 @@ export default function SessionPolicyPage() {
           Security
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Signs staff out automatically when a screen is left unattended.
+          How staff sign in, and when an unattended screen signs itself out.
         </Typography>
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -93,6 +95,16 @@ export default function SessionPolicyPage() {
                   error={outOfRange}
                   helperText={`Between ${bounds.min} and ${bounds.max} minutes. Staff see a one-minute warning first.`}
                 />
+                <Box>
+                  <FormControlLabel
+                    control={<Switch checked={emailCode} onChange={(event) => setEmailCode(event.target.checked)} />}
+                    label="Email a one-time sign-in code at every login"
+                  />
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                    After the password or usercode + PIN, staff enter a 6-digit code sent to their email (valid 10 minutes).
+                    Accounts using an authenticator app use that instead. Turn off only for shared terminals where staff cannot reach email.
+                  </Typography>
+                </Box>
                 <Box>
                   <Button type="submit" variant="contained" disabled={saving || outOfRange}>
                     {saving ? 'Saving…' : 'Save'}

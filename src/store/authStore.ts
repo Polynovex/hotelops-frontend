@@ -13,6 +13,8 @@ interface User {
   hotelId?: string;
   hotelName?: string;
   logoUrl?: string | null;
+  /** The business's theme colours from Settings → Branding. */
+  brandColors?: { primary: string | null; accent: string | null } | null;
   pmsEnabled?: boolean;
   posEnabled?: boolean;
   financeEnabled?: boolean;
@@ -74,7 +76,13 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password, remember) => {
         set({ isLoading: true });
         try {
-          const response = await authApi.login(email, password);
+          const result = await authApi.login(email, password);
+          if ('challenge' in result) {
+            // The emailed-code step lives on the sign-in screen.
+            set({ isLoading: false });
+            throw Object.assign(new Error('Sign-in code required'), { challenge: result.challenge });
+          }
+          const response = result;
           const persistedRefresh =
             remember && response.refreshToken
               ? response.refreshToken

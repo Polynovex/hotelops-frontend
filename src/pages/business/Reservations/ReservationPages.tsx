@@ -1,3 +1,6 @@
+import { useAuthStore } from '../../../store/authStore';
+import { promotionsApi, type ApplicableRoomPromotion } from '../../../services/promotions';
+import LocalOfferRoundedIcon from '@mui/icons-material/LocalOfferRounded';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -24,6 +27,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -400,7 +404,43 @@ export const CreateReservationPage = () => {
     Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86_400_000),
     0
   );
-  const totalAmount = nightlyRate * nights;
+  const grossAmount = nightlyRate * nights;
+
+  // Promotions for this stay, shown with the room's amenities; the desk can
+  // add any eligible one from the quick-promotions dropdown.
+  const [roomPromos, setRoomPromos] = useState<ApplicableRoomPromotion[]>([]);
+  const [pickedPromoIds, setPickedPromoIds] = useState<string[]>([]);
+  const promoTypeCode = selectedRoom?.roomType ?? requestedRoomType;
+  useEffect(() => {
+    if (!promoTypeCode || nights < 1) {
+      setRoomPromos([]);
+      return;
+    }
+    let cancelled = false;
+    promotionsApi
+      .applicableRoom({
+        roomTypeCode: promoTypeCode,
+        arrival: new Date(`${checkIn}T14:00:00`).toISOString(),
+        departure: new Date(`${checkOut}T12:00:00`).toISOString(),
+        ...(roomId ? { roomId } : {}),
+        ...(guestId ? { guestId } : {})
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setRoomPromos(data.promotions);
+        setPickedPromoIds((current) => current.filter((id) => data.promotions.some((p) => p.id === id && p.eligible)));
+      })
+      .catch(() => !cancelled && setRoomPromos([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [promoTypeCode, roomId, guestId, checkIn, checkOut, nights]);
+  const appliedPromos = roomPromos.filter((p) => p.eligible && (p.autoApply || pickedPromoIds.includes(p.id)));
+  // Best single promotion, or every stackable one together — as the server prices it.
+  const stackSum = appliedPromos.filter((p) => p.stackable).reduce((sum, p) => sum + p.discount, 0);
+  const bestSingle = appliedPromos.reduce((best, p) => Math.max(best, p.discount), 0);
+  const promoDiscount = Math.min(Math.max(stackSum, bestSingle), grossAmount);
+  const totalAmount = grossAmount - promoDiscount;
 
   // Rooms of the chosen type that can be sold; dirty or out-of-order rooms
   // stay visible on the room board but are not offered here.
@@ -475,6 +515,7 @@ export const CreateReservationPage = () => {
         guestId,
         ...(roomId ? { roomId } : {}),
         ...(requestedRoomType ? { requestedRoomType } : {}),
+        ...(pickedPromoIds.length ? { promotionIds: pickedPromoIds } : {}),
         checkIn,
         checkOut,
         adults,
@@ -624,6 +665,42 @@ export const CreateReservationPage = () => {
                 </Stack>
               ) : null}
 
+              {roomPromos.length > 0 && (
+                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap alignItems="center">
+                  <LocalOfferRoundedIcon fontSize="small" color="secondary" />
+                  {roomPromos.map((promo) => (
+                    <Tooltip key={promo.id} title={promo.eligible ? `${promo.description ?? promo.name} — saves ₦${promo.discount.toLocaleString()}` : promo.reasons.join('; ')}>
+                      <span>
+                        <Chip
+                          size="small"
+                          color={promo.eligible ? 'secondary' : 'default'}
+                          variant={appliedPromos.some((p) => p.id === promo.id) ? 'filled' : 'outlined'}
+                          label={`${promo.name}${promo.autoApply ? ' (auto)' : ''}`}
+                          disabled={!promo.eligible}
+                        />
+                      </span>
+                    </Tooltip>
+                  ))}
+                </Stack>
+              )}
+
+              <TextField
+                select
+                label="Quick promotions"
+                value={pickedPromoIds}
+                onChange={(e) => setPickedPromoIds(typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as unknown as string[]))}
+                SelectProps={{ multiple: true, renderValue: (ids) => roomPromos.filter((p) => (ids as string[]).includes(p.id)).map((p) => p.name).join(', ') }}
+                helperText={roomPromos.some((p) => p.eligible && !p.autoApply) ? 'Apply a promotion to this stay' : 'No promotions available for this room and dates'}
+                disabled={!roomPromos.some((p) => p.eligible && !p.autoApply)}
+                fullWidth
+              >
+                {roomPromos.filter((p) => p.eligible && !p.autoApply).map((promo) => (
+                  <MenuItem key={promo.id} value={promo.id}>
+                    {promo.name} — saves ₦{promo.discount.toLocaleString()}
+                  </MenuItem>
+                ))}
+              </TextField>
+
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                 <TextField label="Check In" type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} InputLabelProps={{ shrink: true }} fullWidth />
                 <TextField label="Check Out" type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} InputLabelProps={{ shrink: true }} fullWidth />
@@ -643,7 +720,7 @@ export const CreateReservationPage = () => {
                   label="Total (₦)"
                   value={totalAmount.toLocaleString()}
                   InputProps={{ readOnly: true }}
-                  helperText="Calculated from the rate and length of stay"
+                  helperText={promoDiscount > 0 ? `₦${grossAmount.toLocaleString()} less ₦${promoDiscount.toLocaleString()} promotion` : 'Calculated from the rate and length of stay'}
                   fullWidth
                 />
               </Stack>
@@ -732,26 +809,40 @@ export const ReservationDetailPage = () => {
   const handlePrint = () => {
     const win = window.open('', '_blank');
     if (!win || !reservation) return;
+    /*
+     * Everything below lands in raw HTML. Guest names can come from the public
+     * self-registration form, so an unescaped value is stored XSS in a window
+     * that shares the app's origin (and its saved session).
+     */
+    const esc = (value: unknown) =>
+      String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const photoHtml = guestPhotoUrl
-      ? `<img src="${guestPhotoUrl}" alt="Guest Photo" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:1px solid #ccc;" />`
+      ? `<img src="${esc(guestPhotoUrl)}" alt="Guest Photo" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:1px solid #ccc;" />`
       : '';
-    win.document.write(`<!DOCTYPE html><html><head><title>Reservation ${reservation.bookingNumber}</title>
+    win.document.write(`<!DOCTYPE html><html><head><title>Reservation ${esc(reservation.bookingNumber)}</title>
       <style>body{font-family:Arial,sans-serif;padding:32px;max-width:600px;margin:auto}h2{margin-bottom:4px}.meta{color:#666;font-size:13px;margin-bottom:20px}.row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee}.label{font-weight:600}.photo-row{display:flex;gap:16px;align-items:flex-start;margin-bottom:20px}</style>
       </head><body>
-      <h2>Reservation &#8212; ${reservation.bookingNumber}</h2>
+      ${(() => {
+        const owner = useAuthStore.getState().user;
+        const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const logo = owner?.logoUrl && /^https:\/\//.test(owner.logoUrl) ? `<img src="${esc(owner.logoUrl)}" alt="" style="height:40px;max-width:160px;object-fit:contain;margin-right:12px" />` : '';
+        return `<div style="display:flex;align-items:center;margin-bottom:16px">${logo}<strong style="font-size:20px">${esc(owner?.hotelName || '')}</strong></div>`;
+      })()}
+      <h2>Reservation &#8212; ${esc(reservation.bookingNumber)}</h2>
       <p class="meta">Printed ${new Date().toLocaleString()}</p>
       <div class="photo-row">${photoHtml}<div style="flex:1">
-        <div class="row"><span class="label">Guest</span><span>${reservation.guestName}</span></div>
-        <div class="row"><span class="label">Room</span><span>${reservation.roomNumber}</span></div>
-        <div class="row"><span class="label">Status</span><span>${reservation.status}</span></div>
+        <div class="row"><span class="label">Guest</span><span>${esc(reservation.guestName)}</span></div>
+        <div class="row"><span class="label">Room</span><span>${esc(reservation.roomNumber)}</span></div>
+        <div class="row"><span class="label">Status</span><span>${esc(reservation.status)}</span></div>
       </div></div>
       <div class="row"><span class="label">Check In</span><span>${new Date(reservation.checkIn).toLocaleDateString()}</span></div>
       <div class="row"><span class="label">Check Out</span><span>${new Date(reservation.checkOut).toLocaleDateString()}</span></div>
-      <div class="row"><span class="label">Room Type</span><span>${reservation.requestedRoomType || '&#8212;'}</span></div>
-      <div class="row"><span class="label">Adults</span><span>${reservation.adults}</span></div>
-      <div class="row"><span class="label">Children</span><span>${reservation.children}</span></div>
+      <div class="row"><span class="label">Room Type</span><span>${reservation.requestedRoomType ? esc(reservation.requestedRoomType) : '&#8212;'}</span></div>
+      <div class="row"><span class="label">Adults</span><span>${esc(reservation.adults)}</span></div>
+      <div class="row"><span class="label">Children</span><span>${esc(reservation.children)}</span></div>
       <div class="row"><span class="label">Total</span><span>&#8358;${reservation.totalAmount.toLocaleString()}</span></div>
       <div class="row"><span class="label">Balance</span><span>&#8358;${reservation.balance.toLocaleString()}</span></div>
+      <p style="margin-top:28px;text-align:center;color:#94A1A8;font-size:11px">Powered by HotelOpX</p>
       </body></html>`);
     win.document.close();
     win.focus();

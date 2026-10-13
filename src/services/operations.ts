@@ -848,6 +848,8 @@ export const reservationOpsService = {
      * no longer sends one: the total is read-only there.
      */
     totalAmount?: number;
+    /** Promotions the desk picked; auto-apply ones are added by the server. */
+    promotionIds?: string[];
   }): Promise<ReservationRecord> {
     if (isDemoMode()) {
       const rooms = await roomOpsService.listRooms();
@@ -885,6 +887,7 @@ export const reservationOpsService = {
         guestId: payload.guestId,
         ...(payload.roomId ? { roomId: payload.roomId } : {}),
         ...(payload.requestedRoomType ? { requestedRoomType: payload.requestedRoomType } : {}),
+        ...(payload.promotionIds?.length ? { promotionIds: payload.promotionIds, channel: 'FRONT_DESK' } : {}),
         arrivalDate: payload.checkIn,
         departureDate: payload.checkOut,
         adults: payload.adults,
@@ -1314,7 +1317,8 @@ export const roomOpsService = {
   },
 
   async createRoom(payload: {
-    roomNumber: string;
+    /** Optional: the server numbers the room from its floor when blank. */
+    roomNumber?: string;
     name?: string;
     roomType: string;
     floor: number;
@@ -1325,7 +1329,7 @@ export const roomOpsService = {
     if (isDemoMode()) {
       const room: RoomRecord = {
         id: makeId('room'),
-        roomNumber: payload.roomNumber,
+        roomNumber: payload.roomNumber || `${payload.floor}${String(getDemoRooms().length + 1).padStart(2, '0')}`,
         name: payload.name ?? null,
         roomType: payload.roomType,
         floor: payload.floor,
@@ -1341,7 +1345,7 @@ export const roomOpsService = {
     // Status is not sent: a new room starts AVAILABLE, and the server owns the
     // transitions from there.
     const response = await api.post('/rooms', {
-      roomNumber: payload.roomNumber,
+      ...(payload.roomNumber?.trim() ? { roomNumber: payload.roomNumber.trim() } : {}),
       name: payload.name || undefined,
       roomType: payload.roomType,
       floor: payload.floor,

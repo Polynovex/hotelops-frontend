@@ -30,7 +30,7 @@ import { useSnackbar } from 'notistack';
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import { useAuthStore } from '../../../store/authStore';
-import { posFlow, type KitchenOverview, type KitchenStation, type TimetableEntry } from '../../../services/posFlow';
+import { posFlow, type KitchenOverview, type KitchenProduction, type KitchenStation, type TimetableEntry } from '../../../services/posFlow';
 import { getApiErrorMessage } from '../../../utils/apiError';
 
 /**
@@ -58,14 +58,23 @@ export default function KitchenDashboard() {
   const [usageQty, setUsageQty] = useState('');
   const [usageNote, setUsageNote] = useState('');
   const [planning, setPlanning] = useState(false);
-  const [entry, setEntry] = useState({ dayOfWeek: new Date().getDay(), mealPeriod: 'LUNCH' as TimetableEntry['mealPeriod'], dishName: '', stationCode: '' });
+  const [entry, setEntry] = useState({ dayOfWeek: new Date().getDay(), mealPeriod: 'LUNCH' as TimetableEntry['mealPeriod'], dishName: '', stationCode: '', plannedQuantity: '', unit: 'portions' });
+  const [production, setProduction] = useState<KitchenProduction | null>(null);
+  /** The dish being recorded; `null` id = something not on the timetable. */
+  const [recording, setRecording] = useState<{ timetableEntryId: string | null; dishName: string; unit: string } | null>(null);
+  const [made, setMade] = useState({ produced: '', wasted: '', notes: '', dishName: '' });
   const [tagging, setTagging] = useState<KitchenStation | null>(null);
   const [remark, setRemark] = useState('');
 
   const load = useCallback(async () => {
     try {
-      const [data, timetable] = await Promise.all([posFlow.kitchenOverview(date), posFlow.timetable()]);
+      const [data, timetable, made] = await Promise.all([
+        posFlow.kitchenOverview(date),
+        posFlow.timetable(),
+        posFlow.production(date).catch(() => null)
+      ]);
       setOverview(data);
+      setProduction(made);
       setWeek(timetable);
       setError('');
     } catch (err) {
@@ -95,12 +104,38 @@ export default function KitchenDashboard() {
 
   const addEntry = async () => {
     try {
-      await posFlow.addTimetableEntry({ ...entry, stationCode: entry.stationCode || undefined });
+      await posFlow.addTimetableEntry({
+        dayOfWeek: entry.dayOfWeek,
+        mealPeriod: entry.mealPeriod,
+        dishName: entry.dishName,
+        stationCode: entry.stationCode || undefined,
+        ...(entry.plannedQuantity ? { plannedQuantity: Number(entry.plannedQuantity), unit: entry.unit || 'portions' } : {})
+      });
       enqueueSnackbar('Added to the timetable', { variant: 'success' });
-      setEntry((current) => ({ ...current, dishName: '' }));
+      setEntry((current) => ({ ...current, dishName: '', plannedQuantity: '' }));
       await load();
     } catch (err) {
       enqueueSnackbar(getApiErrorMessage(err, 'Could not add the dish'), { variant: 'error' });
+    }
+  };
+
+  const saveProduction = async () => {
+    if (!recording) return;
+    try {
+      await posFlow.recordProduction({
+        ...(recording.timetableEntryId ? { timetableEntryId: recording.timetableEntryId } : { dishName: made.dishName.trim() }),
+        producedQuantity: Number(made.produced),
+        wastedQuantity: made.wasted ? Number(made.wasted) : 0,
+        unit: recording.unit,
+        notes: made.notes.trim() || undefined,
+        date
+      });
+      enqueueSnackbar('Production recorded', { variant: 'success' });
+      setRecording(null);
+      setMade({ produced: '', wasted: '', notes: '', dishName: '' });
+      await load();
+    } catch (err) {
+      enqueueSnackbar(getApiErrorMessage(err, 'Could not record production'), { variant: 'error' });
     }
   };
 
@@ -158,6 +193,68 @@ export default function KitchenDashboard() {
                 </Grid>
               ))}
             </Grid>
+
+            {/* What the kitchen made against what the timetable planned. */}
+            <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+                <Box>
+                  <Typography variant="h6" fontWeight={800}>Production: planned vs made</Typography>
+                  <Typography variant="body2" color="text.secondary">Record how much of each dish was made (and wasted) against the timetable.</Typography>
+                </Box>
+                <Button size="small" variant="outlined" onClick={() => setRecording({ timetableEntryId: null, dishName: '', unit: 'portions' })}>
+                  Record something else
+                </Button>
+              </Stack>
+              {!production?.rows.length && !production?.unplanned.length ? (
+                <Typography variant="body2" color="text.secondary">Nothing on the timetable for this day yet.</Typography>
+              ) : (
+                <Box sx={{ overflowX: 'auto' }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Meal</TableCell>
+                        <TableCell>Dish</TableCell>
+                        <TableCell align="right">Planned</TableCell>
+                        <TableCell align="right">Made</TableCell>
+                        <TableCell align="right">Wasted</TableCell>
+                        <TableCell align="right">Variance</TableCell>
+                        <TableCell align="right" />
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {(production?.rows ?? []).map((row) => (
+                        <TableRow key={row.timetableEntryId}>
+                          <TableCell>{title(row.mealPeriod)}</TableCell>
+                          <TableCell>{row.dishName}</TableCell>
+                          <TableCell align="right">{row.planned != null ? `${row.planned} ${row.unit}` : '—'}</TableCell>
+                          <TableCell align="right">{row.produced} {row.unit}</TableCell>
+                          <TableCell align="right">{row.wasted || '—'}</TableCell>
+                          <TableCell align="right">
+                            {row.variance == null ? '—' : (
+                              <Chip size="small" color={row.variance < 0 ? 'warning' : row.variance > 0 ? 'info' : 'success'} label={row.variance > 0 ? `+${row.variance}` : row.variance} />
+                            )}
+                          </TableCell>
+                          <TableCell align="right">
+                            <Button size="small" onClick={() => setRecording({ timetableEntryId: row.timetableEntryId, dishName: row.dishName, unit: row.unit })}>Record</Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {(production?.unplanned ?? []).map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell>Extra</TableCell>
+                          <TableCell>{log.dishName}{log.notes ? ` — ${log.notes}` : ''}</TableCell>
+                          <TableCell align="right">—</TableCell>
+                          <TableCell align="right">{log.producedQuantity} {log.unit}</TableCell>
+                          <TableCell align="right">{log.wastedQuantity || '—'}</TableCell>
+                          <TableCell align="right">—</TableCell>
+                          <TableCell />
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
+            </Paper>
 
             <Grid container spacing={2}>
               <Grid item xs={12} lg={5}>
@@ -275,6 +372,30 @@ export default function KitchenDashboard() {
           </DialogActions>
         </Dialog>
 
+        <Dialog open={Boolean(recording)} onClose={() => setRecording(null)} fullWidth maxWidth="xs">
+          <DialogTitle>Record production{recording?.dishName ? `: ${recording.dishName}` : ''}</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              {!recording?.timetableEntryId && (
+                <TextField label="What was made" value={made.dishName} onChange={(e) => setMade({ ...made, dishName: e.target.value })} autoFocus />
+              )}
+              <TextField label={`Amount made (${recording?.unit ?? 'portions'})`} type="number" value={made.produced} onChange={(e) => setMade({ ...made, produced: e.target.value })} autoFocus={Boolean(recording?.timetableEntryId)} />
+              <TextField label="Wasted (optional)" type="number" value={made.wasted} onChange={(e) => setMade({ ...made, wasted: e.target.value })} />
+              <TextField label="Notes (optional)" value={made.notes} onChange={(e) => setMade({ ...made, notes: e.target.value })} />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setRecording(null)}>Cancel</Button>
+            <Button
+              variant="contained"
+              disabled={made.produced === '' || Number(made.produced) < 0 || (!recording?.timetableEntryId && !made.dishName.trim())}
+              onClick={() => void saveProduction()}
+            >
+              Save
+            </Button>
+          </DialogActions>
+        </Dialog>
+
         <Dialog open={planning} onClose={() => setPlanning(false)} fullWidth maxWidth="md">
           <DialogTitle>Weekly food timetable</DialogTitle>
           <DialogContent>
@@ -286,6 +407,8 @@ export default function KitchenDashboard() {
                 {MEALS.map((meal) => <MenuItem key={meal} value={meal}>{title(meal)}</MenuItem>)}
               </TextField>
               <TextField size="small" label="Dish" value={entry.dishName} onChange={(event) => setEntry({ ...entry, dishName: event.target.value })} fullWidth />
+              <TextField size="small" label="Qty" type="number" value={entry.plannedQuantity} onChange={(event) => setEntry({ ...entry, plannedQuantity: event.target.value })} sx={{ width: 90 }} />
+              <TextField size="small" label="Unit" value={entry.unit} onChange={(event) => setEntry({ ...entry, unit: event.target.value })} sx={{ width: 110 }} />
               <TextField select size="small" label="Station" value={entry.stationCode} onChange={(event) => setEntry({ ...entry, stationCode: event.target.value })} sx={{ minWidth: 150 }}>
                 <MenuItem value="">Any</MenuItem>
                 {(overview?.stations ?? []).map((station) => <MenuItem key={station.id} value={station.code}>{station.name}</MenuItem>)}
@@ -299,7 +422,7 @@ export default function KitchenDashboard() {
                     <Typography fontWeight={800}>{day}</Typography>
                     {week.filter((item) => item.dayOfWeek === index).map((item) => (
                       <Stack key={item.id} direction="row" alignItems="center" justifyContent="space-between">
-                        <Typography variant="body2">{title(item.mealPeriod)}: {item.dishName}</Typography>
+                        <Typography variant="body2">{title(item.mealPeriod)}: {item.dishName}{item.plannedQuantity != null ? ` × ${item.plannedQuantity} ${item.unit ?? ''}` : ''}</Typography>
                         <IconButton size="small" onClick={() => void removeEntry(item.id)} aria-label={`Remove ${item.dishName}`}><DeleteOutlineRounded fontSize="small" /></IconButton>
                       </Stack>
                     ))}

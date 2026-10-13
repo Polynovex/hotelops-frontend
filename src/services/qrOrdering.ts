@@ -46,7 +46,9 @@ export interface PublicMenuItem {
 
 export interface PublicMenu {
   code: string;
-  business: { name: string; logoUrl: string | null; currency: string };
+  business: { name: string; logoUrl: string | null; currency: string; colors?: { primary: string | null; accent: string | null } };
+  /** Live F&B promotions at this outlet, for the "On promotion" section. */
+  promotions?: PublicPromotion[];
   outlet: { id: string; name: string };
   categories: Array<{ id: string; name: string; items: PublicMenuItem[] }>;
   /**
@@ -59,6 +61,24 @@ export interface PublicMenu {
   };
 }
 
+export interface PublicPromotion {
+  id: string;
+  name: string;
+  code: string;
+  description: string | null;
+  imageUrl: string | null;
+  mechanism: string;
+  value: number;
+  buyQuantity: number | null;
+  getQuantity: number | null;
+  startTime: string | null;
+  endTime: string | null;
+  terms: string | null;
+  /** Applied without a code when the order qualifies. */
+  autoApply: boolean;
+  items: Array<{ menuItemId: string; name: string; imageUrl: string | null; price: number; promotionalPrice: number; eligibleNow: boolean }>;
+}
+
 export type PaymentPreference = 'ONLINE' | 'CARD' | 'TRANSFER' | 'CASH';
 
 export interface PublicOrderResult {
@@ -68,6 +88,8 @@ export interface PublicOrderResult {
   total: number;
   currency: string;
   estimatedMinutes: number;
+  discount?: number;
+  promotions?: Array<{ id: string; code: string; name: string; discount: number }>;
 }
 
 export interface PublicOrderStatus {
@@ -148,6 +170,7 @@ export const qrOrderingService = {
       roomNumber?: string;
       notes?: string;
       paymentPreference?: PaymentPreference;
+      promotionCode?: string;
       items: Array<{ menuItemId: string; quantity: number; notes?: string }>;
     }
   ): Promise<PublicOrderResult> {

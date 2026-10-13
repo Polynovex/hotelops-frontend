@@ -533,6 +533,13 @@ const StaffManagement = () => {
             </Grid>
             <Field label="Email" type="email" value={form.email} onChange={(v) => setField('email', v)} />
             <Field label="Phone" value={form.phone} onChange={(v) => setField('phone', v)} />
+            <Field
+              label="Date of birth"
+              type="date"
+              value={form.dateOfBirth ? String(form.dateOfBirth).slice(0, 10) : ''}
+              onChange={(v) => setField('dateOfBirth', v || null)}
+              helperText="Used for automatic birthday wishes"
+            />
 
             <SelectField
               label="Department"
@@ -793,6 +800,7 @@ const Field = ({
       onChange={(event) => onChange(event.target.value)}
       fullWidth
       size="small"
+      InputLabelProps={type === 'date' ? { shrink: true } : undefined}
       required={required}
       helperText={helperText}
     />

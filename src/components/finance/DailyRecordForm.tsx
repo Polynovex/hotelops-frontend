@@ -16,9 +16,9 @@ export const emptyRecord = (): DailyRecordData => ({
   revenue: [],
   cogs: 0,
   expenses: [],
-  belowTheLine: { loanTaken: 0, loanRepaid: 0, ownerWithdrawal: 0, capitalExpenditure: 0, taxes: 0 },
+  belowTheLine: { loanTaken: 0, loanRepaid: 0, ownerWithdrawal: 0, capitalExpenditure: 0, taxes: 0, otherNonOperating: 0 },
   positions: [],
-  rooms: { available: 0, sold: 0, complimentary: 0, outOfOrder: 0, topRoomTypes: [], topRooms: [] },
+  rooms: { totalRooms: 0, available: 0, sold: 0, complimentary: 0, outOfOrder: 0, topRoomTypes: [], topRooms: [] },
   notes: ''
 });
 
@@ -51,8 +51,8 @@ export function DailyRecordForm({
   const expenseTotal = value.expenses.reduce((sum, line) => sum + line.amount, 0);
   const gross = revenueTotal - value.cogs;
   const net = gross - expenseTotal;
-  const sellable = Math.max(value.rooms.available - value.rooms.outOfOrder, 0);
-  const occupancy = sellable ? ((value.rooms.sold + value.rooms.complimentary) / sellable) * 100 : 0;
+  // Occupancy = rooms sold ÷ available room nights (out-of-order rooms are not available).
+  const occupancy = value.rooms.available ? (value.rooms.sold / value.rooms.available) * 100 : 0;
   const roomRevenue = value.revenue.filter((line) => line.source === 'ROOM_SALES').reduce((sum, line) => sum + line.cash + line.card + line.transfer + line.online + line.other, 0);
   const arr = value.rooms.sold ? roomRevenue / value.rooms.sold : 0;
 
@@ -154,9 +154,10 @@ export function DailyRecordForm({
             ['loanRepaid', 'Loan repaid'],
             ['ownerWithdrawal', 'Owner withdrawal'],
             ['capitalExpenditure', 'Capital expenditure'],
-            ['taxes', 'Taxes paid']
+            ['taxes', 'Taxes paid'],
+            ['otherNonOperating', 'Other non-operating']
           ] as const).map(([key, label]) => (
-            <Grid item xs={6} md key={key}>{field(label, value.belowTheLine[key], (next) => set({ belowTheLine: { ...value.belowTheLine, [key]: next } }))}</Grid>
+            <Grid item xs={6} md key={key}>{field(label, value.belowTheLine[key] ?? 0, (next) => set({ belowTheLine: { ...value.belowTheLine, [key]: next } }))}</Grid>
           ))}
         </Grid>
       </Section>
@@ -206,10 +207,11 @@ export function DailyRecordForm({
 
       <Section title="Room performance">
         <Grid container spacing={1}>
-          <Grid item xs={6} md={3}>{field('Rooms available', value.rooms.available, (next) => set({ rooms: { ...value.rooms, available: next } }))}</Grid>
-          <Grid item xs={6} md={3}>{field('Rooms sold', value.rooms.sold, (next) => set({ rooms: { ...value.rooms, sold: next } }))}</Grid>
-          <Grid item xs={6} md={3}>{field('Complimentary', value.rooms.complimentary, (next) => set({ rooms: { ...value.rooms, complimentary: next } }))}</Grid>
-          <Grid item xs={6} md={3}>{field('Out of order', value.rooms.outOfOrder, (next) => set({ rooms: { ...value.rooms, outOfOrder: next } }))}</Grid>
+          <Grid item xs={6} md={2.4}>{field('Total rooms', value.rooms.totalRooms ?? 0, (next) => set({ rooms: { ...value.rooms, totalRooms: next } }))}</Grid>
+          <Grid item xs={6} md={2.4}>{field('Rooms available', value.rooms.available, (next) => set({ rooms: { ...value.rooms, available: next } }))}</Grid>
+          <Grid item xs={6} md={2.4}>{field('Rooms sold', value.rooms.sold, (next) => set({ rooms: { ...value.rooms, sold: next } }))}</Grid>
+          <Grid item xs={6} md={2.4}>{field('Complimentary', value.rooms.complimentary, (next) => set({ rooms: { ...value.rooms, complimentary: next } }))}</Grid>
+          <Grid item xs={6} md={2.4}>{field('Out of order', value.rooms.outOfOrder, (next) => set({ rooms: { ...value.rooms, outOfOrder: next } }))}</Grid>
         </Grid>
         <Stack direction="row" spacing={3} sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
           <Box><Typography variant="caption" color="text.secondary">Occupancy</Typography><Typography fontWeight={700}>{occupancy.toFixed(1)}%</Typography></Box>

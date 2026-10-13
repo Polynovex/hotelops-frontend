@@ -127,6 +127,8 @@ export interface AuthUser {
   mustResetPassword?: boolean;
   userCode?: string | null;
   logoUrl?: string | null;
+  /** The business's own theme colours; null means HotelOpX defaults. */
+  brandColors?: { primary: string | null; accent: string | null } | null;
   /**
    * Effective permission codes, or ['*'] for owner-level access. Returned by
    * /auth/me so the navigation can reflect access granted through the RBAC
@@ -1127,6 +1129,19 @@ const buildDemoModuleStatus = (businessId: string): BusinessModuleStatus => {
   };
 };
 
+/** The server's answer when a sign-in still needs the emailed code. */
+export type SignInChallenge = {
+  signInCodeRequired: true;
+  challengeId: string;
+  /** Masked, e.g. jo***@hotel.com */
+  email: string;
+  expiresAt: string;
+  resendAvailableAt: string;
+  resendsLeft: number;
+  /** Development only. */
+  devCode?: string;
+};
+
 export const authService = {
   /**
    * Signs in with email and password, and a TOTP code when one is required.
@@ -1142,7 +1157,7 @@ export const authService = {
     email: string,
     password: string,
     mfaCode?: string
-  ): Promise<{ token: string; refreshToken?: string; user: AuthUser }> => {
+  ): Promise<{ token: string; refreshToken?: string; user: AuthUser } | { challenge: SignInChallenge }> => {
     const demoUser = DEMO_MODE_ENABLED
       ? DEMO_USERS.find((entry) => entry.email === email && entry.password === password)
       : undefined;
@@ -1167,6 +1182,9 @@ export const authService = {
       password,
       ...(mfaCode ? { mfaCode: mfaCode.trim() } : {})
     });
+    if (response.data?.signInCodeRequired) {
+      return { challenge: response.data as SignInChallenge };
+    }
     const token = response.data.accessToken || response.data.token;
     if (!token) {
       throw new Error('No access token returned from login endpoint');
@@ -1178,6 +1196,17 @@ export const authService = {
       user: normalizeUser(response.data.user)
     };
   },
+  /** Second step of every sign-in: the 6-digit code emailed to the account. */
+  verifySignInCode: async (challengeId: string, code: string) => {
+    const response = await api.post('/auth/login/verify', { challengeId, code: code.trim() });
+    return {
+      token: (response.data.accessToken || response.data.token) as string,
+      refreshToken: response.data.refreshToken as string | undefined,
+      user: normalizeUser(response.data.user)
+    };
+  },
+  resendSignInCode: async (challengeId: string): Promise<SignInChallenge> =>
+    (await api.post('/auth/login/resend', { challengeId })).data,
   getMe: async (): Promise<AuthUser> => {
     if (isDemoMode()) {
       const currentUser = useAuthStore.getState().user;
@@ -1201,14 +1230,10 @@ export const authService = {
     const response = await api.get('/auth/me');
     return normalizeUser(unwrapData<AuthUser>(response.data));
   },
-  register: async (data: unknown) => {
-    const response = await api.post('/auth/register', data);
-    return response.data;
-  },
   userCodeLogin: async (
     userCode: string,
     pin?: string
-  ): Promise<{ requiresPin: true } | { token: string; refreshToken?: string; user: AuthUser }> => {
+  ): Promise<{ requiresPin: true } | { challenge: SignInChallenge } | { token: string; refreshToken?: string; user: AuthUser }> => {
     if (DEMO_MODE_ENABLED) {
       const DEMO_CODES: Record<string, AuthUser> = {
         '10001': normalizeUser({
@@ -1297,6 +1322,9 @@ export const authService = {
     const response = await api.post('/auth/usercode-login', { userCode, ...(pin && { pin }) });
     if (response.data?.requiresPin) {
       return { requiresPin: true };
+    }
+    if (response.data?.signInCodeRequired) {
+      return { challenge: response.data as SignInChallenge };
     }
     const token = response.data.accessToken || response.data.token;
     if (!token) {

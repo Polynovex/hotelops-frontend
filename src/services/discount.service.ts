@@ -77,7 +77,7 @@ export interface DiscountApplication {
 
 export const promotionService = {
   list: async (active?: boolean): Promise<Promotion[]> => {
-    const { data } = await api.get('/promotions', { params: active ? { active: true } : {} });
+    const { data } = await api.get('/promotions', { params: active ? { status: 'ACTIVE' } : {} });
     return data;
   },
   create: async (payload: PromotionPayload): Promise<Promotion> => {

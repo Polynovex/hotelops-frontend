@@ -1073,6 +1073,18 @@ export const RoomListPage = () => {
     void loadRoomTypes();
   }, []);
 
+  const roomGroups = useMemo(() => {
+    const byType = new Map<string, typeof rooms>();
+    for (const room of rooms) byType.set(room.roomType, [...(byType.get(room.roomType) ?? []), room]);
+    return [...byType.entries()]
+      .map(([code, list]) => ({
+        code,
+        name: roomTypes.find((type) => type.code === code)?.name ?? code,
+        rooms: [...list].sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true }))
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [rooms, roomTypes]);
+
   const createRoom = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!roomType) {
@@ -1081,7 +1093,7 @@ export const RoomListPage = () => {
     }
     try {
       await roomOpsService.createRoom({
-        roomNumber,
+        roomNumber: roomNumber.trim() || undefined,
         name: roomName.trim() || undefined,
         roomType,
         floor,
@@ -1120,7 +1132,7 @@ export const RoomListPage = () => {
         <Paper sx={{ p: 2, mb: 2 }}>
           <Box component="form" onSubmit={createRoom}>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField label="Room Number" value={roomNumber} onChange={(event) => setRoomNumber(event.target.value)} required />
+              <TextField label="Room Number (optional)" value={roomNumber} onChange={(event) => setRoomNumber(event.target.value)} helperText="Blank: numbered from the floor" />
               <TextField label="Room Name (optional)" value={roomName} onChange={(event) => setRoomName(event.target.value)} />
               <TextField
                 select
@@ -1157,11 +1169,21 @@ export const RoomListPage = () => {
           </Box>
         </Paper>
 
-        <DataTable
-          rows={rooms}
+        {/* Grouped by room type, so each category reads as one block. */}
+        {roomGroups.length === 0 && !loading && <Alert severity="info">No rooms yet.</Alert>}
+        {roomGroups.map((group) => (
+          <Box key={group.code} sx={{ mb: 3 }}>
+            <Stack direction="row" spacing={1} alignItems="baseline" sx={{ mb: 1 }}>
+              <Typography variant="h6" fontWeight={800}>{group.name}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {group.rooms.length} room{group.rooms.length === 1 ? '' : 's'} · {group.rooms.filter((room) => room.status === 'AVAILABLE').length} available
+              </Typography>
+            </Stack>
+          <DataTable
+          rows={group.rooms}
           rowKey={(room) => room.id}
           defaultRowsPerPage={10}
-          emptyText={loading ? 'Loading rooms...' : 'No rooms found.'}
+          emptyText="No rooms of this type."
           columns={[
             {
               key: 'roomNumber',
@@ -1199,6 +1221,8 @@ export const RoomListPage = () => {
             }
           ]}
         />
+          </Box>
+        ))}
       </Container>
     </Layout>
   );

@@ -22,6 +22,10 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StorefrontIcon from '@mui/icons-material/Storefront';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import { ThemeProvider } from '@mui/material/styles';
+import PoweredBy from '../../components/branding/PoweredBy';
+import { createAppTheme } from '../../theme/theme';
 import {
   qrOrderingService,
   type PublicMenu,
@@ -53,6 +57,7 @@ const PublicOrderPage = () => {
   const [tableNumber, setTableNumber] = useState('');
   const [roomNumber, setRoomNumber] = useState('');
   const [notes, setNotes] = useState('');
+  const [promotionCode, setPromotionCode] = useState('');
   /** Chosen from what the venue actually accepts (menu.paymentOptions). */
   const [payment, setPayment] = useState<PaymentPreference | ''>('');
   const [payEmail, setPayEmail] = useState('');
@@ -129,6 +134,20 @@ const PublicOrderPage = () => {
   };
 
   const lines = useMemo(() => Object.values(cart), [cart]);
+  const menuItemsById = useMemo(
+    () => new Map((menu?.categories ?? []).flatMap((category) => category.items.map((item) => [item.id, item] as const))),
+    [menu]
+  );
+  // The business's colours on its own menu.
+  const brandColors = menu?.business.colors;
+  const brandTheme = useMemo(
+    () => createAppTheme('light', { primary: brandColors?.primary ?? null, accent: brandColors?.accent ?? null }),
+    [brandColors?.primary, brandColors?.accent]
+  );
+  const promoItems = useMemo(
+    () => (menu?.promotions ?? []).flatMap((promo) => promo.items).filter((entry) => menuItemsById.has(entry.menuItemId)),
+    [menu, menuItemsById]
+  );
   const itemCount = useMemo(() => lines.reduce((sum, line) => sum + line.quantity, 0), [lines]);
   const subtotal = useMemo(
     () => lines.reduce((sum, line) => sum + line.item.price * line.quantity, 0),
@@ -171,6 +190,7 @@ const PublicOrderPage = () => {
         roomNumber: roomNumber.trim() || undefined,
         notes: notes.trim() || undefined,
         paymentPreference: effectivePayment,
+        promotionCode: promotionCode.trim() || undefined,
         items: lines.map((line) => ({ menuItemId: line.item.id, quantity: line.quantity }))
       });
 
@@ -225,6 +245,9 @@ const PublicOrderPage = () => {
 
           <Stack spacing={1.5} sx={{ textAlign: 'left' }}>
             <Row label="Order number" value={confirmation.orderNumber} mono />
+            {(confirmation.discount ?? 0) > 0 && (
+              <Row label={`Promotion${(confirmation.promotions?.length ?? 0) > 1 ? 's' : ''} (${(confirmation.promotions ?? []).map((p) => p.name).join(', ')})`} value={`− ${formatMoney(confirmation.discount ?? 0)}`} />
+            )}
             <Row label="Total" value={formatMoney(confirmation.total)} />
             <Row label="Estimated time" value={`About ${confirmation.estimatedMinutes} minutes`} />
           </Stack>
@@ -263,21 +286,15 @@ const PublicOrderPage = () => {
   }
 
   return (
+    <ThemeProvider theme={brandTheme}>
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', pb: 12 }}>
       <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
         <Toolbar sx={{ gap: 2 }}>
-          {/*
-            Platform branding throughout. The outlet's own name still leads,
-            so a guest knows whose menu they are looking at — only the mark is
-            HotelOpX.
-          */}
-          <Box
-            component="img"
-            src="/logo.png"
-            alt="HotelOpX"
-            sx={{ height: 32, objectFit: 'contain' }}
-          />
-          <Typography variant="h6" fontWeight={700} noWrap>
+          {/* The business's own logo and name lead; HotelOpX is the footer credit. */}
+          {menu.business.logoUrl ? (
+            <Box component="img" src={menu.business.logoUrl} alt="" sx={{ height: 36, maxWidth: 120, objectFit: 'contain' }} />
+          ) : null}
+          <Typography variant="h6" fontWeight={800} noWrap>
             {menu.business.name}
           </Typography>
 
@@ -298,6 +315,48 @@ const PublicOrderPage = () => {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Browse the menu and add items to your order.
         </Typography>
+
+        {promoItems.length > 0 && (
+          <Box sx={{ mb: 4 }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+              <LocalOfferIcon color="secondary" />
+              <Typography variant="subtitle1" fontWeight={800}>On promotion</Typography>
+            </Stack>
+            <Stack spacing={1}>
+              {(menu.promotions ?? []).map((promo) => (
+                <Paper key={promo.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2, borderColor: 'secondary.main' }}>
+                  <Typography variant="body2" fontWeight={700}>{promo.name}</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                    {[promo.description, promo.startTime && promo.endTime ? `${promo.startTime}–${promo.endTime}` : null, promo.autoApply ? 'Applied automatically' : `Use code ${promo.code}`]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Typography>
+                  <Stack spacing={0.75} sx={{ mt: 1 }}>
+                    {promo.items.filter((entry) => menuItemsById.has(entry.menuItemId)).slice(0, 8).map((entry) => (
+                      <Stack key={entry.menuItemId} direction="row" spacing={1.5} alignItems="center">
+                        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                          <Typography variant="body2" noWrap>{entry.name}</Typography>
+                          <Typography variant="caption">
+                            {entry.promotionalPrice < entry.price && (
+                              <Box component="span" sx={{ textDecoration: 'line-through', color: 'text.disabled', mr: 0.75 }}>{formatMoney(entry.price)}</Box>
+                            )}
+                            <strong>{formatMoney(entry.promotionalPrice)}</strong>
+                          </Typography>
+                        </Box>
+                        <Button size="small" variant="outlined" onClick={() => {
+                          addToCart(menuItemsById.get(entry.menuItemId)!);
+                          if (!promo.autoApply && !promotionCode) setPromotionCode(promo.code);
+                        }}>
+                          Add
+                        </Button>
+                      </Stack>
+                    ))}
+                  </Stack>
+                </Paper>
+              ))}
+            </Stack>
+          </Box>
+        )}
 
         {menu.categories.length === 0 && (
           <Alert severity="info">No items are available right now. Please check back shortly.</Alert>
@@ -387,6 +446,7 @@ const PublicOrderPage = () => {
             </Stack>
           </Box>
         ))}
+        <PoweredBy sx={{ mt: 2 }} />
       </Container>
 
       {itemCount > 0 && (
@@ -523,6 +583,13 @@ const PublicOrderPage = () => {
                   ))}
                 </TextField>
                 <TextField
+                  label="Promo code (optional)"
+                  value={promotionCode}
+                  onChange={(event) => setPromotionCode(event.target.value.toUpperCase().slice(0, 40))}
+                  fullWidth
+                  helperText="Promotions that apply automatically are added for you."
+                />
+                <TextField
                   label="Notes for the kitchen (optional)"
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
@@ -554,6 +621,7 @@ const PublicOrderPage = () => {
         </Box>
       </Drawer>
     </Box>
+    </ThemeProvider>
   );
 };
 

@@ -19,6 +19,8 @@ export interface StaffMember {
   jobTitle: string | null;
   department: string | null;
   hireDate: string | null;
+  /** For birthday wishes. */
+  dateOfBirth?: string | null;
   employmentType: EmploymentType;
   status: StaffStatus;
   bankName: string | null;

@@ -1,5 +1,5 @@
 import { PaletteMode } from '@mui/material';
-import { alpha, createTheme, ThemeOptions } from '@mui/material/styles';
+import { alpha, createTheme, darken, getContrastRatio, lighten, ThemeOptions } from '@mui/material/styles';
 
 // =====================================================================
 // HotelOpX Brand System (v2) — shared across web, mobile, desktop
@@ -83,21 +83,40 @@ const shadows = [
   ...Array(20).fill('0 28px 60px rgba(15, 27, 35, 0.12)')
 ] as unknown as ThemeOptions['shadows'];
 
-export const createAppTheme = (mode: PaletteMode) => {
+/** A business's own colours (#RRGGBB), from Settings → Branding. */
+export type BrandColors = { primary?: string | null; accent?: string | null };
+
+/**
+ * Keeps a business colour usable behind white text: a pale pick is darkened
+ * until it reads, so a hotel choosing a light theme colour still gets a
+ * legible sidebar and buttons.
+ */
+const readableOnWhiteText = (color: string) => {
+  let out = color;
+  for (let i = 0; i < 6 && getContrastRatio(out, '#FFFFFF') < 4.5; i += 1) out = darken(out, 0.15);
+  return out;
+};
+
+export const createAppTheme = (mode: PaletteMode, colors: BrandColors = {}) => {
   const isDark = mode === 'dark';
+  const navy = colors.primary ? readableOnWhiteText(colors.primary) : brand.navy;
+  const navyTint = colors.primary ? lighten(navy, 0.2) : brand.navyTint;
+  const gold = colors.accent || brand.gold;
+  const goldLight = colors.accent ? lighten(colors.accent, 0.25) : brand.goldLight;
+  const goldDark = colors.accent ? darken(colors.accent, 0.2) : brand.goldDark;
 
   const palette = {
     mode,
     primary: {
-      main: brand.navy,
-      light: brand.navyTint,
+      main: navy,
+      light: navyTint,
       dark: '#091B2E',
       contrastText: '#FFFFFF'
     },
     secondary: {
-      main: brand.gold,
-      light: brand.goldLight,
-      dark: brand.goldDark,
+      main: gold,
+      light: goldLight,
+      dark: goldDark,
       contrastText: brand.ink
     },
     // Status colours are mode-aware. The light-mode wine red only reaches
@@ -110,7 +129,7 @@ export const createAppTheme = (mode: PaletteMode) => {
       contrastText: isDark ? brand.ink : '#FFFFFF'
     },
     info: {
-      main: brand.navyTint,
+      main: navyTint,
       light: '#3F70A1',
       dark: '#0F3556',
       contrastText: '#FFFFFF'
@@ -243,10 +262,10 @@ export const createAppTheme = (mode: PaletteMode) => {
           ':root': {
             colorScheme: mode,
             // Brand tokens exposed as CSS variables — picked up by raw CSS / Ionic
-            '--hox-navy': brand.navy,
-            '--hox-navy-tint': brand.navyTint,
-            '--hox-gold': brand.gold,
-            '--hox-gold-light': brand.goldLight,
+            '--hox-navy': navy,
+            '--hox-navy-tint': navyTint,
+            '--hox-gold': gold,
+            '--hox-gold-light': goldLight,
             '--hox-emerald': brand.emerald,
             '--hox-amber': brand.amber,
             '--hox-wine': brand.wine,
@@ -329,7 +348,7 @@ export const createAppTheme = (mode: PaletteMode) => {
             }
           },
           containedPrimary: {
-            background: `linear-gradient(135deg, ${brand.navy} 0%, ${brand.navyTint} 100%)`,
+            background: `linear-gradient(135deg, ${navy} 0%, ${navyTint} 100%)`,
             // Stated explicitly rather than inherited. The `background`
             // shorthand below outranks the grey background-color MUI applies
             // when disabled, so without this the button kept its blue fill
@@ -338,25 +357,25 @@ export const createAppTheme = (mode: PaletteMode) => {
             // Item" buttons looked broken before anything was filled in.
             color: '#FFFFFF',
             '&:hover': {
-              background: `linear-gradient(135deg, ${brand.navyTint} 0%, #2E5C8E 100%)`
+              background: `linear-gradient(135deg, ${navyTint} 0%, #2E5C8E 100%)`
             },
             '&.Mui-disabled': {
               // Keep the fill and the white label, and signal "not yet" through
               // opacity instead. Returns to full strength once the form is valid.
-              background: `linear-gradient(135deg, ${brand.navy} 0%, ${brand.navyTint} 100%)`,
+              background: `linear-gradient(135deg, ${navy} 0%, ${navyTint} 100%)`,
               color: '#FFFFFF',
               opacity: 0.45,
               boxShadow: 'none'
             }
           },
           containedSecondary: {
-            background: `linear-gradient(135deg, ${brand.gold} 0%, ${brand.goldLight} 100%)`,
+            background: `linear-gradient(135deg, ${gold} 0%, ${goldLight} 100%)`,
             color: brand.ink,
             '&:hover': {
-              background: `linear-gradient(135deg, ${brand.goldDark} 0%, ${brand.gold} 100%)`
+              background: `linear-gradient(135deg, ${goldDark} 0%, ${gold} 100%)`
             },
             '&.Mui-disabled': {
-              background: `linear-gradient(135deg, ${brand.gold} 0%, ${brand.goldLight} 100%)`,
+              background: `linear-gradient(135deg, ${gold} 0%, ${goldLight} 100%)`,
               color: brand.ink,
               opacity: 0.45,
               boxShadow: 'none'
@@ -445,7 +464,7 @@ export const createAppTheme = (mode: PaletteMode) => {
           paper: {
             background: isDark
               ? '#111A22'
-              : brand.navy,
+              : navy,
             color: '#F8F4EC',
             borderRight: 'none'
           }
@@ -464,15 +483,15 @@ export const createAppTheme = (mode: PaletteMode) => {
               color: '#F8F4EC'
             },
             '&.Mui-selected': {
-              backgroundColor: alpha(brand.gold, 0.18),
-              color: brand.goldLight,
-              boxShadow: `inset 3px 0 0 0 ${brand.gold}`,
+              backgroundColor: alpha(gold, 0.18),
+              color: goldLight,
+              boxShadow: `inset 3px 0 0 0 ${gold}`,
               '&:hover': {
-                backgroundColor: alpha(brand.gold, 0.24)
+                backgroundColor: alpha(gold, 0.24)
               }
             },
             '&.Mui-selected .MuiListItemIcon-root': {
-              color: brand.goldLight
+              color: goldLight
             }
           }
         }
@@ -498,8 +517,8 @@ export const createAppTheme = (mode: PaletteMode) => {
               borderColor: isDark ? alpha('#F6F2EA', 0.24) : alpha(brand.ink, 0.26)
             },
             '&.Mui-focused fieldset': {
-              borderColor: brand.gold,
-              boxShadow: `0 0 0 4px ${alpha(brand.gold, 0.12)}`
+              borderColor: gold,
+              boxShadow: `0 0 0 4px ${alpha(gold, 0.12)}`
             }
           }
         }
@@ -535,7 +554,7 @@ export const createAppTheme = (mode: PaletteMode) => {
             color: palette?.text?.primary,
             fontSize: '0.9rem',
             '&:hover': {
-              backgroundColor: alpha(brand.gold, 0.08)
+              backgroundColor: alpha(gold, 0.08)
             }
           }
         }
@@ -596,7 +615,7 @@ export const createAppTheme = (mode: PaletteMode) => {
       MuiTabs: {
         styleOverrides: {
           indicator: {
-            backgroundColor: brand.gold,
+            backgroundColor: gold,
             height: 3,
             borderRadius: 3
           }
@@ -609,7 +628,7 @@ export const createAppTheme = (mode: PaletteMode) => {
             fontWeight: 600,
             fontSize: '0.9rem',
             minHeight: 44,
-            '&.Mui-selected': { color: brand.gold }
+            '&.Mui-selected': { color: gold }
           }
         }
       },
@@ -621,9 +640,9 @@ export const createAppTheme = (mode: PaletteMode) => {
             borderRadius: 10,
             border: `1px solid ${isDark ? alpha('#F6F2EA', 0.14) : alpha(brand.ink, 0.14)}`,
             '&.Mui-selected': {
-              backgroundColor: alpha(brand.gold, 0.16),
+              backgroundColor: alpha(gold, 0.16),
               color: brand.ink,
-              borderColor: brand.gold
+              borderColor: gold
             }
           }
         }

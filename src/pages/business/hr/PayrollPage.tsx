@@ -1,3 +1,5 @@
+import PoweredBy from '../../../components/branding/PoweredBy';
+import { useAuthStore } from '../../../store/authStore';
 import HrTabs from './HrTabs';
 import Layout from '../../../components/Layout';
 import { useCallback, useEffect, useState } from 'react';
@@ -58,6 +60,7 @@ const PayrollPage = () => {
   const [period, setPeriod] = useState(currentPeriod());
   const [generating, setGenerating] = useState(false);
 
+  const businessLogo = useAuthStore((state) => state.user?.logoUrl ?? null);
   const [payslip, setPayslip] = useState<Payslip | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -302,13 +305,10 @@ const PayrollPage = () => {
                     </Typography>
                   )}
                 </Box>
-                {/* Platform branding, not per-business. */}
-                <Box
-                  component="img"
-                  src="/logo.png"
-                  alt="HotelOpX"
-                  sx={{ height: 44, maxWidth: 160, objectFit: 'contain' }}
-                />
+                {/* The business's own logo; HotelOpX is the footer credit. */}
+                {businessLogo && (
+                  <Box component="img" src={businessLogo} alt="" sx={{ height: 44, maxWidth: 160, objectFit: 'contain' }} />
+                )}
               </Stack>
 
               <Divider sx={{ mb: 2 }} />
@@ -348,6 +348,7 @@ const PayrollPage = () => {
 
               <Divider sx={{ my: 2 }} />
               <Row label="NET PAY" value={formatNaira(payslip.netPay)} bold large />
+              <PoweredBy sx={{ mt: 2 }} />
 
               {payslip.employee.bankName && (
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
