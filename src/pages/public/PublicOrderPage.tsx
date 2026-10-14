@@ -56,6 +56,7 @@ const PublicOrderPage = () => {
   const [customerPhone, setCustomerPhone] = useState('');
   const [tableNumber, setTableNumber] = useState('');
   const [roomNumber, setRoomNumber] = useState('');
+  const [guestSurname, setGuestSurname] = useState('');
   const [notes, setNotes] = useState('');
   const [promotionCode, setPromotionCode] = useState('');
   /** Chosen from what the venue actually accepts (menu.paymentOptions). */
@@ -159,7 +160,11 @@ const PublicOrderPage = () => {
   // Default: online if the venue has a gateway, else the first in-person method.
   const effectivePayment: PaymentPreference = payment || (onlineOptions.length > 0 ? 'ONLINE' : manualOptions[0]);
 
-  const canSubmit = customerName.trim().length > 0 && lines.length > 0 && !submitting;
+  const canSubmit =
+    customerName.trim().length > 0
+    && lines.length > 0
+    && !submitting
+    && (effectivePayment !== 'ROOM' || (roomNumber.trim().length > 0 && guestSurname.trim().length > 0));
 
   const payOnline = async (provider: string) => {
     if (!confirmation) return;
@@ -190,6 +195,7 @@ const PublicOrderPage = () => {
         roomNumber: roomNumber.trim() || undefined,
         notes: notes.trim() || undefined,
         paymentPreference: effectivePayment,
+        ...(effectivePayment === 'ROOM' ? { guestSurname: guestSurname.trim() } : {}),
         promotionCode: promotionCode.trim() || undefined,
         items: lines.map((line) => ({ menuItemId: line.item.id, quantity: line.quantity }))
       });
@@ -273,7 +279,9 @@ const PublicOrderPage = () => {
             </Stack>
           ) : (
             <Alert severity="info" sx={{ mt: 3, textAlign: 'left' }}>
-              Pay by {effectivePayment.toLowerCase()} when your order is served. A staff member will come to you.
+              {effectivePayment === 'ROOM'
+                ? 'This order has been added to your room bill. You can settle it when you check out.'
+                : `Pay by ${effectivePayment.toLowerCase()} when your order is served. A staff member will come to you.`}
             </Alert>
           )}
 
@@ -557,7 +565,7 @@ const PublicOrderPage = () => {
                     fullWidth
                   />
                   <TextField
-                    label="Room number (optional)"
+                    label={effectivePayment === 'ROOM' ? 'Room number' : 'Room number (optional)'}
                     value={roomNumber}
                     onChange={(event) => setRoomNumber(event.target.value)}
                     fullWidth
@@ -578,10 +586,16 @@ const PublicOrderPage = () => {
                   )}
                   {manualOptions.map((method) => (
                     <option key={method} value={method}>
-                      {method === 'CARD' ? 'Card, when served' : method === 'TRANSFER' ? 'Bank transfer, when served' : 'Cash, when served'}
+                      {method === 'CARD' ? 'Card, when served' : method === 'TRANSFER' ? 'Bank transfer, when served' : method === 'ROOM' ? 'Charge to my room (hotel guests)' : 'Cash, when served'}
                     </option>
                   ))}
                 </TextField>
+                {effectivePayment === 'ROOM' && (
+                  <Stack spacing={1}>
+                    <Alert severity="info" sx={{ py: 0 }}>Enter your room number above and the surname on your booking; the order goes on your room bill.</Alert>
+                    <TextField label="Surname on your booking" value={guestSurname} onChange={(event) => setGuestSurname(event.target.value)} fullWidth required />
+                  </Stack>
+                )}
                 <TextField
                   label="Promo code (optional)"
                   value={promotionCode}

@@ -1,3 +1,5 @@
+import CheckoutSettlementDialog from '../../../components/reservations/CheckoutSettlementDialog';
+import { EditReservationDialog, VoidReservationDialog, useRoomPromotions } from '../../../components/reservations/ReservationDialogs';
 import { useAuthStore } from '../../../store/authStore';
 import { promotionsApi, type ApplicableRoomPromotion } from '../../../services/promotions';
 import LocalOfferRoundedIcon from '@mui/icons-material/LocalOfferRounded';
@@ -60,16 +62,31 @@ const statusColor = (status: string) => {
 const todayDate = () => new Date().toISOString().slice(0, 10);
 const tomorrowDate = () => new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+/** Plain-language status, so Checked In and Checked Out read at a glance. */
+const STATUS_LABEL: Record<string, string> = {
+  CHECKED_IN: 'Checked in',
+  CHECKED_OUT: 'Checked out',
+  CANCELLED: 'Voided',
+  NO_SHOW: 'No show',
+  CONFIRMED: 'Confirmed',
+  PENDING: 'Pending'
+};
+export const reservationStatusLabel = (status: string) => STATUS_LABEL[status] ?? status.replace(/_/g, ' ').toLowerCase();
+
 const ReservationTable = ({
   rows,
   onCheckIn,
   onCheckOut,
-  onView
+  onView,
+  onEdit,
+  onVoid
 }: {
   rows: ReservationRecord[];
   onCheckIn?: (reservationId: string) => void;
   onCheckOut?: (reservationId: string) => void;
   onView?: (reservationId: string) => void;
+  onEdit?: (reservation: ReservationRecord) => void;
+  onVoid?: (reservation: ReservationRecord) => void;
 }) => {
   return (
     <DataTable
@@ -98,7 +115,7 @@ const ReservationTable = ({
           label: 'Status',
           minWidth: 140,
           render: (reservation) => (
-            <Chip size="small" label={reservation.status} color={statusColor(reservation.status) as 'default'} />
+            <Chip size="small" label={reservationStatusLabel(reservation.status)} color={statusColor(reservation.status) as 'default'} />
           )
         },
         {
@@ -110,7 +127,7 @@ const ReservationTable = ({
         {
           key: 'actions',
           label: 'Action',
-          minWidth: 220,
+          minWidth: 320,
           render: (reservation) => (
             <Stack direction="row" spacing={1}>
               {onView && <Button size="small" onClick={() => onView(reservation.id)}>View</Button>}
@@ -119,6 +136,12 @@ const ReservationTable = ({
               )}
               {onCheckOut && reservation.status === 'CHECKED_IN' && (
                 <Button size="small" color="warning" onClick={() => onCheckOut(reservation.id)}>Check Out</Button>
+              )}
+              {onEdit && reservation.status !== 'CHECKED_OUT' && reservation.status !== 'CANCELLED' && (
+                <Button size="small" onClick={() => onEdit(reservation)}>Edit</Button>
+              )}
+              {onVoid && !['CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'].includes(reservation.status) && (
+                <Button size="small" color="error" onClick={() => onVoid(reservation)}>Void</Button>
               )}
             </Stack>
           )
@@ -262,6 +285,8 @@ const ReservationListCore = ({
   loader: (targetDate: string) => Promise<ReservationRecord[]>;
 }) => {
   const navigate = useNavigate();
+  const [editing, setEditing] = useState<ReservationRecord | null>(null);
+  const [voiding, setVoiding] = useState<ReservationRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [targetDate, setTargetDate] = useState(todayDate());
@@ -289,10 +314,9 @@ const ReservationListCore = ({
     await load();
   };
 
-  const checkOut = async (reservationId: string) => {
-    await reservationOpsService.checkOut(reservationId);
-    await load();
-  };
+  // Check-out goes through the bill: settle, then check out.
+  const [checkingOut, setCheckingOut] = useState<string | null>(null);
+  const checkOut = async (reservationId: string) => setCheckingOut(reservationId);
 
   return (
     <Layout>
@@ -317,6 +341,35 @@ const ReservationListCore = ({
           onCheckIn={(reservationId) => void checkIn(reservationId)}
           onCheckOut={(reservationId) => void checkOut(reservationId)}
           onView={(reservationId) => navigate(`/business/reservations/${reservationId}`)}
+          onEdit={setEditing}
+          onVoid={setVoiding}
+        />
+        <EditReservationDialog
+          reservation={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            void load();
+          }}
+        />
+        <VoidReservationDialog
+          reservation={voiding}
+          onClose={() => setVoiding(null)}
+          onVoided={() => {
+            setVoiding(null);
+            void load();
+          }}
+        />
+        <CheckoutSettlementDialog
+          reservationId={checkingOut}
+          onClose={() => {
+            setCheckingOut(null);
+            void load();
+          }}
+          onCheckedOut={() => {
+            setCheckingOut(null);
+            void load();
+          }}
         />
       </Container>
     </Layout>
@@ -644,7 +697,7 @@ export const CreateReservationPage = () => {
               >
                 {roomTypes.map((type) => (
                   <MenuItem key={type.id} value={type.code}>
-                    {type.name} — ₦{type.baseRate.toLocaleString()}/night · {type.maxAdults}A {type.maxChildren}C
+                    {type.name}
                   </MenuItem>
                 ))}
               </TextField>
@@ -759,6 +812,35 @@ export const CreateReservationPage = () => {
   );
 };
 
+/**
+ * The room's promotions for this stay, shown like amenities. Picking one is
+ * done through Edit, which re-prices the stay on the server.
+ */
+const StayPromotions = ({ reservation }: { reservation: ReservationRecord }) => {
+  const { promotions } = useRoomPromotions({
+    roomTypeCode: reservation.requestedRoomType,
+    roomId: reservation.roomId ?? null,
+    guestId: reservation.guestId,
+    checkIn: new Date(reservation.checkIn).toISOString().slice(0, 10),
+    checkOut: new Date(reservation.checkOut).toISOString().slice(0, 10)
+  });
+  if (!promotions.length) return null;
+  return (
+    <Box sx={{ mt: 2 }}>
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>Promotions for this room</Typography>
+      <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+        {promotions.map((promo) => (
+          <Tooltip key={promo.id} title={promo.eligible ? `Saves ₦${promo.discount.toLocaleString()}` : promo.reasons.join('; ')}>
+            <span>
+              <Chip size="small" color={promo.eligible ? 'secondary' : 'default'} variant="outlined" label={`${promo.name}${promo.autoApply ? ' (auto)' : ''}`} disabled={!promo.eligible} />
+            </span>
+          </Tooltip>
+        ))}
+      </Stack>
+    </Box>
+  );
+};
+
 export const ReservationDetailPage = () => {
   const { id } = useParams();
   const { on } = useWebSocket();
@@ -766,6 +848,8 @@ export const ReservationDetailPage = () => {
   const [error, setError] = useState('');
   const [reservation, setReservation] = useState<ReservationRecord | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [editing, setEditing] = useState<ReservationRecord | null>(null);
+  const [voiding, setVoiding] = useState<ReservationRecord | null>(null);
   const [guestPhotoUrl, setGuestPhotoUrl] = useState<string | null>(null);
 
   /**
@@ -874,10 +958,10 @@ export const ReservationDetailPage = () => {
     await load();
   };
 
+  const [settling, setSettling] = useState(false);
   const performCheckOut = async () => {
     if (!id) return;
-    await reservationOpsService.checkOut(id);
-    await load();
+    setSettling(true);
   };
 
   return (
@@ -903,6 +987,8 @@ export const ReservationDetailPage = () => {
               <Typography><strong>Balance:</strong> ₦{reservation.balance.toLocaleString()}</Typography>
               <Typography><strong>Q-Room:</strong> {reservation.isQRoom ? `Queued (priority ${reservation.qRoomPriority || 0})` : 'No'}</Typography>
             </Stack>
+
+            <StayPromotions reservation={reservation} />
 
             <Stack direction="row" spacing={1.5} sx={{ mt: 3 }}>
               <Button variant="outlined" onClick={() => setAssignOpen(true)}>
@@ -930,11 +1016,45 @@ export const ReservationDetailPage = () => {
                   Check Out
                 </Button>
               )}
+              {reservation.status !== 'CHECKED_OUT' && reservation.status !== 'CANCELLED' && (
+                <Button variant="outlined" onClick={() => setEditing(reservation)}>Edit</Button>
+              )}
+              {!['CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'].includes(reservation.status) && (
+                <Button variant="outlined" color="error" onClick={() => setVoiding(reservation)}>Void</Button>
+              )}
               <Button variant="outlined" onClick={() => void load()}>Refresh</Button>
               <Button variant="outlined" color="secondary" onClick={handlePrint}>Print</Button>
             </Stack>
           </Paper>
         )}
+
+        <EditReservationDialog
+          reservation={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            void load();
+          }}
+        />
+        <VoidReservationDialog
+          reservation={voiding}
+          onClose={() => setVoiding(null)}
+          onVoided={() => {
+            setVoiding(null);
+            void load();
+          }}
+        />
+        <CheckoutSettlementDialog
+          reservationId={settling ? id ?? null : null}
+          onClose={() => {
+            setSettling(false);
+            void load();
+          }}
+          onCheckedOut={() => {
+            setSettling(false);
+            void load();
+          }}
+        />
 
         <RoomAssignmentDialog
           open={assignOpen}
@@ -1042,7 +1162,7 @@ export const CheckInPage = () => {
               label: 'Status',
               minWidth: 120,
               render: (reservation) => (
-                <Chip size="small" label={reservation.status} color={statusColor(reservation.status) as 'default'} />
+                <Chip size="small" label={reservationStatusLabel(reservation.status)} color={statusColor(reservation.status) as 'default'} />
               )
             },
             {
@@ -1107,6 +1227,7 @@ export const CheckInPage = () => {
 };
 
 export const CheckOutPage = () => {
+  const [checkoutId, setCheckoutId] = useState<string | null>(null);
   const { on } = useWebSocket();
   const [targetDate, setTargetDate] = useState(todayDate());
   const [loading, setLoading] = useState(true);
@@ -1201,7 +1322,7 @@ export const CheckOutPage = () => {
               label: 'Status',
               minWidth: 130,
               render: (reservation) => (
-                <Chip size="small" label={reservation.status} color={statusColor(reservation.status) as 'default'} />
+                <Chip size="small" label={reservationStatusLabel(reservation.status)} color={statusColor(reservation.status) as 'default'} />
               )
             },
             {
@@ -1212,14 +1333,25 @@ export const CheckOutPage = () => {
                 <Button
                   size="small"
                   color="warning"
-                  disabled={reservation.status !== 'CHECKED_IN' || reservation.balance > 0}
-                  onClick={() => void reservationOpsService.checkOut(reservation.id).then(() => load())}
+                  disabled={reservation.status !== 'CHECKED_IN'}
+                  onClick={() => setCheckoutId(reservation.id)}
                 >
-                  Quick Check-Out
+                  Settle & check out
                 </Button>
               )
             }
           ]}
+        />
+        <CheckoutSettlementDialog
+          reservationId={checkoutId}
+          onClose={() => {
+            setCheckoutId(null);
+            void load();
+          }}
+          onCheckedOut={() => {
+            setCheckoutId(null);
+            void load();
+          }}
         />
       </Container>
     </Layout>

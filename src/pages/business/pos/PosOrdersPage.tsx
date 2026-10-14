@@ -27,6 +27,8 @@ import { posService } from '../../../services/api';
 import { formatNaira, posFlow, type Outlet, type PosOrderRow } from '../../../services/posFlow';
 import DiscountModal, { DiscountModalItem } from '../../../components/modals/DiscountModal';
 import { NewOrderDialog } from '../../../components/pos/NewOrderDialog';
+import EditOrderDialog from '../../../components/pos/EditOrderDialog';
+import { usePermissionStore } from '../../../store/permissionStore';
 import { TakePaymentDialog } from '../../../components/pos/TakePaymentDialog';
 import { useWebSocket } from '../../../hooks/useWebSocket';
 import { getApiErrorMessage } from '../../../utils/apiError';
@@ -79,6 +81,8 @@ const PosOrdersPage = () => {
   const [discountOrder, setDiscountOrder] = useState<PosOrderRow | null>(null);
   const [stationBlock, setStationBlock] = useState<{ order: PosOrderRow; message: string } | null>(null);
   const [voiding, setVoiding] = useState<PosOrderRow | null>(null);
+  const [editingOrder, setEditingOrder] = useState<PosOrderRow | null>(null);
+  const canManageOrders = usePermissionStore((state) => state.can)('MANAGE_SALES_ORDERS');
   const [voidReason, setVoidReason] = useState('');
 
   const load = useCallback(async () => {
@@ -256,7 +260,9 @@ const PosOrdersPage = () => {
               label: 'Items',
               minWidth: 200,
               render: (order) =>
-                (Array.isArray(order.items) ? order.items : []).map((line) => `${line.quantity}× ${line.name}`).join(', ') || '—'
+                (Array.isArray(order.items) ? order.items : [])
+                  .map((line) => `${line.quantity}× ${line.name}${line.addOns?.length ? ` (+ ${line.addOns.map((a) => a.name).join(', ')})` : ''}`)
+                  .join(', ') || '—'
             },
             { key: 'total', label: 'Total', minWidth: 110, render: (order) => formatNaira(order.total) },
             {
@@ -310,7 +316,11 @@ const PosOrdersPage = () => {
                         Discount
                       </Button>
                     )}
-                    {live && order.paymentStatus !== 'COMPLETED' && (
+                    {/* Edit and Void: Admin, GM and department managers only. */}
+                    {live && order.paymentStatus !== 'COMPLETED' && canManageOrders && (
+                      <Button size="small" onClick={() => setEditingOrder(order)}>Edit</Button>
+                    )}
+                    {live && order.paymentStatus !== 'COMPLETED' && canManageOrders && (
                       <Button size="small" color="error" onClick={() => { setVoiding(order); setVoidReason(''); }}>Void</Button>
                     )}
                   </Stack>
@@ -393,6 +403,15 @@ const PosOrdersPage = () => {
             }}
           />
         )}
+        <EditOrderDialog
+          order={editingOrder}
+          onClose={() => setEditingOrder(null)}
+          onSaved={(updated) => {
+            setEditingOrder(null);
+            enqueueSnackbar(`${updated.orderNumber} updated`, { variant: 'success' });
+            void load();
+          }}
+        />
       </Container>
     </Layout>
   );

@@ -2,7 +2,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
+  Button,
+  Chip,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Tab,
+  Tabs,
   Grid,
   Paper,
   Stack,
@@ -17,6 +25,11 @@ import {
 import Layout from '../../../components/Layout';
 import { api } from '../../../services/api';
 import { getApiErrorMessage } from '../../../utils/apiError';
+import { useSnackbar } from 'notistack';
+import { usePermissionStore } from '../../../store/permissionStore';
+import { posFlow, type PosOrderRow } from '../../../services/posFlow';
+import { NewOrderDialog } from '../../../components/pos/NewOrderDialog';
+import EditOrderDialog from '../../../components/pos/EditOrderDialog';
 
 /** Every sale at every outlet: totals, per outlet, per day, payment methods and best sellers. */
 
@@ -32,7 +45,124 @@ const money = (value: number) =>
   new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(value || 0);
 const isoDay = (date: Date) => date.toISOString().slice(0, 10);
 
+/**
+ * Orders across every outlet, with an action box (Edit, Void) for the
+ * Business Admin, General Manager and department managers.
+ */
+const OrdersPanel: React.FC = () => {
+  const can = usePermissionStore((state) => state.can);
+  const canManage = can('MANAGE_SALES_ORDERS');
+  const { enqueueSnackbar } = useSnackbar();
+  const [orders, setOrders] = useState<PosOrderRow[]>([]);
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<PosOrderRow | null>(null);
+  const [voiding, setVoiding] = useState<PosOrderRow | null>(null);
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
+
+  const load = () =>
+    posFlow
+      .orders()
+      .then((rows) => setOrders([...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 200)))
+      .catch((err) => setError(getApiErrorMessage(err, 'Could not load orders')));
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const confirmVoid = async () => {
+    if (!voiding) return;
+    try {
+      await posFlow.voidOrder(voiding.id, reason.trim());
+      enqueueSnackbar(`${voiding.orderNumber} voided`, { variant: 'success' });
+      setVoiding(null);
+      void load();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not void the order'));
+    }
+  };
+
+  return (
+    <Stack spacing={2}>
+      {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Typography variant="body2" color="text.secondary">Latest orders at every outlet.</Typography>
+        <Button variant="contained" onClick={() => setCreating(true)}>Take order</Button>
+      </Stack>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflowX: 'auto' }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Order</TableCell>
+              <TableCell>Outlet</TableCell>
+              <TableCell>Items</TableCell>
+              <TableCell align="right">Total</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Payment</TableCell>
+              {canManage && <TableCell align="right">Actions</TableCell>}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {orders.map((order) => {
+              const changeable = order.orderStatus !== 'VOIDED' && order.orderStatus !== 'COMPLETED' && order.paymentStatus !== 'COMPLETED';
+              return (
+                <TableRow key={order.id}>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={700}>{order.orderNumber}</Typography>
+                    <Typography variant="caption" color="text.secondary">{new Date(order.createdAt).toLocaleString()}</Typography>
+                  </TableCell>
+                  <TableCell>{order.outlet?.name ?? '—'}</TableCell>
+                  <TableCell sx={{ maxWidth: 320 }}>
+                    {(order.items ?? []).map((line) => `${line.quantity}× ${line.name}${line.addOns?.length ? ` (+ ${line.addOns.map((a) => a.name).join(', ')})` : ''}`).join(', ')}
+                  </TableCell>
+                  <TableCell align="right">{money(order.total)}</TableCell>
+                  <TableCell><Chip size="small" label={order.orderStatus.replace(/_/g, ' ').toLowerCase()} color={order.orderStatus === 'VOIDED' ? 'error' : order.orderStatus === 'COMPLETED' ? 'success' : 'default'} /></TableCell>
+                  <TableCell>{order.paymentStatus === 'COMPLETED' ? order.paymentMethod ?? 'paid' : 'unpaid'}</TableCell>
+                  {canManage && (
+                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                      <Button size="small" disabled={!changeable} onClick={() => setEditing(order)}>Edit</Button>
+                      <Button size="small" color="error" disabled={!changeable} onClick={() => { setVoiding(order); setReason(''); }}>Void</Button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Paper>
+      <NewOrderDialog
+        open={creating}
+        onClose={() => setCreating(false)}
+        onCreated={(orderNumber: string) => {
+          setCreating(false);
+          enqueueSnackbar(`Order ${orderNumber} created`, { variant: 'success' });
+          void load();
+        }}
+      />
+      <EditOrderDialog
+        order={editing}
+        onClose={() => setEditing(null)}
+        onSaved={(updated) => {
+          setEditing(null);
+          enqueueSnackbar(`${updated.orderNumber} updated`, { variant: 'success' });
+          void load();
+        }}
+      />
+      <Dialog open={Boolean(voiding)} onClose={() => setVoiding(null)} fullWidth maxWidth="xs">
+        <DialogTitle>Void order {voiding?.orderNumber}</DialogTitle>
+        <DialogContent>
+          <TextField label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth multiline minRows={2} sx={{ mt: 1 }} autoFocus />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVoiding(null)}>Keep</Button>
+          <Button color="error" variant="contained" disabled={reason.trim().length < 3} onClick={() => void confirmVoid()}>Void order</Button>
+        </DialogActions>
+      </Dialog>
+    </Stack>
+  );
+};
+
 const SalesSummaryPage: React.FC = () => {
+  const [tab, setTab] = useState<'summary' | 'orders'>('summary');
   const [from, setFrom] = useState(() => isoDay(new Date(Date.now() - 6 * 86_400_000)));
   const [to, setTo] = useState(() => isoDay(new Date()));
   const [data, setData] = useState<SalesSummary | null>(null);
@@ -61,6 +191,12 @@ const SalesSummaryPage: React.FC = () => {
             <TextField size="small" type="date" label="To" InputLabelProps={{ shrink: true }} value={to} onChange={(e) => setTo(e.target.value)} />
           </Stack>
         </Stack>
+        <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab value="summary" label="Summary" />
+          <Tab value="orders" label="Orders" />
+        </Tabs>
+        {tab === 'orders' ? <OrdersPanel /> : (
+        <>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
         <Grid container spacing={2} sx={{ mb: 2 }}>
@@ -165,6 +301,8 @@ const SalesSummaryPage: React.FC = () => {
             </Paper>
           </Grid>
         </Grid>
+        </>
+        )}
       </Container>
     </Layout>
   );

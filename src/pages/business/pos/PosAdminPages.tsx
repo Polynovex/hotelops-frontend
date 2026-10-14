@@ -1,3 +1,4 @@
+import AddOnsDialog from '../../../components/pos/AddOnsDialog';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -512,6 +513,7 @@ export const PosMenuManagementPage = () => {
   const [toast, setToast] = useState('');
   const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PosMenuItem | null>(null);
+  const [addOnsItem, setAddOnsItem] = useState<PosMenuItem | null>(null);
 
   /** Records carry the ids the delete calls need; the name lists feed the form. */
   const [categoryRecords, setCategoryRecords] = useState<SetupRecord[]>([]);
@@ -1038,6 +1040,11 @@ export const PosMenuManagementPage = () => {
                   subject={item.name}
                   actions={[
                     {
+                      key: 'addons',
+                      label: `Add-ons${Array.isArray(item.modifiers) && item.modifiers.length ? ` (${item.modifiers.length})` : ''}`,
+                      onClick: () => setAddOnsItem(item)
+                    },
+                    {
                       key: 'availability',
                       label: item.isAvailable ? 'Mark unavailable' : 'Mark available',
                       onClick: () => void toggleAvailability(item.id, item.isAvailable)
@@ -1122,6 +1129,15 @@ export const PosMenuManagementPage = () => {
           onClose={() => setToast('')}
           message={toast}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        />
+        <AddOnsDialog
+          item={addOnsItem}
+          onClose={() => setAddOnsItem(null)}
+          onSaved={() => {
+            setAddOnsItem(null);
+            setToast('Add-ons saved');
+            void load();
+          }}
         />
       </Container>
     </Layout>

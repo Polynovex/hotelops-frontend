@@ -1,3 +1,4 @@
+import { addOnsOf } from './AddOnsDialog';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -39,7 +40,10 @@ import { getApiErrorMessage } from '../../utils/apiError';
  * configuration defines — and shows an estimate; the server sets the price.
  */
 
-type CartLine = { item: PosMenuItem; quantity: number; notes: string };
+type CartLine = { item: PosMenuItem; quantity: number; notes: string; addOnIds: string[] };
+
+const unitPriceOf = (line: CartLine) =>
+  line.item.price + addOnsOf(line.item.modifiers).filter((a) => line.addOnIds.includes(a.id)).reduce((sum, a) => sum + a.price, 0);
 
 export function NewOrderDialog({
   open,
@@ -110,7 +114,7 @@ export function NewOrderDialog({
       const existing = lines.find((line) => line.item.id === item.id);
       return existing
         ? lines.map((line) => (line.item.id === item.id ? { ...line, quantity: Math.min(line.quantity + 1, 99) } : line))
-        : [...lines, { item, quantity: 1, notes: '' }];
+        : [...lines, { item, quantity: 1, notes: '', addOnIds: [] }];
     });
   const change = (itemId: string, delta: number) =>
     setCart((lines) =>
@@ -120,7 +124,7 @@ export function NewOrderDialog({
     );
 
   const estimate = cart.reduce(
-    (sum, line) => sum + line.item.price * line.quantity * (1 + (line.item.taxRate || 0) / 100),
+    (sum, line) => sum + unitPriceOf(line) * line.quantity * (1 + (line.item.taxRate || 0) / 100),
     0
   );
 
@@ -150,7 +154,7 @@ export function NewOrderDialog({
         tableNumber: tableNumber || undefined,
         bookingId: orderType === 'ROOM_SERVICE' ? bookingId.trim() : undefined,
         ...(promoCode.trim() ? { promotionCodes: [promoCode.trim().toUpperCase()] } : {}),
-        items: cart.map((line) => ({ menuItemId: line.item.id, quantity: line.quantity, notes: line.notes || undefined }))
+        items: cart.map((line) => ({ menuItemId: line.item.id, quantity: line.quantity, notes: line.notes || undefined, addOns: line.addOnIds }))
       });
       reset();
       setPromoCode('');
@@ -259,12 +263,38 @@ export function NewOrderDialog({
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography variant="body2" fontWeight={600} noWrap>{line.item.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">{formatNaira(line.item.price * line.quantity)}</Typography>
+                      <Typography variant="caption" color="text.secondary">{formatNaira(unitPriceOf(line) * line.quantity)}</Typography>
                     </Box>
                     <IconButton size="small" onClick={() => change(line.item.id, -1)} aria-label={`Remove one ${line.item.name}`}><RemoveRounded fontSize="small" /></IconButton>
                     <Typography sx={{ minWidth: 20, textAlign: 'center' }}>{line.quantity}</Typography>
                     <IconButton size="small" onClick={() => change(line.item.id, 1)} aria-label={`Add one ${line.item.name}`}><AddRounded fontSize="small" /></IconButton>
                   </Stack>
+                  {addOnsOf(line.item.modifiers).length > 0 && (
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ my: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center', mr: 0.5 }}>Add-ons:</Typography>
+                      {addOnsOf(line.item.modifiers).map((addOn) => {
+                        const on = line.addOnIds.includes(addOn.id);
+                        return (
+                          <Chip
+                            key={addOn.id}
+                            size="small"
+                            color={on ? 'primary' : 'default'}
+                            variant={on ? 'filled' : 'outlined'}
+                            label={`${addOn.name} +${formatNaira(addOn.price)}`}
+                            onClick={() =>
+                              setCart((lines) =>
+                                lines.map((entry) =>
+                                  entry.item.id === line.item.id
+                                    ? { ...entry, addOnIds: on ? entry.addOnIds.filter((id) => id !== addOn.id) : [...entry.addOnIds, addOn.id] }
+                                    : entry
+                                )
+                              )
+                            }
+                          />
+                        );
+                      })}
+                    </Stack>
+                  )}
                   <TextField
                     size="small"
                     variant="standard"

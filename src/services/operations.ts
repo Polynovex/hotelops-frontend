@@ -805,7 +805,59 @@ const mapGroup = (raw: Record<string, unknown>): GroupRecord => ({
   updatedAt: String(raw.updatedAt || raw.createdAt || new Date().toISOString())
 });
 
+export interface ReservationBill {
+  booking: { id: string; bookingNumber: string; status: string; guestName: string; roomNumber: string | null; checkIn: string; checkOut: string };
+  accommodation: { total: number; outstanding: number };
+  charges: Array<{
+    id: string;
+    description: string;
+    items: string | null;
+    outlet: string | null;
+    roomNumber: string | null;
+    source: string;
+    totalAmount: number;
+    postedAt: string;
+    status: 'PENDING' | 'SETTLED';
+    settledAt: string | null;
+  }>;
+  totals: { charges: number; pending: number; paid: number; balance: number };
+}
+
 export const reservationOpsService = {
+  /**
+   * Edits a stay. The server re-prices it from the room rate and the chosen
+   * promotions; no total is sent.
+   */
+  async updateReservation(
+    reservationId: string,
+    changes: {
+      arrivalDate?: string;
+      departureDate?: string;
+      adults?: number;
+      children?: number;
+      requestedRoomType?: string;
+      roomId?: string | null;
+      promotionIds?: string[];
+    }
+  ): Promise<ReservationRecord> {
+    const response = await api.put(`/reservations/${reservationId}`, changes);
+    return mapBookingToReservation(response.data as Record<string, unknown>);
+  },
+  /** Everything owed on a stay: the stay and each posted charge with its status. */
+  async getBill(reservationId: string): Promise<ReservationBill> {
+    return (await api.get(`/reservations/${reservationId}/bill`)).data as ReservationBill;
+  },
+  /** Settles all of the bill, or chosen charges (and optionally the stay). */
+  async settleBill(
+    reservationId: string,
+    payload: { all?: boolean; chargeIds?: string[]; includeAccommodation?: boolean; method: string; reference?: string }
+  ): Promise<{ bill: ReservationBill; payment: { reference: string; amount: number } }> {
+    return (await api.post(`/reservations/${reservationId}/settle`, payload)).data;
+  },
+  /** Voids (cancels) a reservation that has not been checked in. */
+  async voidReservation(reservationId: string, reason: string): Promise<void> {
+    await api.delete(`/reservations/${reservationId}`, { data: { reason } });
+  },
   async listReservations(): Promise<ReservationRecord[]> {
     if (isDemoMode()) {
       return sortReservations(readDemoReservations());
@@ -964,7 +1016,7 @@ export const reservationOpsService = {
     pushAudit({ action: 'CHECK_IN', entity: 'RESERVATION', entityId: reservationId, details: {} });
   },
 
-  async checkOut(reservationId: string): Promise<void> {
+  async checkOut(reservationId: string, options: { overrideReason?: string } = {}): Promise<void> {
     if (isDemoMode()) {
       const rows = readDemoReservations().map((row) =>
         row.id === reservationId ? { ...row, status: 'CHECKED_OUT' } : row
@@ -974,13 +1026,19 @@ export const reservationOpsService = {
       return;
     }
 
+    // Falls back to older endpoints only when one does not exist; a refusal
+    // (e.g. the bill is not settled) is the answer and is passed on.
+    const body = options.overrideReason ? { overrideReason: options.overrideReason } : {};
+    const isMissing = (error: unknown) => (error as { response?: { status?: number } })?.response?.status === 404;
     try {
-      await api.post(`/reservations/${reservationId}/check-out`);
-    } catch (_error) {
+      await api.post(`/reservations/${reservationId}/check-out`, body);
+    } catch (error) {
+      if (!isMissing(error)) throw error;
       try {
-        await api.post(`/reservations/${reservationId}/checkout`);
-      } catch (_legacyError) {
-        await api.post(`/bookings/${reservationId}/check-out`);
+        await api.post(`/reservations/${reservationId}/checkout`, body);
+      } catch (legacyError) {
+        if (!isMissing(legacyError)) throw legacyError;
+        await api.post(`/bookings/${reservationId}/check-out`, body);
       }
     }
     pushAudit({ action: 'CHECK_OUT', entity: 'RESERVATION', entityId: reservationId, details: {} });

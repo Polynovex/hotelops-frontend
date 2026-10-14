@@ -88,7 +88,15 @@ const KdsPage = () => {
         notifyKitchen();
       }),
       on('pos.station.updated', () => void load()),
-      on('pos.order.paid', () => void load())
+      on('pos.order.paid', () => void load()),
+      // An order edited or voided after it reached the kitchen.
+      on('pos.order.updated', (payload: unknown) => {
+        void load();
+        const change = payload as { orderNumber?: string; action?: string } | undefined;
+        const what = change?.action === 'VOID_ORDER' ? 'voided' : change?.action === 'VOID_ITEM' ? 'had an item voided' : 'was changed';
+        enqueueSnackbar(`Ticket ${change?.orderNumber ?? ''} ${what}`, { variant: 'warning' });
+        notifyKitchen();
+      })
     ];
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
   }, [on, load, enqueueSnackbar]);
@@ -158,6 +166,9 @@ const KdsPage = () => {
             {linesFor(order).map((line, index) => (
               <li key={`${line.menuItemId}-${index}`}>
                 <Typography variant="body1" fontWeight={700} component="span">{line.quantity}× {line.name}</Typography>
+                {line.addOns?.length ? (
+                  <Typography variant="body2" fontWeight={700} color="primary" component="div">+ {line.addOns.map((a) => a.name).join(', ')}</Typography>
+                ) : null}
                 {line.kitchenStation && station === 'ALL' && (
                   <Typography variant="caption" color="text.secondary" component="span"> · {line.kitchenStation}</Typography>
                 )}

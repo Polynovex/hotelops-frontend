@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Box, Card, CardContent, Chip, Container, Grid, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Card, CardContent, Chip, Container, Grid, MenuItem, Stack, Tab, Tabs, TextField, Typography } from '@mui/material';
+import RoomBillsPanel from '../../../components/pos/RoomBillsPanel';
 import Layout from '../../../components/Layout';
 import DataTable from '../../../components/common/DataTable';
 import LogoLoader from '../../../components/LogoLoader';
@@ -12,6 +13,7 @@ import { getApiErrorMessage } from '../../../utils/apiError';
  * the till or online on a QR order, all posted to the central orders account.
  */
 export default function PosPaymentsPage() {
+  const [tab, setTab] = useState<'payments' | 'rooms'>('payments');
   const { on } = useWebSocket();
   const today = new Date().toISOString().slice(0, 10);
   const [range, setRange] = useState({ from: today, to: today });
@@ -62,6 +64,12 @@ export default function PosPaymentsPage() {
             Every payment taken at the till or online, posted to the central orders account.
           </Typography>
         </Box>
+        <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab value="payments" label="Payments" />
+          <Tab value="rooms" label="Room bills" />
+        </Tabs>
+        {tab === 'rooms' ? <RoomBillsPanel /> : (
+        <>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }}>
@@ -118,6 +126,8 @@ export default function PosPaymentsPage() {
               { key: 'reference', label: 'Reference', minWidth: 180 }
             ]}
           />
+        )}
+        </>
         )}
       </Container>
     </Layout>

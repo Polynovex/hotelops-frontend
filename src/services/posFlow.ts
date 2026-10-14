@@ -26,6 +26,8 @@ export interface MenuItem {
   imageUrl?: string | null;
   isActive: boolean;
   isAvailable: boolean;
+  /** Priced add-ons configured on the item: [{ id, name, price }]. */
+  modifiers?: unknown;
 }
 
 export interface PosTable {
@@ -38,6 +40,8 @@ export interface PosTable {
 }
 
 export interface OrderLine {
+  /** Stable id, used to void or edit a single item. */
+  lineId?: string;
   menuItemId: string;
   name: string;
   quantity: number;
@@ -45,6 +49,8 @@ export interface OrderLine {
   lineTotal: number;
   notes?: string;
   kitchenStation?: string | null;
+  addOns?: Array<{ id: string; name: string; price: number }>;
+  addOnUnitPrice?: number;
 }
 
 export type OrderStatus = 'OPEN' | 'SENT_TO_KITCHEN' | 'READY' | 'COMPLETED' | 'VOIDED';
@@ -73,9 +79,26 @@ export interface PosOrderRow {
   createdAt: string;
 }
 
+export interface RoomBill {
+  id: string;
+  roomNumber: string | null;
+  guestName: string;
+  bookingNumber: string;
+  orderNumber: string | null;
+  outlet: string | null;
+  /** Items separated by commas. */
+  items: string;
+  totalAmount: number;
+  source: string;
+  status: 'PENDING' | 'SETTLED';
+  postedAt: string;
+  settledAt: string | null;
+}
+
 export interface PaymentOptions {
   online: Array<{ provider: string; publicKey: string | null; testMode: boolean }>;
-  manual: Array<'CARD' | 'TRANSFER' | 'CASH'>;
+  /** ROOM = send the bill to a checked-in guest's room. */
+  manual: Array<'CARD' | 'TRANSFER' | 'CASH' | 'ROOM'>;
   acceptCash: boolean;
 }
 
@@ -115,6 +138,25 @@ export interface TimetableEntry {
   /** How much the timetable expects to be made, e.g. 40 portions. */
   plannedQuantity?: number | null;
   unit?: string | null;
+  outletId?: string | null;
+  menuItemId?: string | null;
+}
+
+/** One entry in an outlet kitchen's production table. */
+export interface ProductionLogRow {
+  id: string;
+  date: string;
+  outletId: string | null;
+  menuItemId: string | null;
+  dishName: string;
+  mealPeriod: string | null;
+  portions: number;
+  wasted: number;
+  planned: number | null;
+  notes: string | null;
+  recordedBy: string;
+  shift: { id: string; openedAt: string; closedAt: string | null } | null;
+  recordedAt: string;
 }
 
 /** Planned vs actually made, for one day. */
@@ -189,7 +231,7 @@ export const posFlow = {
     bookingId?: string;
     /** Codes the guest presented; auto-apply promotions need none. */
     promotionCodes?: string[];
-    items: Array<{ menuItemId: string; quantity: number; notes?: string }>;
+    items: Array<{ menuItemId: string; quantity: number; notes?: string; addOns?: string[] }>;
   }) {
     const { data } = await api.post('/pos/orders', { ...payload, clientId: `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
     return (data?.order ?? data) as PosOrderRow;
@@ -213,6 +255,26 @@ export const posFlow = {
   },
   async complete(orderId: string) {
     return (await api.post(`/pos/orders/${orderId}/complete`, {})).data as PosOrderRow;
+  },
+  /** Replaces a placed order's lines (needs Manage sales orders). */
+  async editOrder(orderId: string, items: Array<{ lineId?: string; menuItemId: string; quantity: number; notes?: string; addOns?: string[] }>, reason: string) {
+    return (await api.put(`/pos/orders/${orderId}`, { items, reason })).data as PosOrderRow;
+  },
+  /** Voids one item on a placed order; the last item voids the order. */
+  async voidOrderItem(orderId: string, lineId: string, reason: string) {
+    return (await api.post(`/pos/orders/${orderId}/items/${lineId}/void`, { reason })).data as PosOrderRow;
+  },
+  /** Checked-in rooms an order can be billed to. */
+  async chargeableRooms(): Promise<Array<{ bookingId: string; roomNumber: string; guestName: string }>> {
+    return list((await api.get('/pos/room-charge/rooms')).data);
+  },
+  /** "Send bill to room": posts the order to the guest's room bill. */
+  async chargeToRoom(orderId: string, roomNumber: string) {
+    return (await api.post(`/pos/orders/${orderId}/charge-to-room`, { roomNumber })).data as { roomNumber: string; guestName: string };
+  },
+  /** Bills sent to rooms, with items, total, room and settlement status. */
+  async roomBills(params?: { status?: 'PENDING' | 'SETTLED'; roomNumber?: string; from?: string; to?: string }): Promise<RoomBill[]> {
+    return list((await api.get('/room-bills', { params })).data);
   },
   async voidOrder(orderId: string, reason: string) {
     return (await api.post(`/pos/orders/${orderId}/void`, { reason })).data as PosOrderRow;
@@ -247,24 +309,34 @@ export const posFlow = {
   async kitchenOverview(date?: string): Promise<KitchenOverview> {
     return (await api.get('/kitchen/overview', { params: date ? { date } : undefined })).data as KitchenOverview;
   },
-  async timetable(): Promise<TimetableEntry[]> {
-    return list<TimetableEntry>((await api.get('/kitchen/timetable')).data);
+  /** An outlet's weekly plan (plus older hotel-wide entries). */
+  async timetable(outletId?: string): Promise<TimetableEntry[]> {
+    return list<TimetableEntry>((await api.get('/kitchen/timetable', { params: outletId ? { outletId } : undefined })).data);
   },
-  async production(date?: string): Promise<KitchenProduction> {
-    return (await api.get('/kitchen/production', { params: date ? { date } : undefined })).data as KitchenProduction;
+  async production(date?: string, outletId?: string): Promise<KitchenProduction> {
+    return (await api.get('/kitchen/production', { params: { ...(date ? { date } : {}), ...(outletId ? { outletId } : {}) } })).data as KitchenProduction;
   },
+  /** Logs portions made: the dish comes from the outlet's menu. */
   async recordProduction(payload: {
+    outletId?: string;
+    menuItemId?: string;
     timetableEntryId?: string;
     dishName?: string;
-    producedQuantity: number;
-    wastedQuantity?: number;
-    unit?: string;
+    portions: number;
+    wasted?: number;
     notes?: string;
     date?: string;
   }) {
     return (await api.post('/kitchen/production', payload)).data;
   },
-  async addTimetableEntry(payload: Omit<TimetableEntry, 'id' | 'stationCode' | 'notes'> & { stationCode?: string; notes?: string }) {
+  async updateProduction(id: string, changes: { portions?: number; wasted?: number; notes?: string }) {
+    return (await api.put(`/kitchen/production/${id}`, changes)).data;
+  },
+  /** An outlet kitchen's daily production table. */
+  async productionLog(params: { outletId?: string; from?: string; to?: string }): Promise<ProductionLogRow[]> {
+    return list<ProductionLogRow>((await api.get('/kitchen/production/log', { params })).data);
+  },
+  async addTimetableEntry(payload: Omit<TimetableEntry, 'id' | 'stationCode' | 'notes'> & { stationCode?: string; notes?: string; outletId?: string; menuItemId?: string }) {
     return (await api.post('/kitchen/timetable', payload)).data as TimetableEntry;
   },
   async deleteTimetableEntry(id: string) {

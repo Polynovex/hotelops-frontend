@@ -57,7 +57,7 @@ export interface PublicMenu {
    */
   paymentOptions?: {
     online: Array<{ provider: string; testMode: boolean }>;
-    manual: Array<'CARD' | 'TRANSFER' | 'CASH'>;
+    manual: Array<'CARD' | 'TRANSFER' | 'CASH' | 'ROOM'>;
   };
 }
 
@@ -79,7 +79,7 @@ export interface PublicPromotion {
   items: Array<{ menuItemId: string; name: string; imageUrl: string | null; price: number; promotionalPrice: number; eligibleNow: boolean }>;
 }
 
-export type PaymentPreference = 'ONLINE' | 'CARD' | 'TRANSFER' | 'CASH';
+export type PaymentPreference = 'ONLINE' | 'CARD' | 'TRANSFER' | 'CASH' | 'ROOM';
 
 export interface PublicOrderResult {
   orderId: string;
@@ -171,6 +171,8 @@ export const qrOrderingService = {
       notes?: string;
       paymentPreference?: PaymentPreference;
       promotionCode?: string;
+      /** With ROOM: the surname on the booking. */
+      guestSurname?: string;
       items: Array<{ menuItemId: string; quantity: number; notes?: string }>;
     }
   ): Promise<PublicOrderResult> {
