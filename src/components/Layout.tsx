@@ -1,3 +1,4 @@
+import { forgetOfflineUnlock } from '../services/offlineUnlock';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
@@ -444,6 +445,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     try {
       const { api } = await import('../services/api');
       await api.post('/auth/change-password', { currentPassword, newPassword });
+      // The old password must stop unlocking this device offline.
+      if (user?.email) void forgetOfflineUnlock(user.email);
       setUser({ mustResetPassword: false });
       setPwSuccess(true);
       setCurrentPassword('');

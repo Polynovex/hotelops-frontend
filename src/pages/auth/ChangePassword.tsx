@@ -1,3 +1,4 @@
+import { forgetOfflineUnlock } from '../../services/offlineUnlock';
 import { FormEvent, useState } from 'react';
 import {
   Alert,
@@ -59,6 +60,9 @@ const ChangePasswordPage = () => {
         currentPassword: current,
         newPassword: newPass
       });
+      // The old password must stop unlocking this device offline.
+      const signedInEmail = useAuthStore.getState().user?.email;
+      if (signedInEmail) void forgetOfflineUnlock(signedInEmail);
 
       if (data?.accessToken) {
         useAuthStore.getState().setAuth(

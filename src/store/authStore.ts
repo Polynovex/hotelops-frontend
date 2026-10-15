@@ -44,6 +44,13 @@ interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  /**
+   * True while working from an offline unlock: no server token is held, and
+   * the person must sign in online again when the connection returns.
+   */
+  offlineUnlocked: boolean;
+  /** Restores a profile saved at an earlier online sign-in (see services/offlineUnlock). */
+  unlockOffline: (user: User) => void;
   setAuth: (user: User, token: string, refreshToken?: string | null) => void;
   setUser: (user: Partial<User>) => void;
   login: (email: string, password: string, remember?: boolean) => Promise<void>;
@@ -60,14 +67,21 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
+      offlineUnlocked: false,
       setAuth: (user, token, refreshToken) => {
         void syncAuthTokenToDesktop(token);
         set({
           user,
           token,
           refreshToken: refreshToken ?? null,
-          isAuthenticated: true
+          isAuthenticated: true,
+          offlineUnlocked: false
         });
+      },
+      unlockOffline: (user) => {
+        // No token: nothing can reach the server from this session. Offline
+        // work queues locally and syncs after the next online sign-in.
+        set({ user, token: null, refreshToken: null, isAuthenticated: true, offlineUnlocked: true });
       },
       setUser: (changes) =>
         set((state) => ({
@@ -135,7 +149,8 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           token: null,
           refreshToken: null,
-          isAuthenticated: false
+          isAuthenticated: false,
+          offlineUnlocked: false
         });
       }
     }),
@@ -145,7 +160,8 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         token: state.token,
         refreshToken: state.refreshToken,
-        isAuthenticated: state.isAuthenticated
+        isAuthenticated: state.isAuthenticated,
+        offlineUnlocked: state.offlineUnlocked
       })
     }
   )

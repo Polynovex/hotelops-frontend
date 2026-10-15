@@ -1,3 +1,5 @@
+import { useAuthStore } from '../store/authStore';
+import { forgetOfflineUnlock } from './offlineUnlock';
 import { api } from './api';
 
 /**
@@ -21,6 +23,9 @@ export const pinService = {
    */
   async setPin(pin: string, currentPassword: string): Promise<SetPinResult> {
     const { data } = await api.post('/auth/pin', { pin, currentPassword });
+    // The old PIN must stop unlocking this device offline.
+    const code = useAuthStore.getState().user?.userCode;
+    if (code) void forgetOfflineUnlock(code);
     return data;
   }
 };
