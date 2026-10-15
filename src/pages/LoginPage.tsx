@@ -1,4 +1,4 @@
-import React, { FormEvent, useEffect, useState } from 'react';
+import React, { FormEvent, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -39,6 +39,7 @@ import { useColorMode } from '../theme/colorMode';
 import { LoginSchema, loginSchema } from '../validation/auth.schema';
 import { getApiErrorMessage } from '../utils/apiError';
 import SignInCodeStep from '../components/auth/SignInCodeStep';
+import OfflineUnlockPanel, { rememberSignIn, useOnline } from '../components/auth/OfflineUnlockPanel';
 import { postLoginPath } from '../utils/roleLanding';
 
 type LoginMode = 'USERCODE' | 'EMAIL';
@@ -68,7 +69,11 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   // Set by IdleLogoutGuard, so an automatic sign-out is explained rather than
   // looking like the session simply broke.
-  const signedOutForIdle = (useLocation().state as { reason?: string } | null)?.reason === 'idle';
+  const signOutReason = (useLocation().state as { reason?: string } | null)?.reason;
+  const signedOutForIdle = signOutReason === 'idle';
+  const online = useOnline();
+  /** What was typed, kept until the sign-in completes, to enable offline unlock. */
+  const pendingSecret = useRef<{ identifier: string; secret?: string } | null>(null);
   const theme = useTheme();
   const { mode: colorMode, toggleColorMode } = useColorMode();
   const isDark = colorMode === 'dark';
@@ -133,12 +138,14 @@ const LoginPage: React.FC = () => {
     setLoading(true);
     setError('');
     try {
+      pendingSecret.current = { identifier: data.email, secret: data.password };
       const auth = await authService.login(data.email, data.password, mfaCode || undefined);
       if ('challenge' in auth) {
         setChallenge(auth.challenge);
         return;
       }
       useAuthStore.getState().setAuth(auth.user, auth.token, auth.refreshToken);
+      rememberSignIn(data.email, data.password, auth.user);
       completeLogin(auth.user.role, auth.user.mustResetPassword);
     } catch (err: any) {
       const response = err?.response?.data;
@@ -180,6 +187,7 @@ const LoginPage: React.FC = () => {
     setLoading(true);
     setError('');
     try {
+      pendingSecret.current = { identifier: usercode, secret: pin || undefined };
       const result = await authService.userCodeLogin(usercode, pin || undefined);
       /**
        * The server asks for a PIN when the account needs one and none was
@@ -196,6 +204,7 @@ const LoginPage: React.FC = () => {
         return;
       }
       useAuthStore.getState().setAuth(result.user, result.token, result.refreshToken);
+      rememberSignIn(usercode, pin || undefined, result.user);
       completeLogin(result.user.role);
     } catch (err: any) {
       const code = err?.response?.data?.error;
@@ -480,7 +489,15 @@ const LoginPage: React.FC = () => {
                   </Alert>
                 )}
 
-                {challenge ? (
+                {signOutReason === 'reconnected' && online && !error && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    You are back online. Sign in to sync the work you recorded offline.
+                  </Alert>
+                )}
+
+                {!online && !challenge ? (
+                  <OfflineUnlockPanel onUnlocked={(user) => completeLogin(user.role, false)} />
+                ) : challenge ? (
                   <SignInCodeStep
                     challenge={challenge}
                     onCancel={() => {
@@ -489,6 +506,8 @@ const LoginPage: React.FC = () => {
                     }}
                     onSignedIn={(auth) => {
                       useAuthStore.getState().setAuth(auth.user, auth.token, auth.refreshToken);
+                      if (pendingSecret.current) rememberSignIn(pendingSecret.current.identifier, pendingSecret.current.secret, auth.user);
+                      pendingSecret.current = null;
                       setChallenge(null);
                       completeLogin(auth.user.role, auth.user.mustResetPassword);
                     }}

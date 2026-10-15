@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SnackbarProvider } from 'notistack';
 import { IdleLogoutGuard } from './components/IdleLogoutGuard';
+import { OfflineSessionGuard } from './components/OfflineSessionGuard';
 import { useAuthStore } from './store/authStore';
 import { useWebSocket } from './hooks/useWebSocket';
 import { ColorModeProvider } from './theme/colorMode';
@@ -396,6 +397,7 @@ function App() {
           <BrowserRouter>
             <DesktopOfflineIndicator />
             <IdleLogoutGuard />
+            <OfflineSessionGuard />
             <Routes>
               {/*
                 Where a payment provider returns the payer. Unauthenticated,

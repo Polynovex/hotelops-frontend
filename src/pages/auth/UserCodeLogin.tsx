@@ -20,6 +20,7 @@ import { BadgeOutlined, LockOutlined, MailOutline } from '@mui/icons-material';
 import { useAuthStore } from '../../store/authStore';
 import { authService, type SignInChallenge } from '../../services/api';
 import SignInCodeStep from '../../components/auth/SignInCodeStep';
+import OfflineUnlockPanel, { rememberSignIn, useOnline } from '../../components/auth/OfflineUnlockPanel';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { landingPathForRole } from '../../utils/roleLanding';
 
@@ -39,6 +40,9 @@ const UserCodeLogin: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [challenge, setChallenge] = useState<SignInChallenge | null>(null);
+  const online = useOnline();
+  /** What was typed, kept until the sign-in completes, to enable offline unlock. */
+  const [pending, setPending] = useState<{ identifier: string; secret?: string } | null>(null);
   /** Offers the way forward when this sign-in method is unavailable. */
   const [needsEmailLogin, setNeedsEmailLogin] = useState(false);
 
@@ -53,6 +57,7 @@ const UserCodeLogin: React.FC = () => {
     setLoading(true);
     try {
       if (mode === 'USERCODE') {
+        setPending({ identifier, secret: pin || undefined });
         const result = await authService.userCodeLogin(identifier, pin || undefined);
         if ('requiresPin' in result) {
           // Backend says PIN required — show field and focus it
@@ -65,14 +70,17 @@ const UserCodeLogin: React.FC = () => {
           return;
         }
         setAuth(result.user, result.token, result.refreshToken);
+        rememberSignIn(identifier, pin || undefined, result.user);
         navigate(landingPathForRole(result.user.role));
       } else {
+        setPending({ identifier, secret: password });
         const result = await authService.login(identifier, password);
         if ('challenge' in result) {
           setChallenge(result.challenge);
           return;
         }
         setAuth(result.user, result.token, result.refreshToken);
+        rememberSignIn(identifier, password, result.user);
         navigate(landingPathForRole(result.user.role));
       }
     } catch (e: any) {
@@ -119,12 +127,15 @@ const UserCodeLogin: React.FC = () => {
 
         <Card elevation={3} sx={{ borderRadius: 3 }}>
           <CardContent sx={{ p: 3 }}>
-            {challenge ? (
+            {!online && !challenge ? (
+              <OfflineUnlockPanel onUnlocked={(user) => navigate(landingPathForRole(user.role))} />
+            ) : challenge ? (
               <SignInCodeStep
                 challenge={challenge}
                 onCancel={() => setChallenge(null)}
                 onSignedIn={(auth) => {
                   setAuth(auth.user, auth.token, auth.refreshToken);
+                  if (pending) rememberSignIn(pending.identifier, pending.secret, auth.user);
                   navigate(landingPathForRole(auth.user.role));
                 }}
               />

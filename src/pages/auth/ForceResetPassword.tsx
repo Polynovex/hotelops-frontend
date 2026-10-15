@@ -1,3 +1,4 @@
+import { forgetOfflineUnlock } from '../../services/offlineUnlock';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -66,6 +67,9 @@ const ForceResetPasswordPage = () => {
       // Same as ChangePassword: adopt the session the server hands back, or the
       // client keeps a refresh token that was just revoked.
       const { data } = await api.post('/auth/change-password', { currentPassword, newPassword });
+      // The old password must stop unlocking this device offline.
+      const signedInEmail = useAuthStore.getState().user?.email;
+      if (signedInEmail) void forgetOfflineUnlock(signedInEmail);
 
       if (data?.accessToken) {
         useAuthStore.getState().setAuth(
