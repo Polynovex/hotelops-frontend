@@ -135,6 +135,11 @@ const PublicOrderPage = () => {
   };
 
   const lines = useMemo(() => Object.values(cart), [cart]);
+  // Numeric order (2 before 10), names after numbers.
+  const tables = useMemo(
+    () => [...(menu?.tables ?? [])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+    [menu]
+  );
   const menuItemsById = useMemo(
     () => new Map((menu?.categories ?? []).flatMap((category) => category.items.map((item) => [item.id, item] as const))),
     [menu]
@@ -558,12 +563,29 @@ const PublicOrderPage = () => {
                 />
                 {/* Both optional: they only help staff find you. */}
                 <Stack direction="row" spacing={1.5}>
-                  <TextField
-                    label="Table number (optional)"
-                    value={tableNumber}
-                    onChange={(event) => setTableNumber(event.target.value)}
-                    fullWidth
-                  />
+                  {tables.length > 0 ? (
+                    <TextField
+                      select
+                      label="Table (optional)"
+                      value={tableNumber}
+                      onChange={(event) => setTableNumber(event.target.value)}
+                      fullWidth
+                      SelectProps={{ native: true }}
+                      InputLabelProps={{ shrink: true }}
+                    >
+                      <option value="">Choose your table</option>
+                      {tables.map((table) => (
+                        <option key={table} value={table}>Table {table}</option>
+                      ))}
+                    </TextField>
+                  ) : (
+                    <TextField
+                      label="Table number (optional)"
+                      value={tableNumber}
+                      onChange={(event) => setTableNumber(event.target.value)}
+                      fullWidth
+                    />
+                  )}
                   <TextField
                     label={effectivePayment === 'ROOM' ? 'Room number' : 'Room number (optional)'}
                     value={roomNumber}

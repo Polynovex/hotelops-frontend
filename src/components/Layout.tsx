@@ -250,7 +250,6 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Tables', icon: RoomIcon, path: '/business/pos/tables', module: 'pos' },
     // Pointed at the orders page before; the kitchen display is its own screen.
     { label: 'Kitchen Display', icon: KdsIcon, path: '/business/pos/kds', module: 'pos' },
-    { label: 'Kitchen', icon: KdsIcon, path: '/business/kitchen', module: 'pos' },
     { label: 'Payments', icon: ReceiptIcon, path: '/business/pos/payments', module: 'pos' }
   ],
   HOUSEKEEPING: [

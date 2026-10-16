@@ -140,3 +140,57 @@ export const PRIORITY_COLOR: Record<HousekeepingPriority, 'default' | 'info' | '
   HIGH: 'warning',
   URGENT: 'error'
 };
+
+/** A problem found in a room, reported from the housekeeper dashboard. */
+export type RoomIssueCategory =
+  | 'PLUMBING'
+  | 'ELECTRICAL'
+  | 'AIR_CONDITIONING'
+  | 'FURNITURE'
+  | 'APPLIANCE'
+  | 'CLEANLINESS'
+  | 'MISSING_ITEM'
+  | 'SAFETY'
+  | 'OTHER';
+
+export interface RoomIssue {
+  id: string;
+  roomId: string;
+  roomNumber: string;
+  roomStatus: string;
+  category: RoomIssueCategory;
+  description: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  status: 'OPEN' | 'RESOLVED';
+  outOfOrder: boolean;
+  reportedByName: string;
+  resolvedByName: string | null;
+  resolution: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+export const ROOM_ISSUE_LABEL: Record<RoomIssueCategory, string> = {
+  PLUMBING: 'Plumbing / leak',
+  ELECTRICAL: 'Electrical / lights',
+  AIR_CONDITIONING: 'Air conditioning',
+  FURNITURE: 'Furniture / fittings',
+  APPLIANCE: 'TV / fridge / appliance',
+  CLEANLINESS: 'Deep clean needed',
+  MISSING_ITEM: 'Missing item',
+  SAFETY: 'Safety / security',
+  OTHER: 'Other'
+};
+
+export const roomIssueService = {
+  async report(payload: { roomId: string; category: RoomIssueCategory; description: string; priority: RoomIssue['priority']; outOfOrder: boolean }) {
+    return (await api.post('/housekeeping/issues', payload)).data as RoomIssue & { note?: string };
+  },
+  async list(params: { status?: 'OPEN' | 'RESOLVED' } = {}) {
+    const { data } = await api.get('/housekeeping/issues', { params });
+    return (Array.isArray(data) ? data : []) as RoomIssue[];
+  },
+  async resolve(id: string, resolution: string) {
+    return (await api.post(`/housekeeping/issues/${id}/resolve`, { resolution })).data as RoomIssue & { roomReleased: boolean };
+  }
+};

@@ -36,6 +36,9 @@ export interface GuestFormData {
   city: string;
   state: string;
   dateOfBirth: string;
+  /** Staying as an individual, or on behalf of a company. */
+  guestCategory: 'INDIVIDUAL' | 'COMPANY';
+  companyName: string;
 }
 
 interface Props {
@@ -80,7 +83,9 @@ const GuestKycForm = ({ open, onClose, onCreated }: Props) => {
     nationality: '',
     city: '',
     state: '',
-    dateOfBirth: ''
+    dateOfBirth: '',
+    guestCategory: 'INDIVIDUAL',
+    companyName: ''
   });
 
   const set = (field: keyof GuestFormData) => (e: React.ChangeEvent<HTMLInputElement | { value: unknown }>) =>
@@ -206,7 +211,7 @@ const GuestKycForm = ({ open, onClose, onCreated }: Props) => {
     setIdPreview(null);
     setError('');
     setGuestId(null);
-    setForm({ firstName: '', lastName: '', email: '', phone: '', idType: 'PASSPORT', idNumber: '', address: '', nationality: '', city: '', state: '', dateOfBirth: '' });
+    setForm({ firstName: '', lastName: '', email: '', phone: '', idType: 'PASSPORT', idNumber: '', address: '', nationality: '', city: '', state: '', dateOfBirth: '', guestCategory: 'INDIVIDUAL', companyName: '' });
     onClose();
   };
 
@@ -218,6 +223,10 @@ const GuestKycForm = ({ open, onClose, onCreated }: Props) => {
           {error && <Alert severity="error">{error}</Alert>}
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField select label="Guest is" value={form.guestCategory} onChange={set('guestCategory')} sx={{ minWidth: 160 }}>
+              <MenuItem value="INDIVIDUAL">Individual</MenuItem>
+              <MenuItem value="COMPANY">Company</MenuItem>
+            </TextField>
             <TextField label="First Name *" value={form.firstName} onChange={set('firstName')} fullWidth />
             <TextField label="Last Name *" value={form.lastName} onChange={set('lastName')} fullWidth />
           </Stack>
@@ -243,6 +252,9 @@ const GuestKycForm = ({ open, onClose, onCreated }: Props) => {
             <TextField label="ID Number *" value={form.idNumber} onChange={set('idNumber')} fullWidth />
           </Stack>
 
+          {form.guestCategory === 'COMPANY' && (
+            <TextField label="Company name *" value={form.companyName} onChange={set('companyName')} fullWidth helperText="The company the guest is staying for" />
+          )}
           <TextField label="Nationality *" value={form.nationality} onChange={set('nationality')} fullWidth />
           <TextField label="Address *" value={form.address} onChange={set('address')} fullWidth multiline rows={2} />
 
@@ -284,7 +296,7 @@ const GuestKycForm = ({ open, onClose, onCreated }: Props) => {
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={saving || uploadingDoc}
+          disabled={saving || uploadingDoc || (form.guestCategory === 'COMPANY' && !form.companyName.trim())}
           startIcon={(saving || uploadingDoc) ? <CircularProgress size={16} /> : null}
         >
           {saving ? 'Saving…' : uploadingDoc ? 'Uploading…' : 'Create Guest'}

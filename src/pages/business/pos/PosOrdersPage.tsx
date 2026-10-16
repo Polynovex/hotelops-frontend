@@ -27,8 +27,6 @@ import { posService } from '../../../services/api';
 import { formatNaira, posFlow, type Outlet, type PosOrderRow } from '../../../services/posFlow';
 import DiscountModal, { DiscountModalItem } from '../../../components/modals/DiscountModal';
 import { NewOrderDialog } from '../../../components/pos/NewOrderDialog';
-import EditOrderDialog from '../../../components/pos/EditOrderDialog';
-import { usePermissionStore } from '../../../store/permissionStore';
 import { TakePaymentDialog } from '../../../components/pos/TakePaymentDialog';
 import { useWebSocket } from '../../../hooks/useWebSocket';
 import { getApiErrorMessage } from '../../../utils/apiError';
@@ -80,10 +78,6 @@ const PosOrdersPage = () => {
   const [paying, setPaying] = useState<PosOrderRow | null>(null);
   const [discountOrder, setDiscountOrder] = useState<PosOrderRow | null>(null);
   const [stationBlock, setStationBlock] = useState<{ order: PosOrderRow; message: string } | null>(null);
-  const [voiding, setVoiding] = useState<PosOrderRow | null>(null);
-  const [editingOrder, setEditingOrder] = useState<PosOrderRow | null>(null);
-  const canManageOrders = usePermissionStore((state) => state.can)('MANAGE_SALES_ORDERS');
-  const [voidReason, setVoidReason] = useState('');
 
   const load = useCallback(async () => {
     setError('');
@@ -316,13 +310,7 @@ const PosOrdersPage = () => {
                         Discount
                       </Button>
                     )}
-                    {/* Edit and Void: Admin, GM and department managers only. */}
-                    {live && order.paymentStatus !== 'COMPLETED' && canManageOrders && (
-                      <Button size="small" onClick={() => setEditingOrder(order)}>Edit</Button>
-                    )}
-                    {live && order.paymentStatus !== 'COMPLETED' && canManageOrders && (
-                      <Button size="small" color="error" onClick={() => { setVoiding(order); setVoidReason(''); }}>Void</Button>
-                    )}
+                    {/* Edit and Void live on the admin Sales page (Sales → Orders), not here. */}
                   </Stack>
                 );
               }
@@ -362,28 +350,6 @@ const PosOrdersPage = () => {
           </DialogActions>
         </Dialog>
 
-        <Dialog open={Boolean(voiding)} onClose={() => setVoiding(null)} maxWidth="xs" fullWidth>
-          <DialogTitle>Void {voiding?.orderNumber}?</DialogTitle>
-          <DialogContent>
-            <TextField autoFocus fullWidth label="Reason" value={voidReason} onChange={(event) => setVoidReason(event.target.value)} sx={{ mt: 1 }} />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setVoiding(null)}>Cancel</Button>
-            <Button
-              color="error"
-              variant="contained"
-              disabled={!voidReason.trim() || saving}
-              onClick={() => {
-                const target = voiding;
-                setVoiding(null);
-                if (target) void run(() => posFlow.voidOrder(target.id, voidReason.trim()), `${target.orderNumber} voided`);
-              }}
-            >
-              Void order
-            </Button>
-          </DialogActions>
-        </Dialog>
-
         {discountOrder && (
           <DiscountModal
             open={Boolean(discountOrder)}
@@ -403,15 +369,6 @@ const PosOrdersPage = () => {
             }}
           />
         )}
-        <EditOrderDialog
-          order={editingOrder}
-          onClose={() => setEditingOrder(null)}
-          onSaved={(updated) => {
-            setEditingOrder(null);
-            enqueueSnackbar(`${updated.orderNumber} updated`, { variant: 'success' });
-            void load();
-          }}
-        />
       </Container>
     </Layout>
   );
