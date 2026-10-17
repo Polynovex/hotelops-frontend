@@ -1,3 +1,4 @@
+import { loyaltyService } from '../../../services/loyalty.service';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -77,12 +78,17 @@ const GuestBookPage = () => {
     return () => clearTimeout(timer);
   }, [search]);
 
+  const [categoryFilter, setCategoryFilter] = useState<'INDIVIDUAL' | 'COMPANY' | ''>('');
+  /** Guest whose Individual/Company label is being changed. */
+  const [categorising, setCategorising] = useState<{ guest: Guest; category: 'INDIVIDUAL' | 'COMPANY'; companyName: string } | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const result = await guestService.list({
         q: debouncedSearch || undefined,
         guestType: typeFilter,
+        guestCategory: categoryFilter,
         blacklisted: blacklistFilter,
         limit: rowsPerPage,
         offset: page * rowsPerPage
@@ -95,7 +101,7 @@ const GuestBookPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, typeFilter, blacklistFilter, page, rowsPerPage]);
+  }, [debouncedSearch, typeFilter, categoryFilter, blacklistFilter, page, rowsPerPage]);
 
   useEffect(() => {
     void load();
@@ -113,6 +119,32 @@ const GuestBookPage = () => {
     } catch (err) {
       // The server refuses to demote a guest who holds a loyalty account.
       setError(errorMessage(err, 'Could not change the guest type'));
+    }
+  };
+
+  const saveCategory = async () => {
+    if (!categorising) return;
+    try {
+      await guestService.setCategory(categorising.guest.id, categorising.category, categorising.companyName.trim());
+      setToast(
+        categorising.category === 'COMPANY'
+          ? `${guestFullName(categorising.guest)} marked as a ${categorising.companyName.trim()} guest`
+          : `${guestFullName(categorising.guest)} marked as an individual`
+      );
+      setCategorising(null);
+      await load();
+    } catch (err) {
+      setError(errorMessage(err, 'Could not change the guest category'));
+    }
+  };
+
+  const enrolInLoyalty = async (guest: Guest) => {
+    try {
+      await loyaltyService.enroll(guest.id);
+      setToast(`${guestFullName(guest)} enrolled in loyalty`);
+      await load();
+    } catch (err) {
+      setError(errorMessage(err, 'Could not enrol the guest in loyalty'));
     }
   };
 
@@ -202,6 +234,18 @@ const GuestBookPage = () => {
             </TextField>
             <TextField
               select
+              label="Individual / company"
+              value={categoryFilter}
+              onChange={(e) => { setCategoryFilter(e.target.value as 'INDIVIDUAL' | 'COMPANY' | ''); setPage(0); }}
+              size="small"
+              sx={{ minWidth: { md: 180 } }}
+            >
+              <MenuItem value="">Both</MenuItem>
+              <MenuItem value="INDIVIDUAL">Individuals</MenuItem>
+              <MenuItem value="COMPANY">Company guests</MenuItem>
+            </TextField>
+            <TextField
+              select
               label="Standing"
               value={blacklistFilter}
               onChange={(e) => { setBlacklistFilter(e.target.value as 'true' | 'false' | ''); setPage(0); }}
@@ -257,6 +301,9 @@ const GuestBookPage = () => {
                       {guest.verifiedAt && (
                         <VerifiedIcon color="primary" sx={{ fontSize: 16 }} titleAccess="Verified by staff" />
                       )}
+                      {guest.guestCategory === 'COMPANY' && (
+                        <Chip size="small" variant="outlined" label={guest.companyName ? `Company · ${guest.companyName}` : 'Company'} />
+                      )}
                     </Stack>
                     {guest.loyaltyAccount && (
                       <Typography variant="caption" color="text.secondary">
@@ -310,6 +357,25 @@ const GuestBookPage = () => {
                           disabled: Boolean(guest.loyaltyAccount),
                           disabledReason: 'Close their loyalty account first',
                           onClick: () => void changeType(guest, 'ONE_TIME')
+                        },
+                        {
+                          key: 'loyalty',
+                          label: 'Enrol in loyalty',
+                          icon: <StarIcon fontSize="small" />,
+                          hidden: Boolean(guest.loyaltyAccount),
+                          disabled: guest.guestType !== 'REGULAR',
+                          disabledReason: 'Mark them as a regular guest first',
+                          onClick: () => void enrolInLoyalty(guest)
+                        },
+                        {
+                          key: 'category',
+                          label: guest.guestCategory === 'COMPANY' ? 'Change company / make individual' : 'Mark as company guest',
+                          onClick: () =>
+                            setCategorising({
+                              guest,
+                              category: 'COMPANY',
+                              companyName: guest.companyName ?? ''
+                            })
                         },
                         {
                           key: 'verify',
@@ -400,6 +466,40 @@ const GuestBookPage = () => {
           message={toast}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         />
+        <Dialog open={Boolean(categorising)} onClose={() => setCategorising(null)} fullWidth maxWidth="xs">
+          <DialogTitle>{categorising ? guestFullName(categorising.guest) : ''}: individual or company</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField
+                select
+                label="Guest is"
+                value={categorising?.category ?? 'INDIVIDUAL'}
+                onChange={(e) => categorising && setCategorising({ ...categorising, category: e.target.value as 'INDIVIDUAL' | 'COMPANY' })}
+              >
+                <MenuItem value="INDIVIDUAL">Individual</MenuItem>
+                <MenuItem value="COMPANY">Company guest</MenuItem>
+              </TextField>
+              {categorising?.category === 'COMPANY' && (
+                <TextField
+                  label="Company name"
+                  value={categorising.companyName}
+                  onChange={(e) => setCategorising({ ...categorising, companyName: e.target.value })}
+                  autoFocus
+                />
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCategorising(null)}>Cancel</Button>
+            <Button
+              variant="contained"
+              disabled={categorising?.category === 'COMPANY' && !categorising.companyName.trim()}
+              onClick={() => void saveCategory()}
+            >
+              Save
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </Layout>
   );

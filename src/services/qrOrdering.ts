@@ -49,6 +49,8 @@ export interface PublicMenu {
   business: { name: string; logoUrl: string | null; currency: string; colors?: { primary: string | null; accent: string | null } };
   /** Live F&B promotions at this outlet, for the "On promotion" section. */
   promotions?: PublicPromotion[];
+  /** The outlet's table numbers, for the table dropdown. */
+  tables?: string[];
   outlet: { id: string; name: string };
   categories: Array<{ id: string; name: string; items: PublicMenuItem[] }>;
   /**

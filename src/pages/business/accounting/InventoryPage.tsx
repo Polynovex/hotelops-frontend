@@ -92,6 +92,9 @@ const InventoryPage = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState('ALL');
   const [items, setItems] = useState<Item[]>([]);
+  /** The Stock in / out tab's entry form: type, section, item, units, note. */
+  const [entry, setEntry] = useState({ type: 'RECEIVE' as 'RECEIVE' | 'ISSUE', categoryId: '', itemId: '', quantity: '', unitCost: '', notes: '' });
+  const [savingEntry, setSavingEntry] = useState(false);
   const [report, setReport] = useState<MovementReport | null>(null);
   const [range, setRange] = useState({
     from: new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10),
@@ -192,6 +195,30 @@ const InventoryPage = () => {
       await load();
     } catch (err) {
       enqueueSnackbar(getApiErrorMessage(err, 'Could not record the movement'), { variant: 'error' });
+    }
+  };
+
+  const sectionItems = items.filter((item) => item.isActive && (!entry.categoryId || item.categoryId === entry.categoryId));
+  const entryItem = items.find((item) => item.id === entry.itemId);
+
+  const saveEntry = async () => {
+    if (!entryItem) return;
+    setSavingEntry(true);
+    try {
+      await api.post('/inventory/transactions', {
+        itemId: entryItem.id,
+        type: entry.type,
+        quantity: Number(entry.quantity),
+        ...(entry.type === 'RECEIVE' && entry.unitCost ? { unitCost: Number(entry.unitCost) } : {}),
+        notes: entry.notes.trim() || undefined
+      });
+      enqueueSnackbar(`${entry.type === 'ISSUE' ? 'Stock out' : 'Stock in'}: ${entry.quantity} ${entryItem.unit} of ${entryItem.name}`, { variant: 'success' });
+      setEntry((current) => ({ ...current, itemId: '', quantity: '', unitCost: '', notes: '' }));
+      await load();
+    } catch (err) {
+      enqueueSnackbar(getApiErrorMessage(err, 'Could not record the movement'), { variant: 'error' });
+    } finally {
+      setSavingEntry(false);
     }
   };
 
@@ -324,6 +351,64 @@ const InventoryPage = () => {
               }
             ]}
           />
+        )}
+
+        {view === 'movements' && (
+          <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+            <Typography fontWeight={800} sx={{ mb: 1.5 }}>Record stock in / out</Typography>
+            <Grid container spacing={1.5} alignItems="center">
+              <Grid item xs={12} sm={6} md={2}>
+                <TextField select fullWidth size="small" label="Stock in / out" value={entry.type} onChange={(e) => setEntry({ ...entry, type: e.target.value as 'RECEIVE' | 'ISSUE' })}>
+                  <MenuItem value="RECEIVE">Stock in</MenuItem>
+                  <MenuItem value="ISSUE">Stock out</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6} md={2}>
+                <TextField select fullWidth size="small" label="Section" value={entry.categoryId} onChange={(e) => setEntry({ ...entry, categoryId: e.target.value, itemId: '' })}>
+                  <MenuItem value="">All sections</MenuItem>
+                  {categories.map((category) => <MenuItem key={category.id} value={category.id}>{category.name}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="Item"
+                  value={entry.itemId}
+                  onChange={(e) => {
+                    const item = items.find((row) => row.id === e.target.value);
+                    setEntry({ ...entry, itemId: e.target.value, unitCost: entry.type === 'RECEIVE' && item ? String(item.costPrice) : '' });
+                  }}
+                  helperText={entryItem ? `In stock: ${entryItem.currentStock} ${entryItem.unit}` : sectionItems.length ? undefined : 'No items in this section'}
+                >
+                  {sectionItems.map((item) => <MenuItem key={item.id} value={item.id}>{item.name} ({item.sku})</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={6} sm={3} md={1.5}>
+                <TextField fullWidth size="small" type="number" label={`Units${entryItem ? ` (${entryItem.unit})` : ''}`} value={entry.quantity} onChange={(e) => setEntry({ ...entry, quantity: e.target.value })} inputProps={{ min: 0 }} />
+              </Grid>
+              {entry.type === 'RECEIVE' && (
+                <Grid item xs={6} sm={3} md={1.5}>
+                  <TextField fullWidth size="small" type="number" label="Unit cost (₦)" value={entry.unitCost} onChange={(e) => setEntry({ ...entry, unitCost: e.target.value })} />
+                </Grid>
+              )}
+              <Grid item xs={12} sm={9} md={entry.type === 'RECEIVE' ? 2 : 3.5}>
+                <TextField fullWidth size="small" label="Note" value={entry.notes} onChange={(e) => setEntry({ ...entry, notes: e.target.value })} placeholder={entry.type === 'ISSUE' ? 'Issued to…' : 'Supplier / invoice'} />
+              </Grid>
+              <Grid item xs={12} sm={3} md="auto">
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color={entry.type === 'ISSUE' ? 'warning' : 'primary'}
+                  disabled={savingEntry || !entryItem || !(Number(entry.quantity) > 0) || (entry.type === 'ISSUE' && Number(entry.quantity) > (entryItem?.currentStock ?? 0))}
+                  onClick={() => void saveEntry()}
+                >
+                  {entry.type === 'ISSUE' ? 'Record stock out' : 'Record stock in'}
+                </Button>
+              </Grid>
+            </Grid>
+          </Paper>
         )}
 
         {view !== 'items' && (

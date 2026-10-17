@@ -20,6 +20,9 @@ export interface Guest {
   dateOfBirth: string | null;
   vipLevel: string | null;
   guestType: GuestType;
+  /** Individual guest, or staying on behalf of a company. */
+  guestCategory?: 'INDIVIDUAL' | 'COMPANY';
+  companyName?: string | null;
   source: GuestSource;
   stayCount: number;
   verifiedAt: string | null;
@@ -64,6 +67,7 @@ export const guestService = {
   list: async (params?: {
     q?: string;
     guestType?: GuestType | '';
+    guestCategory?: 'INDIVIDUAL' | 'COMPANY' | '';
     blacklisted?: 'true' | 'false' | '';
     limit?: number;
     offset?: number;
@@ -72,6 +76,7 @@ export const guestService = {
       params: {
         ...(params?.q ? { q: params.q } : {}),
         ...(params?.guestType ? { guestType: params.guestType } : {}),
+        ...(params?.guestCategory ? { guestCategory: params.guestCategory } : {}),
         ...(params?.blacklisted ? { blacklisted: params.blacklisted } : {}),
         limit: params?.limit ?? 50,
         offset: params?.offset ?? 0
@@ -88,6 +93,12 @@ export const guestService = {
   /** A reason is required when blacklisting; the server enforces it too. */
   setBlacklist: async (id: string, blacklisted: boolean, reason?: string): Promise<Guest> => {
     const { data } = await api.put(`/guests/${id}/blacklist`, { blacklisted, reason });
+    return data;
+  },
+
+  /** Individual or company guest (with the company's name). */
+  setCategory: async (id: string, guestCategory: 'INDIVIDUAL' | 'COMPANY', companyName?: string): Promise<Guest> => {
+    const { data } = await api.put(`/guests/${id}`, { guestCategory, ...(guestCategory === 'COMPANY' ? { companyName } : {}) });
     return data;
   },
 
@@ -164,6 +175,9 @@ export interface GuestRegistrationInput {
   idType?: string;
   idNumber?: string;
   dateOfBirth?: string;
+  /** Staying as an individual or on behalf of a company. */
+  guestCategory?: 'INDIVIDUAL' | 'COMPANY';
+  companyName?: string;
 }
 
 export const publicGuestService = {

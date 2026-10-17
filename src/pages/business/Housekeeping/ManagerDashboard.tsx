@@ -522,6 +522,7 @@ import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
 
 import { useWebSocket } from '../../../hooks/useWebSocket';
+import RoomIssuesPanel from '../../../components/housekeeping/RoomIssuesPanel';
 
 import {
   housekeepingService,
@@ -947,6 +948,7 @@ const HousekeepingManagerDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
+  const [issuesKey, setIssuesKey] = useState(0);
 
   const [assignRoom, setAssignRoom] = useState<DirtyRoom | null>(null);
   const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
@@ -1253,7 +1255,10 @@ const HousekeepingManagerDashboard = () => {
             <Button
               variant="outlined"
               startIcon={<RefreshRoundedIcon />}
-              onClick={() => void load(true)}
+              onClick={() => {
+                setIssuesKey((key) => key + 1);
+                void load(true);
+              }}
               disabled={refreshing}
               sx={{
                 minHeight: 42,
@@ -1333,6 +1338,14 @@ const HousekeepingManagerDashboard = () => {
               />
             </Grid>
           </Grid>
+
+          <RoomIssuesPanel
+            refreshKey={issuesKey}
+            onNotice={(message) => {
+              setToast(message);
+              void load();
+            }}
+          />
 
           {/* ---------------------------------------------------------------- */}
           {/* MAIN OPERATIONS GRID                                             */}

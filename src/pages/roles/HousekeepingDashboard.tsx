@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Box, Button, Card, Chip, Divider, Stack, Typography, useTheme } from '@mui/material';
+import { Alert, Box, Button, Card, Chip, Divider, Snackbar, Stack, Typography, useTheme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import CleaningServicesRounded from '@mui/icons-material/CleaningServicesRounded';
@@ -24,6 +24,7 @@ import {
   type RoomRecord
 } from '../../services/operations';
 import { useAuthStore } from '../../store/authStore';
+import ReportIssueDialog from '../../components/housekeeping/ReportIssueDialog';
 import { getApiErrorMessage } from '../../utils/apiError';
 
 /**
@@ -48,6 +49,8 @@ const HousekeepingDashboard = () => {
   const [tasks, setTasks] = useState<HousekeepingTaskRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reporting, setReporting] = useState(false);
+  const [notice, setNotice] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,8 +108,7 @@ const HousekeepingDashboard = () => {
       label: 'Report an issue',
       hint: 'Maintenance request',
       icon: BuildRounded,
-      // The room board is where a room is taken out of order.
-      onClick: () => navigate('/business/rooms/status-board')
+      onClick: () => setReporting(true)
     },
     {
       label: 'My HR',
@@ -265,6 +267,17 @@ const HousekeepingDashboard = () => {
           )}
         </Card>
       </SectionBlock>
+
+      <ReportIssueDialog
+        open={reporting}
+        onClose={() => setReporting(false)}
+        onReported={(message) => {
+          setReporting(false);
+          setNotice(message);
+          void load();
+        }}
+      />
+      <Snackbar open={Boolean(notice)} autoHideDuration={6000} onClose={() => setNotice('')} message={notice} />
     </DashboardShell>
   );
 };

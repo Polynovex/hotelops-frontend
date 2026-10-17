@@ -54,7 +54,8 @@ import PromotionEditor, { QuickPromotionDialog } from './PromotionEditor';
  * analytics (redemptions, revenue, discount cost, margin).
  */
 
-type TabKey = 'ROOM' | 'FOOD_BEVERAGE' | 'approvals' | 'analytics' | 'policy';
+type TabKey = 'ROOM' | 'FOOD_BEVERAGE' | 'EVENT' | 'approvals' | 'analytics' | 'policy';
+const KIND_LABEL: Record<PromotionKind, string> = { ROOM: 'Room', FOOD_BEVERAGE: 'F&B', EVENT: 'Event' };
 
 const STATUS_COLOR: Record<PromotionStatus, 'default' | 'success' | 'warning' | 'info' | 'error' | 'secondary'> = {
   DRAFT: 'default',
@@ -94,7 +95,7 @@ const PromotionsPage: React.FC = () => {
 
   const initial = (params.get('tab') ?? params.get('kind') ?? 'ROOM').toString();
   const [tab, setTab] = useState<TabKey>(
-    (['ROOM', 'FOOD_BEVERAGE', 'approvals', 'analytics', 'policy'] as TabKey[]).includes(initial as TabKey) ? (initial as TabKey) : 'ROOM'
+    (['ROOM', 'FOOD_BEVERAGE', 'EVENT', 'approvals', 'analytics', 'policy'] as TabKey[]).includes(initial as TabKey) ? (initial as TabKey) : 'ROOM'
   );
   const [promotions, setPromotions] = useState<PromotionRecord[]>([]);
   const [lookups, setLookups] = useState<Lookups | null>(null);
@@ -162,10 +163,10 @@ const PromotionsPage: React.FC = () => {
           <Box>
             <Typography variant="h4" fontWeight={800}>Promotions</Typography>
             <Typography variant="body2" color="text.secondary">
-              Room and food & beverage offers: set them up, control who gets them, and see what they earn.
+              Room, food & beverage and event offers: set them up, control who gets them, and see what they earn.
             </Typography>
           </Box>
-          {canManage && (tab === 'ROOM' || tab === 'FOOD_BEVERAGE') && (
+          {canManage && (tab === 'ROOM' || tab === 'FOOD_BEVERAGE' || tab === 'EVENT') && (
             <Stack direction="row" spacing={1}>
               <Button variant="outlined" startIcon={<BoltRoundedIcon />} onClick={() => setQuick(tab)}>Add quick promotion</Button>
               <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setEditor({ kind: tab, record: null })}>New promotion</Button>
@@ -176,6 +177,7 @@ const PromotionsPage: React.FC = () => {
         <Tabs value={tab} onChange={(_e, v) => changeTab(v)} variant="scrollable" sx={{ mb: 2 }}>
           <Tab value="ROOM" label="Room promotions" />
           <Tab value="FOOD_BEVERAGE" label="F&B promotions" />
+          <Tab value="EVENT" label="Event promotions" />
           <Tab value="approvals" label={pending.length ? `Approvals (${pending.length})` : 'Approvals'} />
           <Tab value="analytics" label="Analytics" />
           {isOwner && <Tab value="policy" label="Approval rules" />}
@@ -184,7 +186,7 @@ const PromotionsPage: React.FC = () => {
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
         {loading && !promotions.length ? (
           <Box sx={{ py: 8, display: 'grid', placeItems: 'center' }}><CircularProgress /></Box>
-        ) : tab === 'ROOM' || tab === 'FOOD_BEVERAGE' ? (
+        ) : tab === 'ROOM' || tab === 'FOOD_BEVERAGE' || tab === 'EVENT' ? (
           <PromotionTable
             rows={listFor(tab)}
             money={money}
@@ -192,7 +194,7 @@ const PromotionsPage: React.FC = () => {
             onEdit={(record) => setEditor({ kind: record.kind, record })}
             onDetail={openDetail}
             onAct={act}
-            empty={tab === 'ROOM' ? 'No room promotions yet.' : 'No food & beverage promotions yet.'}
+            empty={tab === 'ROOM' ? 'No room promotions yet.' : tab === 'EVENT' ? 'No event promotions yet.' : 'No food & beverage promotions yet.'}
           />
         ) : tab === 'approvals' ? (
           <Stack spacing={1.5}>
@@ -201,7 +203,7 @@ const PromotionsPage: React.FC = () => {
               <Paper key={promo.id} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
                   <Box sx={{ flexGrow: 1 }}>
-                    <Typography fontWeight={700}>{promo.name} <Typography component="span" variant="caption" color="text.secondary">({promo.code} · {promo.kind === 'ROOM' ? 'Room' : 'F&B'})</Typography></Typography>
+                    <Typography fontWeight={700}>{promo.name} <Typography component="span" variant="caption" color="text.secondary">({promo.code} · {KIND_LABEL[promo.kind]})</Typography></Typography>
                     <Typography variant="body2" color="text.secondary">{describe(promo, money)}</Typography>
                   </Box>
                   <Button size="small" onClick={() => void openDetail(promo)}>Details</Button>
@@ -356,7 +358,7 @@ const DetailPanel: React.FC<{ promo: PromotionRecord; money: (v: number) => stri
     <Grid container spacing={1.5} sx={{ mb: 2 }}>
       {[
         ['Redemptions', String(promo.performance?.redemptions ?? 0)],
-        [promo.kind === 'ROOM' ? 'Room nights' : 'Items sold', String(promo.performance?.units ?? 0)],
+        [promo.kind === 'ROOM' ? 'Room nights' : promo.kind === 'EVENT' ? 'Event days' : 'Items sold', String(promo.performance?.units ?? 0)],
         ['Revenue (after discount)', money(promo.performance?.netRevenue ?? 0)],
         ['Discount cost', money(promo.performance?.discountCost ?? 0)],
         ...(promo.kind === 'FOOD_BEVERAGE' ? [['Margin', promo.performance?.margin != null ? `${promo.performance.margin}%` : '—']] : [])
@@ -437,7 +439,7 @@ const AnalyticsPanel: React.FC<{ money: (v: number) => string }> = ({ money }) =
             {(data?.rows ?? []).map((row) => (
               <TableRow key={row.id}>
                 <TableCell>{row.name} <Typography component="span" variant="caption" color="text.secondary">{row.code}</Typography></TableCell>
-                <TableCell>{row.kind === 'ROOM' ? 'Room' : 'F&B'}</TableCell>
+                <TableCell>{KIND_LABEL[row.kind as PromotionKind] ?? row.kind}</TableCell>
                 <TableCell align="right">{row.redemptions}</TableCell>
                 <TableCell align="right">{row.units}</TableCell>
                 <TableCell align="right">{money(row.grossRevenue)}</TableCell>

@@ -48,7 +48,9 @@ const GuestRegistrationPage = () => {
   const [form, setForm] = useState<GuestRegistrationInput>({
     firstName: '',
     lastName: '',
-    phone: ''
+    phone: '',
+    guestCategory: 'INDIVIDUAL',
+    companyName: ''
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -79,6 +81,10 @@ const GuestRegistrationPage = () => {
     const missing = REQUIRED_FIELDS.filter((field) => !form[field]?.trim());
     if (missing.length > 0) {
       setError('Please fill in your first name, last name, and phone number.');
+      return;
+    }
+    if (form.guestCategory === 'COMPANY' && !form.companyName?.trim()) {
+      setError('Please enter the name of the company you are staying for.');
       return;
     }
 
@@ -191,6 +197,31 @@ const GuestRegistrationPage = () => {
                 autoComplete="family-name"
               />
             </Grid>
+            <Grid item xs={12} sm={form.guestCategory === 'COMPANY' ? 5 : 12}>
+              <TextField
+                select
+                label="I am staying"
+                value={form.guestCategory ?? 'INDIVIDUAL'}
+                onChange={(e) => setField('guestCategory', e.target.value)}
+                fullWidth
+                SelectProps={{ native: true }}
+              >
+                <option value="INDIVIDUAL">As an individual</option>
+                <option value="COMPANY">For a company</option>
+              </TextField>
+            </Grid>
+            {form.guestCategory === 'COMPANY' && (
+              <Grid item xs={12} sm={7}>
+                <TextField
+                  label="Company name"
+                  value={form.companyName ?? ''}
+                  onChange={(e) => setField('companyName', e.target.value)}
+                  fullWidth
+                  required
+                  autoComplete="organization"
+                />
+              </Grid>
+            )}
             <Grid item xs={12}>
               <TextField
                 label="Phone number"
