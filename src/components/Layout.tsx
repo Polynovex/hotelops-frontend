@@ -604,6 +604,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     menuItems.push({ label: 'HR & Payroll', icon: UserIcon, children: hrChildren });
   }
 
+  // Banquet & events, for whoever holds an event permission — front desk,
+  // managers, the owner, and (view only) F&B managers and accountants.
+  const eventChildren = [
+    (can('VIEW_EVENTS') || can('MANAGE_EVENTS') || can('EVENT_PRICING')) && { label: 'Events & Calendar', icon: CalendarIcon, path: '/business/events', module: 'pms' as const },
+    can('MANAGE_EVENTS') && { label: 'Create New Event', icon: CalendarIcon, path: '/business/events/new', module: 'pms' as const },
+    can('EVENT_PRICING') && { label: 'Event Types', icon: Settings, path: '/business/events/types', module: 'pms' as const },
+    (can('MANAGE_PROMOTIONS') || role === 'BUSINESS_ADMIN') && { label: 'Event Promotions', icon: WorkspacePremium, path: '/business/promotions?tab=EVENT', module: 'pms' as const }
+  ].filter(Boolean) as NavLink[];
+  if (role !== 'SUPER_ADMIN' && eventChildren.length > 0 && !menuItems.some((item) => item.label === 'Banquet / Event')) {
+    // Straight after Reservations / Property & Guest where a role has it.
+    const anchor = menuItems.findIndex((item) => item.label === 'Property & Guest' || item.label === 'Reservations' || item.label === 'Dashboard');
+    menuItems.splice(anchor >= 0 ? anchor + 1 : menuItems.length, 0, { label: 'Banquet / Event', icon: CalendarIcon, children: eventChildren });
+  }
+
   const matchesPath = (target: string) => {
     // Links may carry a query (F&B Promotions → ?tab=FOOD_BEVERAGE); it must match too.
     const [path, query] = target.split('?');

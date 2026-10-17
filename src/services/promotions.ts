@@ -5,7 +5,7 @@ import { api } from './api';
  * setup, rules, approval and analytics.
  */
 
-export type PromotionKind = 'ROOM' | 'FOOD_BEVERAGE';
+export type PromotionKind = 'ROOM' | 'FOOD_BEVERAGE' | 'EVENT';
 export type PromotionStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'SCHEDULED' | 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'ARCHIVED';
 export type Mechanism = 'PERCENTAGE' | 'FIXED' | 'SPECIAL_PRICE' | 'BUY_X_GET_Y' | 'COMBO';
 export type Transition = 'approve' | 'reject' | 'publish' | 'pause' | 'resume' | 'archive';
@@ -36,6 +36,8 @@ export interface PromotionInput {
   channels: string[];
   orderTypes: string[];
   tableNumbers: string[];
+  /** Event promotions: event types covered. Empty = all. */
+  eventTypeIds?: string[];
   minNights?: number | null;
   maxNights?: number | null;
   minQuantity?: number | null;

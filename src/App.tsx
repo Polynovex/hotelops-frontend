@@ -70,6 +70,10 @@ import ArrivalsPage from './pages/business/Reservations/Arrivals';
 import DeparturesPage from './pages/business/Reservations/Departures';
 import InHousePage from './pages/business/Reservations/InHouse';
 import QRoomPage from './pages/business/Reservations/QRoom';
+import EventsPage from './pages/business/events/EventsPage';
+import EventFormPage from './pages/business/events/EventFormPage';
+import EventDetailPage from './pages/business/events/EventDetailPage';
+import EventTypesPage from './pages/business/events/EventTypesPage';
 import RoomListPage from './pages/business/Rooms/RoomList';
 import RoomDetailPage from './pages/business/Rooms/RoomDetail';
 import RoomTypeListPage from './pages/business/Rooms/RoomTypeList';
@@ -155,6 +159,7 @@ type ModuleAwareUser = {
 const resolveModuleForPath = (path: string): AppModule | null => {
   if (
     path.startsWith('/business/reservations') ||
+    path.startsWith('/business/events') ||
     path.startsWith('/business/profiles') ||
     path.startsWith('/business/rooms') ||
     path.startsWith('/business/housekeeping') ||
@@ -655,6 +660,48 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
                     <AnomaliesPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Banquet & events: access comes from the event permissions. */}
+              <Route
+                path="/business/events"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']} anyPermission={['VIEW_EVENTS', 'MANAGE_EVENTS', 'EVENT_PRICING']}>
+                    <EventsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/events/new"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']} anyPermission={['MANAGE_EVENTS']}>
+                    <EventFormPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/events/types"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']} anyPermission={['EVENT_PRICING']}>
+                    <EventTypesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/events/:id"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']} anyPermission={['VIEW_EVENTS', 'MANAGE_EVENTS', 'EVENT_PRICING']}>
+                    <EventDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/events/:id/edit"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']} anyPermission={['MANAGE_EVENTS']}>
+                    <EventFormPage />
                   </ProtectedRoute>
                 }
               />

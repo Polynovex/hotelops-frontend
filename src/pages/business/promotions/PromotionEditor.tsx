@@ -38,6 +38,7 @@ import {
   type PromotionRecord
 } from '../../../services/promotions';
 import { getApiErrorMessage } from '../../../utils/apiError';
+import { eventsApi, type EventType } from '../../../services/events';
 
 /**
  * The full setup template. Rooms: A details, B room selection, C discount,
@@ -48,6 +49,16 @@ import { getApiErrorMessage } from '../../../utils/apiError';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const ROOM_TYPES = ['Discount', 'Special Rate', 'Package', 'Stay Extension'];
+const EVENT_PROMO_TYPES = [
+  'Multi-day event discount',
+  'Conference package',
+  'Wedding and reception package',
+  'Off-peak venue discount',
+  'Early booking discount',
+  'Corporate event discount',
+  'Venue and accommodation package',
+  'Catering package discount'
+];
 const FNB_MECHANISMS: Array<[Mechanism, string]> = [
   ['PERCENTAGE', 'Percentage discount'],
   ['FIXED', 'Fixed amount discount'],
@@ -68,11 +79,11 @@ export const emptyPromotion = (kind: PromotionKind): PromotionInput => ({
   name: '',
   code: '',
   description: '',
-  promotionType: kind === 'ROOM' ? 'Discount' : 'Percentage',
+  promotionType: kind === 'ROOM' ? 'Discount' : kind === 'EVENT' ? EVENT_PROMO_TYPES[0] : 'Percentage',
   mechanism: 'PERCENTAGE',
   value: 10,
   rewardMenuItemIds: [],
-  discountAppliesTo: kind === 'ROOM' ? 'ROOM_RATE' : 'ELIGIBLE_ITEMS',
+  discountAppliesTo: kind === 'ROOM' ? 'ROOM_RATE' : kind === 'EVENT' ? 'EVENT_TOTAL' : 'ELIGIBLE_ITEMS',
   stackable: false,
   autoApply: false,
   roomIds: [],
@@ -84,6 +95,7 @@ export const emptyPromotion = (kind: PromotionKind): PromotionInput => ({
   channels: [],
   orderTypes: [],
   tableNumbers: [],
+  eventTypeIds: [],
   blackoutDates: [],
   applicableDays: [],
   eligibleGuests: 'ALL'
@@ -92,13 +104,13 @@ export const emptyPromotion = (kind: PromotionKind): PromotionInput => ({
 const fromRecord = (record: PromotionRecord): PromotionInput => {
   const { kind, name, code, description, promotionType, mechanism, value, specialPrice, buyQuantity, getQuantity, rewardMenuItemIds,
     discountAppliesTo, maxDiscount, stackable, autoApply, imageUrl, roomIds, roomTypeCodes, ratePlanIds, applicableOutletIds,
-    applicableCategoryIds, applicableMenuItemIds, channels, orderTypes, tableNumbers, minNights, maxNights, minQuantity, minOrderAmount,
+    applicableCategoryIds, applicableMenuItemIds, channels, orderTypes, tableNumbers, eventTypeIds, minNights, maxNights, minQuantity, minOrderAmount,
     startsAt, endsAt, stayStartsAt, stayEndsAt, bookingCutoffHours, blackoutDates, applicableDays, startTime, endTime, eligibleGuests,
     minGuestAge, maxRedemptions, perGuestLimit, stockLimit, cancellationPolicy, terms } = record;
   return {
     kind, name, code, description: description ?? '', promotionType: promotionType ?? '', mechanism, value, specialPrice, buyQuantity,
     getQuantity, rewardMenuItemIds, discountAppliesTo, maxDiscount, stackable, autoApply, imageUrl, roomIds, roomTypeCodes, ratePlanIds,
-    applicableOutletIds, applicableCategoryIds, applicableMenuItemIds, channels, orderTypes, tableNumbers, minNights, maxNights, minQuantity,
+    applicableOutletIds, applicableCategoryIds, applicableMenuItemIds, channels, orderTypes, tableNumbers, eventTypeIds: eventTypeIds ?? [], minNights, maxNights, minQuantity,
     minOrderAmount, startsAt, endsAt, stayStartsAt, stayEndsAt, bookingCutoffHours, blackoutDates, applicableDays, startTime, endTime,
     eligibleGuests, minGuestAge, maxRedemptions, perGuestLimit, stockLimit, cancellationPolicy, terms
   };
@@ -194,6 +206,11 @@ const PromotionEditor: React.FC<{
 
   const set = <K extends keyof PromotionInput>(key: K, value: PromotionInput[K]) => setForm((current) => ({ ...current, [key]: value }));
   const isRoom = form.kind === 'ROOM';
+  const isEvent = form.kind === 'EVENT';
+  const [eventTypes, setEventTypes] = useState<EventType[]>([]);
+  useEffect(() => {
+    if (open && isEvent && !eventTypes.length) eventsApi.listTypes().then(setEventTypes).catch(() => setEventTypes([]));
+  }, [open, isEvent, eventTypes.length]);
   const items = lookups?.items ?? [];
   const eligibleItems = useMemo(
     () =>
@@ -220,13 +237,13 @@ const PromotionEditor: React.FC<{
 
   // Profitability (F&B section F) refreshes as the offer changes.
   useEffect(() => {
-    if (!open || isRoom || !form.name.trim()) return;
+    if (!open || isRoom || isEvent || !form.name.trim()) return;
     const timer = window.setTimeout(() => {
       promotionsApi.preview(clean({ ...form, action: 'PUBLISH' })).then(setPreview).catch(() => undefined);
     }, 600);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isRoom, form.mechanism, form.value, form.specialPrice, form.buyQuantity, form.getQuantity, form.applicableMenuItemIds, form.applicableCategoryIds, form.applicableOutletIds, form.minQuantity, form.discountAppliesTo]);
+  }, [open, isRoom, isEvent, form.mechanism, form.value, form.specialPrice, form.buyQuantity, form.getQuantity, form.applicableMenuItemIds, form.applicableCategoryIds, form.applicableOutletIds, form.minQuantity, form.discountAppliesTo]);
 
   const save = async (mode: 'DRAFT' | 'PUBLISH' | 'SCHEDULE') => {
     if (form.name.trim().length < 2) {
@@ -258,7 +275,7 @@ const PromotionEditor: React.FC<{
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" scroll="paper">
       <DialogTitle sx={{ fontWeight: 800 }}>
-        {record ? 'Edit' : 'New'} {isRoom ? 'room' : 'food & beverage'} promotion
+        {record ? 'Edit' : 'New'} {isRoom ? 'room' : isEvent ? 'event' : 'food & beverage'} promotion
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
@@ -277,7 +294,11 @@ const PromotionEditor: React.FC<{
                 <TextField fullWidth size="small" label="Description" value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} multiline minRows={2} />
               </Grid>
               <Grid item xs={12} md={6}>
-                {isRoom ? (
+                {isEvent ? (
+                  <TextField select fullWidth size="small" label="Promotion type" value={form.promotionType || EVENT_PROMO_TYPES[0]} onChange={(e) => set('promotionType', e.target.value)}>
+                    {[...new Set([...EVENT_PROMO_TYPES, form.promotionType || EVENT_PROMO_TYPES[0]])].map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
+                  </TextField>
+                ) : isRoom ? (
                   <TextField select fullWidth size="small" label="Promotion type" value={form.promotionType ?? 'Discount'} onChange={(e) => {
                     set('promotionType', e.target.value);
                     if (e.target.value === 'Special Rate') set('mechanism', 'SPECIAL_PRICE');
@@ -316,7 +337,65 @@ const PromotionEditor: React.FC<{
             </Grid>
           </Section>
 
-          {isRoom ? (
+          {isEvent ? (
+            <>
+              <Section letter="B" title="Event selection" hint="Leave the list empty to cover every event type.">
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <MultiPick label="Applicable event types" options={eventTypes} value={form.eventTypeIds ?? []} getId={(t) => t.id} getLabel={(t) => `${t.name} · ${t.location}`} onChange={(v) => set('eventTypeIds', v)} />
+                  </Grid>
+                  <Grid item xs={6} md={4}>
+                    <TextField fullWidth size="small" type="number" label="Minimum booking duration (days)" value={form.minNights ?? ''} onChange={(e) => set('minNights', num(e.target.value))} />
+                  </Grid>
+                  <Grid item xs={6} md={4}>
+                    <TextField fullWidth size="small" type="number" label="Maximum duration (days)" value={form.maxNights ?? ''} onChange={(e) => set('maxNights', num(e.target.value))} />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField fullWidth size="small" type="number" label="Minimum booking value" value={form.minOrderAmount ?? ''} onChange={(e) => set('minOrderAmount', num(e.target.value))} />
+                  </Grid>
+                </Grid>
+              </Section>
+
+              <Section letter="C" title="Discount" hint="Applied to the event total: venue, rooms, catering and corkage.">
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={4}>
+                    <TextField select fullWidth size="small" label="Discount type" value={form.mechanism === 'FIXED' ? 'FIXED' : 'PERCENTAGE'} onChange={(e) => set('mechanism', e.target.value as Mechanism)}>
+                      <MenuItem value="PERCENTAGE">Percentage</MenuItem>
+                      <MenuItem value="FIXED">Fixed amount</MenuItem>
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField fullWidth size="small" type="number" label={form.mechanism === 'FIXED' ? 'Discount value' : 'Discount value (%)'} value={form.value} onChange={(e) => set('value', Number(e.target.value))} />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField fullWidth size="small" type="number" label="Maximum discount" value={form.maxDiscount ?? ''} onChange={(e) => set('maxDiscount', num(e.target.value))} />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <FormControlLabel control={<Switch checked={form.stackable} onChange={(e) => set('stackable', e.target.checked)} />} label="Can combine with other promotions" />
+                    <FormControlLabel control={<Switch checked={form.autoApply} onChange={(e) => set('autoApply', e.target.checked)} />} label="Offer automatically when eligible" />
+                  </Grid>
+                </Grid>
+              </Section>
+
+              <Section letter="D" title="Validity" hint="Dates use the hotel's time zone automatically.">
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}><TextField fullWidth size="small" type="datetime-local" label="Valid from" InputLabelProps={{ shrink: true }} value={toLocalInput(form.startsAt)} onChange={(e) => set('startsAt', e.target.value ? new Date(e.target.value).toISOString() : undefined)} /></Grid>
+                  <Grid item xs={12} md={6}><TextField fullWidth size="small" type="datetime-local" label="Valid until" InputLabelProps={{ shrink: true }} value={toLocalInput(form.endsAt)} onChange={(e) => set('endsAt', e.target.value ? new Date(e.target.value).toISOString() : null)} /></Grid>
+                  <Grid item xs={12} md={6}><TextField fullWidth size="small" type="date" label="Events from (optional)" InputLabelProps={{ shrink: true }} value={toLocalDate(form.stayStartsAt)} onChange={(e) => set('stayStartsAt', e.target.value ? new Date(e.target.value).toISOString() : null)} helperText="e.g. off-peak months" /></Grid>
+                  <Grid item xs={12} md={6}><TextField fullWidth size="small" type="date" label="Events until (optional)" InputLabelProps={{ shrink: true }} value={toLocalDate(form.stayEndsAt)} onChange={(e) => set('stayEndsAt', e.target.value ? new Date(e.target.value).toISOString() : null)} /></Grid>
+                  <Grid item xs={12} md={6}><TextField fullWidth size="small" type="number" label="Book at least (hours before the event)" value={form.bookingCutoffHours ?? ''} onChange={(e) => set('bookingCutoffHours', num(e.target.value))} helperText="For early-booking discounts" /></Grid>
+                </Grid>
+              </Section>
+
+              <Section letter="E" title="Limits and terms">
+                <Grid container spacing={2}>
+                  <Grid item xs={6} md={3}><TextField fullWidth size="small" type="number" label="Redemption limit" value={form.maxRedemptions ?? ''} onChange={(e) => set('maxRedemptions', num(e.target.value))} /></Grid>
+                  <Grid item xs={6} md={3}><TextField fullWidth size="small" type="number" label="Uses per customer" value={form.perGuestLimit ?? ''} onChange={(e) => set('perGuestLimit', num(e.target.value))} /></Grid>
+                  <Grid item xs={12}><TextField fullWidth size="small" label="Terms & conditions" value={form.terms ?? ''} onChange={(e) => set('terms', e.target.value)} multiline minRows={2} /></Grid>
+                </Grid>
+              </Section>
+            </>
+          ) : isRoom ? (
             <>
               <Section letter="B" title="Room selection" hint="Leave a list empty to cover everything.">
                 <Grid container spacing={2}>
@@ -518,7 +597,7 @@ const PromotionEditor: React.FC<{
             </>
           )}
 
-          <Section letter={isRoom ? 'F' : 'G'} title="Preview & publish">
+          <Section letter={isRoom || isEvent ? 'F' : 'G'} title="Preview & publish">
             {preview ? (
               <Stack spacing={1.5}>
                 {preview.approval.requiresApproval ? (
@@ -529,6 +608,7 @@ const PromotionEditor: React.FC<{
                   <Alert severity="success">Within your discount and margin policy — publishes immediately.</Alert>
                 )}
                 {isRoom && <RoomPreviewTable preview={preview} currency={currency} />}
+                {isEvent && <EventPreviewTable preview={preview} currency={currency} />}
               </Stack>
             ) : (
               <Typography variant="body2" color="text.secondary">Press Preview to see the promotional prices and whether approval is needed.</Typography>
@@ -638,6 +718,34 @@ const RoomPreviewTable: React.FC<{ preview: PreviewResult; currency: (v: number)
   </Box>
 );
 
+const EventPreviewTable: React.FC<{ preview: PreviewResult; currency: (v: number) => string }> = ({ preview, currency }) => (
+  <Box sx={{ overflowX: 'auto' }}>
+    <Table size="small">
+      <TableHead>
+        <TableRow>
+          <TableCell>Event type</TableCell>
+          <TableCell align="right">Days</TableCell>
+          <TableCell align="right">Venue price</TableCell>
+          <TableCell align="right">With promotion</TableCell>
+          <TableCell align="right">Customer saves</TableCell>
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {preview.rows.map((row) => (
+          <TableRow key={`${row.eventType}-${row.location}`}>
+            <TableCell>{row.eventType} <Typography component="span" variant="caption" color="text.secondary">· {row.location}</Typography></TableCell>
+            <TableCell align="right">{row.days}</TableCell>
+            <TableCell align="right">{currency(row.originalTotal)}</TableCell>
+            <TableCell align="right">{currency(row.promotionalTotal)}</TableCell>
+            <TableCell align="right">{currency(row.discount)}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+    <Typography variant="caption" color="text.secondary">Venue only, as an example. On a booking the discount applies to the whole event total.</Typography>
+  </Box>
+);
+
 /** "Add quick promotion": just a name and a discount. */
 export const QuickPromotionDialog: React.FC<{
   open: boolean;
@@ -677,7 +785,7 @@ export const QuickPromotionDialog: React.FC<{
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle sx={{ fontWeight: 800 }}>Quick {kind === 'ROOM' ? 'room' : 'F&B'} promotion</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 800 }}>Quick {kind === 'ROOM' ? 'room' : kind === 'EVENT' ? 'event' : 'F&B'} promotion</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
@@ -688,7 +796,7 @@ export const QuickPromotionDialog: React.FC<{
           </ToggleButtonGroup>
           <TextField label={type === 'PERCENT' ? 'Discount (%)' : 'Discount amount'} type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} fullWidth />
           <Typography variant="caption" color="text.secondary">
-            Goes live now for every {kind === 'ROOM' ? 'room' : 'item'} and channel. Large discounts still go to a manager for approval.
+            Goes live now for every {kind === 'ROOM' ? 'room' : kind === 'EVENT' ? 'event type' : 'item'} and channel. Large discounts still go to a manager for approval.
           </Typography>
         </Stack>
       </DialogContent>
