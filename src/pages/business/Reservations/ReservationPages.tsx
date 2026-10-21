@@ -1230,6 +1230,7 @@ export const CheckInPage = () => {
 };
 
 export const CheckOutPage = () => {
+  const navigate = useNavigate();
   const [checkoutId, setCheckoutId] = useState<string | null>(null);
   const { on } = useWebSocket();
   const [targetDate, setTargetDate] = useState(todayDate());
@@ -1333,14 +1334,24 @@ export const CheckOutPage = () => {
               label: 'Action',
               minWidth: 180,
               render: (reservation) => (
-                <Button
-                  size="small"
-                  color="warning"
-                  disabled={reservation.status !== 'CHECKED_IN'}
-                  onClick={() => setCheckoutId(reservation.id)}
-                >
-                  Settle & check out
-                </Button>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={reservation.status !== 'CHECKED_IN'}
+                    onClick={() => navigate(`/business/reservations/${reservation.id}/checkout`)}
+                  >
+                    Review charges
+                  </Button>
+                  <Button
+                    size="small"
+                    color="warning"
+                    disabled={reservation.status !== 'CHECKED_IN'}
+                    onClick={() => setCheckoutId(reservation.id)}
+                  >
+                    Settle & check out
+                  </Button>
+                </Stack>
               )
             }
           ]}

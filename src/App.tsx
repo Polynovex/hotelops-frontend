@@ -71,6 +71,10 @@ import DeparturesPage from './pages/business/Reservations/Departures';
 import InHousePage from './pages/business/Reservations/InHouse';
 import QRoomPage from './pages/business/Reservations/QRoom';
 import StaffProfilePage from './pages/business/hr/StaffProfilePage';
+import CheckoutReviewPage from './pages/business/Reservations/CheckoutReviewPage';
+import CheckoutApprovalsPage from './pages/business/Rooms/CheckoutApprovalsPage';
+import MinibarPage from './pages/business/Rooms/MinibarPage';
+import RoomInspectionPage from './pages/business/Housekeeping/RoomInspectionPage';
 import EventsPage from './pages/business/events/EventsPage';
 import EventFormPage from './pages/business/events/EventFormPage';
 import EventDetailPage from './pages/business/events/EventDetailPage';
@@ -878,6 +882,39 @@ function App() {
                   <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
                       'FRONT_OFFICE', 'MANAGER']}>
                     <CheckInPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/business/checkout-approvals"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'FRONT_OFFICE']} anyPermission={['APPROVE_CHECKOUT_CHARGES']}>
+                    <CheckoutApprovalsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/minibar"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'RECEPTIONIST', 'FRONT_OFFICE']} anyPermission={['MANAGE_MINIBAR', 'CHECKOUT_CHARGES']}>
+                    <MinibarPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/housekeeping/inspection"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'HOUSEKEEPING', 'RECEPTIONIST', 'FRONT_OFFICE']} anyPermission={['ROOM_INSPECTION']}>
+                    <RoomInspectionPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/reservations/:id/checkout"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'FRONT_OFFICE', 'MANAGER']} anyPermission={['CHECKOUT_CHARGES', 'APPROVE_CHECKOUT_CHARGES']}>
+                    <CheckoutReviewPage />
                   </ProtectedRoute>
                 }
               />

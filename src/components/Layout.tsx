@@ -153,6 +153,9 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
         { label: 'Room Types', icon: HotelIcon, path: '/business/room-types', module: 'pms' },
         { label: 'All Rooms', icon: RoomIcon, path: '/business/rooms', module: 'pms' },
         { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
+        { label: 'Room Inspection', icon: CleaningIcon, path: '/housekeeping/inspection', module: 'pms' },
+        { label: 'Minibar', icon: RestaurantRounded, path: '/business/minibar', module: 'pms' },
+        { label: 'Check-out Approvals', icon: ReceiptIcon, path: '/business/checkout-approvals', module: 'pms' },
         { label: 'Guest Book', icon: PeopleIcon, path: '/business/guests', module: 'pms' },
         { label: 'Guest Self-Registration', icon: PosIcon, path: '/business/guests/registration-links', module: 'pms' },
         // Company and travel-agent records, plus merge and blacklist.
@@ -242,6 +245,8 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Departures', icon: PeopleIcon, path: '/reception/departures', module: 'pms' },
     { label: 'In-House', icon: HotelIcon, path: '/reception/in-house', module: 'pms' },
     { label: 'Waitlist', icon: ReceiptIcon, path: '/reception/waitlist', module: 'pms' },
+    { label: 'Minibar', icon: RestaurantRounded, path: '/business/minibar', module: 'pms' },
+    { label: 'Room Inspection', icon: CleaningIcon, path: '/housekeeping/inspection', module: 'pms' },
     {
       label: 'New Reservation',
       icon: CalendarIcon,
@@ -264,6 +269,7 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Dashboard', icon: DashboardIcon, path: '/housekeeping/dashboard', module: 'pms' },
     { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' },
     { label: 'Room Status', icon: CleaningIcon, path: '/housekeeping/rooms', module: 'pms' },
+    { label: 'Room Inspection', icon: ReceiptIcon, path: '/housekeeping/inspection', module: 'pms' },
     { label: 'My Tasks', icon: AssessmentIcon, path: '/business/housekeeping/my-tasks', module: 'pms' }
   ],
   ACCOUNTANT: [
@@ -325,6 +331,8 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Reservations', icon: CalendarIcon, path: '/business/reservations', module: 'pms' },
     { label: 'Arrivals', icon: PeopleIcon, path: '/business/reservations/arrivals', module: 'pms' },
     { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
+    { label: 'Check-out Approvals', icon: ReceiptIcon, path: '/business/checkout-approvals', module: 'pms' },
+    { label: 'Minibar', icon: RestaurantRounded, path: '/business/minibar', module: 'pms' },
     { label: 'HR & Payroll', icon: UserIcon, path: '/business/hr' },
     { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' },
     { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
