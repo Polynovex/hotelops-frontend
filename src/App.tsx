@@ -70,6 +70,7 @@ import ArrivalsPage from './pages/business/Reservations/Arrivals';
 import DeparturesPage from './pages/business/Reservations/Departures';
 import InHousePage from './pages/business/Reservations/InHouse';
 import QRoomPage from './pages/business/Reservations/QRoom';
+import StaffProfilePage from './pages/business/hr/StaffProfilePage';
 import EventsPage from './pages/business/events/EventsPage';
 import EventFormPage from './pages/business/events/EventFormPage';
 import EventDetailPage from './pages/business/events/EventDetailPage';
@@ -1081,6 +1082,17 @@ function App() {
                     anyPermission={['HR_ACCESS', 'VIEW_STAFF']}
                   >
                     <HrDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/hr/staff/:id"
+                element={
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}
+                    anyPermission={['VIEW_STAFF']}
+                  >
+                    <StaffProfilePage />
                   </ProtectedRoute>
                 }
               />

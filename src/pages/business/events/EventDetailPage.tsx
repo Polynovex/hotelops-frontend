@@ -12,7 +12,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  GlobalStyles,
   Grid,
   MenuItem,
   Paper,
@@ -26,6 +25,7 @@ import {
   Typography
 } from '@mui/material';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
 import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded';
 import Layout from '../../../components/Layout';
@@ -40,6 +40,8 @@ import {
 import { formatCurrency } from '../../../utils/formatters';
 import { getApiErrorMessage } from '../../../utils/apiError';
 import { StatusChip, eventDates } from './EventsPage';
+import AddOnsDialog from '../../../components/events/AddOnsDialog';
+import { printElement } from '../../../utils/printElement';
 
 /**
  * One event: its details, the itemised invoice (printable), payments, linked
@@ -73,6 +75,7 @@ const EventDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const can = usePermissionStore((state) => state.can);
   const canManage = can('MANAGE_EVENTS');
+  const canPrice = can('EVENT_PRICING');
 
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [error, setError] = useState('');
@@ -80,6 +83,9 @@ const EventDetailPage: React.FC = () => {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [payOpen, setPayOpen] = useState(false);
+  const [addOnsOpen, setAddOnsOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [details, setDetails] = useState({ contactName: '', contactPhone: '', contactEmail: '', organization: '', billingAddress: '', specialRequirements: '', terms: '' });
   const [pay, setPay] = useState({ amount: '', method: 'TRANSFER', reference: '', notes: '' });
 
   const load = useCallback(async () => {
@@ -136,21 +142,40 @@ const EventDetailPage: React.FC = () => {
   }
 
   const closed = event.status === 'COMPLETED' || event.status === 'CANCELLED';
+  // Once paid, the booking is fixed: details can be corrected and add-ons added.
+  const paid = event.paidAmount > 0;
+  const booked = event.lines.filter((line) => !line.addOn);
+  const addOns = event.lines.filter((line) => line.addOn);
+  const openDetails = () => {
+    setDetails({
+      contactName: event.contactName,
+      contactPhone: event.contactPhone,
+      contactEmail: event.contactEmail ?? '',
+      organization: event.organization ?? '',
+      billingAddress: event.billingAddress ?? '',
+      specialRequirements: event.specialRequirements ?? '',
+      terms: event.terms ?? ''
+    });
+    setDetailsOpen(true);
+  };
+  const saveDetails = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await eventsApi.update(event.id, details);
+      setDetailsOpen(false);
+      await load();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not save the details'));
+    } finally {
+      setBusy(false);
+    }
+  };
   const dates = eventDates(event);
   const hotel = event.hotel;
 
   return (
     <Layout>
-      {/* Print only the invoice. */}
-      <GlobalStyles
-        styles={{
-          '@media print': {
-            'body *': { visibility: 'hidden' },
-            '#event-invoice, #event-invoice *': { visibility: 'visible' },
-            '#event-invoice': { position: 'absolute', left: 0, top: 0, width: '100%', border: 'none !important', boxShadow: 'none !important' }
-          }
-        }}
-      />
       <Container maxWidth="lg" sx={{ py: 3 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'flex-start' }} spacing={2} sx={{ mb: 2 }}>
           <Box>
@@ -163,10 +188,17 @@ const EventDetailPage: React.FC = () => {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Button variant="outlined" startIcon={<PrintRoundedIcon />} onClick={() => window.print()}>Print invoice</Button>
+            <Button variant="outlined" startIcon={<PrintRoundedIcon />} onClick={() => printElement('event-invoice', `${event.reference} — ${event.eventName}`)}>Print invoice</Button>
             {canManage && !closed && (
               <>
-                <Button variant="outlined" startIcon={<EditRoundedIcon />} onClick={() => navigate(`/business/events/${event.id}/edit`)}>Edit</Button>
+                {paid ? (
+                  <>
+                    <Button variant="outlined" startIcon={<EditRoundedIcon />} onClick={openDetails}>Edit details</Button>
+                    <Button variant="outlined" startIcon={<AddCircleOutlineRoundedIcon />} onClick={() => setAddOnsOpen(true)}>Add-ons</Button>
+                  </>
+                ) : (
+                  <Button variant="outlined" startIcon={<EditRoundedIcon />} onClick={() => navigate(`/business/events/${event.id}/edit`)}>Edit</Button>
+                )}
                 {event.balance > 0 && <Button variant="contained" startIcon={<PaymentsRoundedIcon />} onClick={() => { setPay({ amount: String(event.balance), method: 'TRANSFER', reference: '', notes: '' }); setPayOpen(true); }}>Record payment</Button>}
               </>
             )}
@@ -293,7 +325,11 @@ const EventDetailPage: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {event.lines.map((line, i) => (
+                  {[...booked, ...(addOns.length ? [null] : []), ...addOns].map((line, i) => line === null ? (
+                    <TableRow key="addon-heading">
+                      <TableCell colSpan={4} sx={{ pt: 2, fontWeight: 800, textTransform: 'uppercase', fontSize: 12, letterSpacing: '0.06em' }}>Add-ons after payment</TableCell>
+                    </TableRow>
+                  ) : (
                     <TableRow key={line.id ?? i}>
                       <TableCell>
                         {line.description}
@@ -313,6 +349,13 @@ const EventDetailPage: React.FC = () => {
               </Table>
 
               <Stack spacing={0.5} sx={{ mt: 2, ml: 'auto', maxWidth: 340 }}>
+                {event.originalTotal != null && (
+                  <>
+                    <Total label="Booked total" value={event.originalTotal} />
+                    <Total label="Add-ons (with service charge and VAT)" value={event.total - event.originalTotal} />
+                    <Divider />
+                  </>
+                )}
                 <Total label="Subtotal" value={event.subtotal} />
                 {event.discount > 0 && <Total label={event.promotion ? `Discount (${event.promotion.name})` : 'Discount'} value={-event.discount} />}
                 {event.serviceCharge > 0 && <Total label={`Service charge (${event.eventType.serviceChargeRate}%)`} value={event.serviceCharge} />}
@@ -362,6 +405,27 @@ const EventDetailPage: React.FC = () => {
           <DialogActions>
             <Button onClick={() => setPayOpen(false)} disabled={busy}>Cancel</Button>
             <Button variant="contained" disabled={busy || !(Number(pay.amount) > 0)} onClick={() => void recordPayment()}>Record</Button>
+          </DialogActions>
+        </Dialog>
+        <AddOnsDialog open={addOnsOpen} event={event} canPrice={canPrice} onClose={() => setAddOnsOpen(false)} onDone={() => { setAddOnsOpen(false); void load(); }} />
+
+        <Dialog open={detailsOpen} onClose={() => !busy && setDetailsOpen(false)} fullWidth maxWidth="sm">
+          <DialogTitle>Edit details</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField label="Contact person" value={details.contactName} onChange={(e) => setDetails({ ...details, contactName: e.target.value })} />
+              <TextField label="Phone" value={details.contactPhone} onChange={(e) => setDetails({ ...details, contactPhone: e.target.value })} />
+              <TextField label="Email" value={details.contactEmail} onChange={(e) => setDetails({ ...details, contactEmail: e.target.value })} />
+              <TextField label="Organisation" value={details.organization} onChange={(e) => setDetails({ ...details, organization: e.target.value })} />
+              <TextField label="Billing address" value={details.billingAddress} onChange={(e) => setDetails({ ...details, billingAddress: e.target.value })} />
+              <TextField label="Special requirements" multiline minRows={2} value={details.specialRequirements} onChange={(e) => setDetails({ ...details, specialRequirements: e.target.value })} />
+              <TextField label="Terms and conditions" multiline minRows={2} value={details.terms} onChange={(e) => setDetails({ ...details, terms: e.target.value })} />
+              <Typography variant="caption" color="text.secondary">Prices, dates, catering and rooms are fixed after payment — use Add-ons to change them.</Typography>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDetailsOpen(false)} disabled={busy}>Cancel</Button>
+            <Button variant="contained" onClick={() => void saveDetails()} disabled={busy}>Save</Button>
           </DialogActions>
         </Dialog>
       </Container>

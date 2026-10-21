@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useRoomTypeNames } from '../../../hooks/useRoomTypeNames';
 import {
   Box,
   Button,
@@ -174,6 +175,7 @@ export const HousekeepingTaskBoardPage = () => {
 };
 
 export const RoomStatusUpdatePage = () => {
+  const roomTypeName = useRoomTypeNames();
   const [rooms, setRooms] = useState<RoomRecord[]>([]);
   const [filter, setFilter] = useState('ALL');
 
@@ -216,7 +218,7 @@ export const RoomStatusUpdatePage = () => {
           {visible.map((room) => (
             <Paper key={room.id} sx={{ p: 2, width: 220 }}>
               <Typography variant="h6" sx={{ fontWeight: 700 }}>{room.roomNumber}</Typography>
-              <Typography variant="body2" color="text.secondary">{room.roomType}</Typography>
+              <Typography variant="body2" color="text.secondary">{roomTypeName(room.roomType)}</Typography>
               <Chip sx={{ mt: 1.2 }} label={room.status} color={statusColor(room.status) as 'default'} />
               <Stack spacing={1} sx={{ mt: 1.5 }}>
                 <Button size="small" onClick={() => void setStatus(room.id, 'DIRTY')}>Dirty</Button>
@@ -233,6 +235,7 @@ export const RoomStatusUpdatePage = () => {
 };
 
 export const InspectionViewPage = () => {
+  const roomTypeName = useRoomTypeNames();
   const [rooms, setRooms] = useState<RoomRecord[]>([]);
 
   const load = async () => setRooms(await roomOpsService.listRooms());
@@ -265,7 +268,7 @@ export const InspectionViewPage = () => {
               {inspectionQueue.map((room) => (
                 <TableRow key={room.id}>
                   <TableCell>{room.roomNumber}</TableCell>
-                  <TableCell>{room.roomType}</TableCell>
+                  <TableCell>{roomTypeName(room.roomType)}</TableCell>
                   <TableCell>
                     <Chip size="small" label={room.status} color={statusColor(room.status) as 'default'} />
                   </TableCell>

@@ -103,6 +103,10 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  /** Set when one email signs in to several businesses: the person picks one. */
+  const [businessChoices, setBusinessChoices] = useState<Array<{ hotelId: string; name: string; role: string }> | null>(null);
+  const chosenHotel = useRef<string | undefined>(undefined);
+  const lastCredentials = useRef<LoginSchema | null>(null);
 
   const {
     register,
@@ -139,7 +143,11 @@ const LoginPage: React.FC = () => {
     setError('');
     try {
       pendingSecret.current = { identifier: data.email, secret: data.password };
-      const auth = await authService.login(data.email, data.password, mfaCode || undefined);
+      if (lastCredentials.current && lastCredentials.current.email.trim().toLowerCase() !== data.email.trim().toLowerCase()) {
+        chosenHotel.current = undefined;
+      }
+      lastCredentials.current = data;
+      const auth = await authService.login(data.email, data.password, mfaCode || undefined, chosenHotel.current);
       if ('challenge' in auth) {
         setChallenge(auth.challenge);
         return;
@@ -157,6 +165,11 @@ const LoginPage: React.FC = () => {
        * error left an enrolled user with no way to complete sign-in, because
        * nothing ever asked for the code.
        */
+      if (response?.error === 'CHOOSE_BUSINESS' && Array.isArray(response.businesses)) {
+        setBusinessChoices(response.businesses);
+        return;
+      }
+
       if (response?.mfaRequired) {
         setMfaRequired(true);
         setError(
@@ -622,6 +635,28 @@ const LoginPage: React.FC = () => {
                 ) : (
                   <Box component="form" onSubmit={handleSubmit(handleEmailLogin)}>
                     <Stack spacing={2}>
+                      {businessChoices && (
+                        <Alert severity="info">
+                          <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>
+                            This email signs in to more than one business. Which one?
+                          </Typography>
+                          <Stack spacing={1}>
+                            {businessChoices.map((b) => (
+                              <Button
+                                key={b.hotelId}
+                                variant="outlined"
+                                onClick={() => {
+                                  chosenHotel.current = b.hotelId;
+                                  setBusinessChoices(null);
+                                  if (lastCredentials.current) void handleEmailLogin(lastCredentials.current);
+                                }}
+                              >
+                                {b.name}
+                              </Button>
+                            ))}
+                          </Stack>
+                        </Alert>
+                      )}
                       <TextField
                         fullWidth
                         autoFocus

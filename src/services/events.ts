@@ -106,7 +106,7 @@ export interface EventInput {
   catering: CateringInput[];
   outsideFoodAllowed: boolean;
   corkage?: { description?: string | null; amount: number; quantity: number; notes?: string | null } | null;
-  accommodation?: AccommodationInput | null;
+  accommodation?: AccommodationInput[];
   promotionId?: string | null;
   promotionCode?: string | null;
   manualDiscount?: number | null;
@@ -116,6 +116,8 @@ export interface EventInput {
 
 export interface EventLine {
   id?: string;
+  addOn?: boolean;
+  addedAt?: string | null;
   type: EventLineType;
   description: string;
   serviceDate?: string | null;
@@ -166,8 +168,10 @@ export interface EventBooking {
   endAt: string;
   specialRequirements: string | null;
   outsideFoodAllowed: boolean;
-  accommodation: AccommodationInput | null;
+  accommodation: AccommodationInput[] | AccommodationInput | null;
   promotionId: string | null;
+  originalTotal: number | null;
+  manualDiscount: number;
   subtotal: number;
   discount: number;
   serviceCharge: number;
@@ -235,6 +239,9 @@ export const eventsApi = {
   },
   async setStatus(id: string, status: EventStatus, reason?: string) {
     return (await api.post(`/events/${id}/status`, { status, reason })).data as EventBooking;
+  },
+  async addOns(id: string, payload: { extendTo?: string | null; catering: CateringInput[]; corkage?: EventInput['corkage']; accommodation: AccommodationInput[]; manualDiscount?: number | null; note?: string | null }) {
+    return (await api.post(`/events/${id}/add-ons`, payload)).data as EventBooking & { addOnSubtotal: number; warnings: string[] };
   },
   async pay(id: string, payload: { amount: number; method: string; reference?: string; notes?: string }) {
     return (await api.post(`/events/${id}/payments`, payload)).data as EventPayment & { balance: number; paymentStatus: PaymentStatus };

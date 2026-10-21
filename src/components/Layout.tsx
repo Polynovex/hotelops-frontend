@@ -179,13 +179,21 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
       label: 'Workforce & Admin',
       icon: UserIcon,
       children: [
-        { label: 'Staff', icon: UserIcon, path: '/business/users' },
+        // The real path, not /business/users (which redirects into Settings
+        // and made the Settings item light up instead of this one).
+        { label: 'Staff', icon: UserIcon, path: '/business/settings/users' },
         { label: 'Roles & Permissions', icon: LockOutlined, path: '/business/permissions' },
+        { label: 'Audit Trail', icon: AuditIcon, path: '/business/audit' }
+      ]
+    },
+    {
+      label: 'HR',
+      icon: BadgeRounded,
+      children: [
         { label: 'HR Dashboard', icon: UserIcon, path: '/business/hr' },
         { label: 'Payroll', icon: ReceiptIcon, path: '/business/hr/payroll' },
         { label: 'Staff Rota', icon: CalendarIcon, path: '/business/hr/rota' },
-        { label: 'Attendance Approvals', icon: CalendarIcon, path: '/business/hr/attendance' },
-        { label: 'Audit Trail', icon: AuditIcon, path: '/business/audit' }
+        { label: 'Attendance Approvals', icon: CalendarIcon, path: '/business/hr/attendance' }
       ]
     },
     {
@@ -223,11 +231,11 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
    * produced a menu where every item failed with a 403.
    */
   SUPPORT_STAFF: [
-    { label: 'My HR', icon: UserIcon, path: '/my-hr' }
+    { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' }
   ],
   RECEPTION: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/reception/dashboard', module: 'pms' },
-    { label: 'My HR', icon: UserIcon, path: '/my-hr' },
+    { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' },
     { label: 'Shift', icon: HistoryIcon, path: '/shift' },
     { label: 'Stay View', icon: CalendarIcon, path: '/reception/stay-view', module: 'pms' },
     { label: 'Arrivals', icon: PeopleIcon, path: '/reception/arrivals', module: 'pms' },
@@ -244,7 +252,7 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
   ],
   POS_STAFF: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/pos/dashboard', module: 'pos' },
-    { label: 'My HR', icon: UserIcon, path: '/my-hr' },
+    { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' },
     { label: 'Shift', icon: HistoryIcon, path: '/shift' },
     { label: 'Take Orders', icon: PosIcon, path: '/business/pos/orders', module: 'pos' },
     { label: 'Tables', icon: RoomIcon, path: '/business/pos/tables', module: 'pos' },
@@ -254,13 +262,13 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
   ],
   HOUSEKEEPING: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/housekeeping/dashboard', module: 'pms' },
-    { label: 'My HR', icon: UserIcon, path: '/my-hr' },
+    { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' },
     { label: 'Room Status', icon: CleaningIcon, path: '/housekeeping/rooms', module: 'pms' },
     { label: 'My Tasks', icon: AssessmentIcon, path: '/business/housekeeping/my-tasks', module: 'pms' }
   ],
   ACCOUNTANT: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/accountant/dashboard', module: 'finance' },
-    { label: 'My HR', icon: UserIcon, path: '/my-hr' },
+    { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' },
     {
       label: 'Night Audit Status',
       icon: AssessmentIcon,
@@ -318,6 +326,7 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Arrivals', icon: PeopleIcon, path: '/business/reservations/arrivals', module: 'pms' },
     { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
     { label: 'HR & Payroll', icon: UserIcon, path: '/business/hr' },
+    { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' },
     { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
     { label: 'Tables', icon: RoomIcon, path: '/business/pos/tables', module: 'pos' },
     { label: 'Kitchen', icon: KdsIcon, path: '/business/kitchen', module: 'pos' },
@@ -601,7 +610,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   );
 
   if (hrChildren.length > 0 && !alreadyHasHr) {
-    menuItems.push({ label: 'HR & Payroll', icon: UserIcon, children: hrChildren });
+    menuItems.push({ label: 'HR', icon: BadgeRounded, children: hrChildren });
   }
 
   // Banquet & events, for whoever holds an event permission — front desk,

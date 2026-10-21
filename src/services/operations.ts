@@ -1,4 +1,5 @@
 import { api } from './api';
+import { refreshRoomTypeNames } from '../hooks/useRoomTypeNames';
 import { useAuthStore } from '../store/authStore';
 
 const PROFILE_KEY = 'hotelopx.v3.profiles';
@@ -1415,6 +1416,21 @@ export const roomOpsService = {
     return room;
   },
 
+  async updateRoom(
+    roomId: string,
+    updates: { roomNumber?: string; name?: string | null; roomType?: string; floor?: number; rate?: number }
+  ): Promise<RoomRecord> {
+    const response = await api.put(`/rooms/${roomId}`, updates);
+    pushAudit({ action: 'UPDATE', entity: 'ROOM', entityId: roomId, details: updates });
+    return mapRoom(response.data as Record<string, unknown>);
+  },
+
+  /** Refused by the server while the room has an active reservation. */
+  async deleteRoom(roomId: string): Promise<void> {
+    await api.delete(`/rooms/${roomId}`);
+    pushAudit({ action: 'DELETE', entity: 'ROOM', entityId: roomId, details: {} });
+  },
+
   async updateRoomStatus(roomId: string, status: string): Promise<void> {
     const normalized = normalizeRoomStatus(status);
     if (isDemoMode()) {
@@ -1484,6 +1500,7 @@ export const roomOpsService = {
           bedSize: typeof row.bedSize === 'string' ? row.bedSize : payload.bedSize ?? null
         };
         pushAudit({ action: 'CREATE', entity: 'ROOM_TYPE', entityId: roomType.id, details: payload });
+        void refreshRoomTypeNames();
         return roomType;
       } catch (error) {
         // Surfaced, not swallowed — see updateRoomType.
@@ -1500,6 +1517,7 @@ export const roomOpsService = {
     rows.unshift(created);
     saveRoomTypes(rows);
     pushAudit({ action: 'CREATE', entity: 'ROOM_TYPE', entityId: created.id, details: payload });
+        void refreshRoomTypeNames();
     return created;
   },
 
@@ -1523,6 +1541,7 @@ export const roomOpsService = {
           bedSize: typeof row.bedSize === 'string' ? row.bedSize : updates.bedSize ?? null
         };
         pushAudit({ action: 'UPDATE', entity: 'ROOM_TYPE', entityId: roomTypeId, details: updates });
+        void refreshRoomTypeNames();
         return roomType;
       } catch (error) {
         /*
@@ -1548,6 +1567,7 @@ export const roomOpsService = {
 
     saveRoomTypes(rows);
     pushAudit({ action: 'UPDATE', entity: 'ROOM_TYPE', entityId: roomTypeId, details: updates });
+        void refreshRoomTypeNames();
     return rows[index];
   },
 
@@ -1556,6 +1576,7 @@ export const roomOpsService = {
       try {
         await api.delete(`/room-types/${roomTypeId}`);
         pushAudit({ action: 'DELETE', entity: 'ROOM_TYPE', entityId: roomTypeId, details: {} });
+        void refreshRoomTypeNames();
         return;
       } catch (error) {
         // Surfaced, not swallowed — see updateRoomType. The server refuses a
@@ -1567,6 +1588,7 @@ export const roomOpsService = {
     const rows = getRoomTypes().filter((row) => row.id !== roomTypeId);
     saveRoomTypes(rows);
     pushAudit({ action: 'DELETE', entity: 'ROOM_TYPE', entityId: roomTypeId, details: {} });
+        void refreshRoomTypeNames();
   }
 };
 

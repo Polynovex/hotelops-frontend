@@ -9,6 +9,44 @@ export type LeaveType = 'ANNUAL' | 'SICK' | 'PERSONAL' | 'MATERNITY' | 'OTHER';
 export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 export type PayrollStatus = 'DRAFT' | 'PROCESSED' | 'PAID';
 
+export type StaffHistoryType = 'HIRED' | 'PROMOTION' | 'TRANSFER' | 'SALARY_CHANGE' | 'TITLE_CHANGE' | 'TERMINATED' | 'REINSTATED';
+
+export interface StaffHistoryEntry {
+  id: string;
+  type: StaffHistoryType;
+  staffName: string;
+  fromTitle: string | null;
+  toTitle: string | null;
+  fromDepartment: string | null;
+  toDepartment: string | null;
+  fromSalary: number | null;
+  toSalary: number | null;
+  salaryType: string | null;
+  effectiveDate: string;
+  endedAt: string | null;
+  reason: string | null;
+  recordedByName: string | null;
+}
+
+export interface StaffProfile {
+  staff: StaffMember & { hasClockPin: boolean; address?: string | null; emergencyContact?: string | null; emergencyPhone?: string | null; hireDate?: string | null; dateOfBirth?: string | null; createdAt?: string };
+  account: { email: string; role: string; isActive: boolean } | null;
+  history: StaffHistoryEntry[];
+  attendance: {
+    days: number;
+    present: number;
+    late: number;
+    absent: number;
+    onLeave: number;
+    overtimeHours: number;
+    hours: number;
+    recent: Array<{ id: string; date: string; clockIn: string | null; clockOut: string | null; status: string; lateMinutes: number; totalHours: number; overtimeHours: number; approvalStatus: string }>;
+  };
+  leave: Array<{ id: string; type?: string; leaveType?: string; startDate: string; endDate: string; status: string }>;
+  payslips: Array<{ id: string; periodStart: string; periodEnd: string; netPay: number; status: string }>;
+  upcomingShifts: Array<{ id: string; date: string; startsAt: string; endsAt: string; position: string | null; status: string }>;
+}
+
 export interface StaffMember {
   id: string;
   staffNumber: string | null;
@@ -175,6 +213,16 @@ export const hrService = {
     await api.delete(`/hr/staff/${staffId}/account`);
   },
 
+  async getStaffProfile(id: string) {
+    const { data } = await api.get(`/hr/staff/${id}/profile`);
+    return data as StaffProfile;
+  },
+
+  async promoteStaff(id: string, payload: { jobTitle?: string; department?: string; baseSalary?: number; hourlyRate?: number; effectiveDate?: string; reason: string }) {
+    const { data } = await api.post(`/hr/staff/${id}/promote`, payload);
+    return data as { staff: StaffMember; history: StaffHistoryEntry };
+  },
+
   async getStaff(id: string) {
     const { data } = await api.get(`/hr/staff/${id}`);
     return data as StaffMember & { hasClockPin: boolean };
@@ -197,15 +245,6 @@ export const hrService = {
    */
   async terminateStaff(id: string) {
     const { data } = await api.put(`/hr/staff/${id}/terminate`);
-    return data;
-  },
-
-  /**
-   * Permanently deletes a staff profile and its HR history. Irreversible, so
-   * the server requires the actor's own password.
-   */
-  async deleteStaff(id: string, password: string) {
-    const { data } = await api.delete(`/hr/staff/${id}`, { data: { password } });
     return data;
   },
 

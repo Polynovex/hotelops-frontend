@@ -269,7 +269,8 @@ export const PosOutletsPage = () => {
                       key: 'deactivate',
                       label: 'Deactivate',
                       icon: <BlockIcon fontSize="small" />,
-                      hidden: !row.isActive,
+                      // The Banquet outlet feeds event catering; it stays on.
+                      hidden: !row.isActive || String(row.type).toUpperCase() === 'BANQUET',
                       destructive: true,
                       onClick: () => void toggleActive(row)
                     },
@@ -278,6 +279,7 @@ export const PosOutletsPage = () => {
                       label: 'Delete permanently',
                       icon: <DeleteOutlineIcon fontSize="small" />,
                       destructive: true,
+                      hidden: String(row.type).toUpperCase() === 'BANQUET',
                       onClick: () => setPendingDelete(row)
                     }
                   ]}
@@ -459,7 +461,7 @@ const SetupChips = ({
   emptyText,
   onDelete
 }: {
-  entries: SetupRecord[];
+  entries: Array<SetupRecord & { locked?: boolean }>;
   emptyText: string;
   onDelete: (entry: SetupRecord) => void;
 }) => (
@@ -473,8 +475,9 @@ const SetupChips = ({
           label={entry.name}
           size="small"
           variant="outlined"
-          onDelete={() => onDelete(entry)}
-          deleteIcon={<CloseRoundedIcon titleAccess={`Delete ${entry.name}`} />}
+          {...(entry.locked
+            ? { title: 'Linked to events — cannot be deleted' }
+            : { onDelete: () => onDelete(entry), deleteIcon: <CloseRoundedIcon titleAccess={`Delete ${entry.name}`} /> })}
         />
       ))
     )}
@@ -819,7 +822,7 @@ export const PosMenuManagementPage = () => {
                 ))}
               </TextField>
               <SetupChips
-                entries={outlets.map((outlet) => ({ id: outlet.id, name: outlet.name }))}
+                entries={outlets.map((outlet) => ({ id: outlet.id, name: outlet.name, locked: String(outlet.type).toUpperCase() === 'BANQUET' }))}
                 emptyText="No outlets yet"
                 onDelete={(entry) => setPendingSetupDelete({ ...entry, kind: 'outlet' })}
               />

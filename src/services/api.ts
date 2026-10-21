@@ -1156,7 +1156,9 @@ export const authService = {
   login: async (
     email: string,
     password: string,
-    mfaCode?: string
+    mfaCode?: string,
+    /** The business chosen when one email signs in to several. */
+    hotelId?: string
   ): Promise<{ token: string; refreshToken?: string; user: AuthUser } | { challenge: SignInChallenge }> => {
     const demoUser = DEMO_MODE_ENABLED
       ? DEMO_USERS.find((entry) => entry.email === email && entry.password === password)
@@ -1180,7 +1182,8 @@ export const authService = {
     const response = await api.post('/auth/login', {
       email,
       password,
-      ...(mfaCode ? { mfaCode: mfaCode.trim() } : {})
+      ...(mfaCode ? { mfaCode: mfaCode.trim() } : {}),
+      ...(hotelId ? { hotelId } : {})
     });
     if (response.data?.signInCodeRequired) {
       return { challenge: response.data as SignInChallenge };

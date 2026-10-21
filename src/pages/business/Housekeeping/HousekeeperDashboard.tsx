@@ -1,4 +1,5 @@
 import { getApiErrorMessage } from '../../../utils/apiError';
+import { useRoomTypeNames } from '../../../hooks/useRoomTypeNames';
 import Layout from '../../../components/Layout';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -38,6 +39,7 @@ import {
  * here with the manager's reason attached.
  */
 const HousekeeperDashboard = () => {
+  const roomTypeName = useRoomTypeNames();
   const { on } = useWebSocket();
 
   const [tasks, setTasks] = useState<HousekeepingTask[]>([]);
@@ -191,7 +193,7 @@ const HousekeeperDashboard = () => {
                       <Chip size="small" label={TASK_STATUS_LABEL[task.status]} color={TASK_STATUS_COLOR[task.status]} />
                     </Stack>
                     <Typography variant="caption" color="text.secondary" display="block">
-                      Floor {task.room.floor} · {task.room.roomType}
+                      Floor {task.room.floor} · {roomTypeName(task.room.roomType)}
                     </Typography>
                     {task.notes && (
                       <Typography variant="body2" sx={{ mt: 0.5 }}>

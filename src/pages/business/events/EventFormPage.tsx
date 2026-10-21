@@ -25,6 +25,7 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import Layout from '../../../components/Layout';
 import { usePermissionStore } from '../../../store/permissionStore';
+import RoomBlocksEditor, { newRoomBlock, roomBlocksFrom, toAccommodation, type RoomBlock } from '../../../components/events/RoomBlocksEditor';
 import { roomOpsService } from '../../../services/operations';
 import {
   CATERING_LABEL,
@@ -82,12 +83,7 @@ type FormState = {
   corkageQuantity: string;
   corkageNotes: string;
   withRooms: boolean;
-  roomTypeCode: string;
-  rooms: string;
-  roomGuests: string;
-  checkIn: string;
-  checkOut: string;
-  roomRate: string;
+  roomBlocks: RoomBlock[];
   promotionId: string;
   promotionCode: string;
   manualDiscount: string;
@@ -148,12 +144,7 @@ const blank = (): FormState => ({
   corkageQuantity: '1',
   corkageNotes: '',
   withRooms: false,
-  roomTypeCode: '',
-  rooms: '1',
-  roomGuests: '1',
-  checkIn: today(),
-  checkOut: today(),
-  roomRate: '',
+  roomBlocks: [],
   promotionId: '',
   promotionCode: '',
   manualDiscount: '',
@@ -259,13 +250,8 @@ const EventFormPage: React.FC = () => {
           corkageAmount: corkage ? String(corkage.unitPrice) : '',
           corkageQuantity: corkage ? String(corkage.quantity) : '1',
           corkageNotes: corkage?.notes ?? '',
-          withRooms: Boolean(e.accommodation),
-          roomTypeCode: e.accommodation?.roomTypeCode ?? '',
-          rooms: String(e.accommodation?.rooms ?? 1),
-          roomGuests: String(e.accommodation?.guests ?? 1),
-          checkIn: e.accommodation ? ymd(new Date(e.accommodation.checkIn)) : ymd(start),
-          checkOut: e.accommodation ? ymd(new Date(e.accommodation.checkOut)) : ymd(end),
-          roomRate: e.accommodation?.rate != null ? String(e.accommodation.rate) : '',
+          withRooms: roomBlocksFrom(e.accommodation).length > 0,
+          roomBlocks: roomBlocksFrom(e.accommodation),
           promotionId: e.promotionId ?? '',
           manualDiscount: (e as unknown as { manualDiscount?: number }).manualDiscount ? String((e as unknown as { manualDiscount: number }).manualDiscount) : '',
           terms: e.terms ?? ''
@@ -325,17 +311,7 @@ const EventFormPage: React.FC = () => {
         form.outsideFoodAllowed && form.corkageOn && Number(form.corkageAmount) > 0
           ? { description: form.corkageDescription.trim() || null, amount: Number(form.corkageAmount), quantity: Number(form.corkageQuantity) || 1, notes: form.corkageNotes.trim() || null }
           : null,
-      accommodation:
-        form.withRooms && form.roomTypeCode
-          ? {
-              roomTypeCode: form.roomTypeCode,
-              rooms: Number(form.rooms) || 1,
-              guests: Number(form.roomGuests) || 1,
-              checkIn: new Date(`${form.checkIn}T14:00`).toISOString(),
-              checkOut: new Date(`${form.checkOut}T12:00`).toISOString(),
-              rate: n(form.roomRate)
-            }
-          : null,
+      accommodation: form.withRooms ? toAccommodation(form.roomBlocks) : [],
       ...(form.promotionId !== (savedPromotion.current ?? '') || !editing ? { promotionId: form.promotionId || null } : {}),
       ...(form.promotionCode.trim() ? { promotionCode: form.promotionCode.trim() } : {}),
       manualDiscount: n(form.manualDiscount),
@@ -554,31 +530,23 @@ const EventFormPage: React.FC = () => {
 
               <Section letter="E" title="Accommodation" hint="Rooms are optional and checked separately from the venue. Room promotions do not apply here.">
                 <Stack spacing={2}>
-                  <ToggleButtonGroup exclusive size="small" value={form.withRooms ? 'rooms' : 'venue'} onChange={(_e, v) => v && setForm((f) => ({ ...f, withRooms: v === 'rooms', checkIn: f.startDate, checkOut: f.endDate > f.startDate ? f.endDate : ymd(new Date(new Date(`${f.startDate}T00:00`).getTime() + 86_400_000)) }))}>
+                  <ToggleButtonGroup exclusive size="small" value={form.withRooms ? 'rooms' : 'venue'} onChange={(_e, v) => v && setForm((f) => ({
+                    ...f,
+                    withRooms: v === 'rooms',
+                    roomBlocks: v === 'rooms' && f.roomBlocks.length === 0 ? [newRoomBlock(f.startDate, f.endDate > f.startDate ? f.endDate : ymd(new Date(new Date(`${f.startDate}T00:00`).getTime() + 86_400_000)))] : f.roomBlocks
+                  }))}>
                     <ToggleButton value="venue">Venue only</ToggleButton>
                     <ToggleButton value="rooms">Venue + accommodation</ToggleButton>
                   </ToggleButtonGroup>
                   {form.withRooms && (
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} md={6}>
-                        <TextField select fullWidth size="small" label="Room type" value={form.roomTypeCode} onChange={(e) => set('roomTypeCode', e.target.value)}>
-                          {roomTypes.map((r) => <MenuItem key={r.code} value={r.code}>{r.name}{r.baseRate ? ` · ${formatCurrency(r.baseRate)}` : ''}</MenuItem>)}
-                        </TextField>
-                      </Grid>
-                      <Grid item xs={6} md={3}><TextField fullWidth size="small" type="number" label="Number of rooms" value={form.rooms} onChange={(e) => set('rooms', e.target.value)} /></Grid>
-                      <Grid item xs={6} md={3}><TextField fullWidth size="small" type="number" label="Guests staying" value={form.roomGuests} onChange={(e) => set('roomGuests', e.target.value)} /></Grid>
-                      <Grid item xs={6} md={4}><TextField fullWidth size="small" type="date" label="Check-in" InputLabelProps={{ shrink: true }} value={form.checkIn} onChange={(e) => set('checkIn', e.target.value)} /></Grid>
-                      <Grid item xs={6} md={4}><TextField fullWidth size="small" type="date" label="Check-out" InputLabelProps={{ shrink: true }} inputProps={{ min: form.checkIn }} value={form.checkOut} onChange={(e) => set('checkOut', e.target.value)} /></Grid>
-                      <Grid item xs={12} md={4}>
-                        <TextField fullWidth size="small" type="number" label="Room rate" value={form.roomRate} placeholder={String(roomTypes.find((r) => r.code === form.roomTypeCode)?.baseRate ?? '')}
-                          onChange={(e) => set('roomRate', e.target.value)} disabled={!canPrice} helperText={canPrice ? 'Blank = standard rate' : 'Standard rate'} />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Typography variant="caption" color="text.secondary">
-                          The rooms are booked as reservations linked to this event and billed on its invoice, so the desk only collects extras at check-out.
-                        </Typography>
-                      </Grid>
-                    </Grid>
+                    <RoomBlocksEditor
+                      blocks={form.roomBlocks}
+                      onChange={(blocks) => set('roomBlocks', blocks)}
+                      roomTypes={roomTypes}
+                      canPrice={canPrice}
+                      defaultCheckIn={form.startDate}
+                      defaultCheckOut={form.endDate > form.startDate ? form.endDate : ymd(new Date(new Date(`${form.startDate}T00:00`).getTime() + 86_400_000))}
+                    />
                   )}
                 </Stack>
               </Section>

@@ -521,6 +521,7 @@ import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
 
+import { useRoomTypeNames } from '../../../hooks/useRoomTypeNames';
 import { useWebSocket } from '../../../hooks/useWebSocket';
 import RoomIssuesPanel from '../../../components/housekeeping/RoomIssuesPanel';
 
@@ -938,6 +939,7 @@ const StaffAvatars = ({
 /* -------------------------------------------------------------------------- */
 
 const HousekeepingManagerDashboard = () => {
+  const roomTypeName = useRoomTypeNames();
   const { on } = useWebSocket();
 
   const [dirtyRooms, setDirtyRooms] = useState<DirtyRoom[]>([]);
@@ -1404,7 +1406,7 @@ const HousekeepingManagerDashboard = () => {
                             <RoomIdentity
                               roomNumber={room.roomNumber}
                               floor={room.floor}
-                              roomType={room.roomType}
+                              roomType={roomTypeName(room.roomType)}
                             />
                           </Box>
 
@@ -1520,7 +1522,7 @@ const HousekeepingManagerDashboard = () => {
                               <RoomIdentity
                                 roomNumber={task.room.roomNumber}
                                 floor={task.room.floor}
-                                roomType={task.room.roomType}
+                                roomType={roomTypeName(task.room.roomType)}
                               />
 
                               <Stack
@@ -1678,7 +1680,7 @@ const HousekeepingManagerDashboard = () => {
                               <RoomIdentity
                                 roomNumber={task.room.roomNumber}
                                 floor={task.room.floor}
-                                roomType={task.room.roomType}
+                                roomType={roomTypeName(task.room.roomType)}
                               />
                             </Box>
 

@@ -97,6 +97,17 @@ const readableOnWhiteText = (color: string) => {
   return out;
 };
 
+/**
+ * The brand colour as text on a dark surface: lightened until it reads at
+ * WCAG AA (4.5:1). Navy text, links and text/outlined buttons were close to
+ * invisible in dark mode; filled buttons keep their navy fill.
+ */
+const readableOnDark = (color: string, surface: string) => {
+  let out = color;
+  for (let i = 0; i < 10 && getContrastRatio(out, surface) < 4.5; i += 1) out = lighten(out, 0.18);
+  return out;
+};
+
 export const createAppTheme = (mode: PaletteMode, colors: BrandColors = {}) => {
   const isDark = mode === 'dark';
   const navy = colors.primary ? readableOnWhiteText(colors.primary) : brand.navy;
@@ -107,12 +118,19 @@ export const createAppTheme = (mode: PaletteMode, colors: BrandColors = {}) => {
 
   const palette = {
     mode,
-    primary: {
-      main: navy,
-      light: navyTint,
-      dark: '#091B2E',
-      contrastText: '#FFFFFF'
-    },
+    primary: isDark
+      ? {
+          main: readableOnDark(navyTint, brand.cardDark),
+          light: lighten(readableOnDark(navyTint, brand.cardDark), 0.2),
+          dark: navy,
+          contrastText: brand.ink
+        }
+      : {
+          main: navy,
+          light: navyTint,
+          dark: '#091B2E',
+          contrastText: '#FFFFFF'
+        },
     secondary: {
       main: gold,
       light: goldLight,
@@ -400,15 +418,20 @@ export const createAppTheme = (mode: PaletteMode, colors: BrandColors = {}) => {
           // they need only the shared disabled treatment.
           containedError: { '&.Mui-disabled': { opacity: 0.45, boxShadow: 'none' } },
           containedInfo: { '&.Mui-disabled': { opacity: 0.45, boxShadow: 'none' } },
-          outlined: {
-            color: palette?.text?.primary,
+          // Outlined buttons keep their own colour (Cancel in red stays red);
+          // primary ones use the text colour so they read in both modes.
+          outlined: ({ ownerState }: { ownerState: { color?: string } }) => ({
+            color:
+              ownerState?.color && !['primary', 'inherit'].includes(ownerState.color)
+                ? (palette as Record<string, { main?: string }>)?.[ownerState.color]?.main ?? palette?.text?.primary
+                : palette?.text?.primary,
             borderColor: isDark ? alpha('#F6F2EA', 0.16) : alpha(brand.ink, 0.14),
             backgroundColor: alpha(palette?.background?.paper || '#ffffff', isDark ? 0.6 : 0.6),
             '&:hover': {
               borderColor: isDark ? alpha('#F6F2EA', 0.28) : alpha(brand.ink, 0.24),
               backgroundColor: alpha(palette?.background?.paper || '#ffffff', isDark ? 0.85 : 0.9)
             }
-          }
+          })
         }
       },
       MuiChip: {
@@ -419,21 +442,27 @@ export const createAppTheme = (mode: PaletteMode, colors: BrandColors = {}) => {
             fontSize: '0.78rem',
             color: palette?.text?.primary,
             '& .MuiChip-icon': { color: 'inherit' },
-            ...(ownerState?.variant === 'filled' && ownerState?.color === 'success' && {
-              backgroundColor: alpha(brand.emerald, 0.14),
-              color: brand.emeraldDark,
-              border: `1px solid ${alpha(brand.emerald, 0.24)}`
-            }),
-            ...(ownerState?.variant === 'filled' && ownerState?.color === 'warning' && {
-              backgroundColor: alpha(brand.amber, 0.14),
-              color: '#8C5C12',
-              border: `1px solid ${alpha(brand.amber, 0.24)}`
-            }),
-            ...(ownerState?.variant === 'filled' && ownerState?.color === 'error' && {
-              backgroundColor: alpha(brand.wine, 0.12),
-              color: '#7F2727',
-              border: `1px solid ${alpha(brand.wine, 0.22)}`
-            })
+            // Filled chips are soft tints with a coloured label; the label is
+            // dark on light surfaces and light on dark ones, so every status
+            // chip stays readable in both modes.
+            ...(ownerState?.variant === 'filled' && ownerState?.color && ownerState.color !== 'default' && (() => {
+              const tint: Record<string, { base: string; light: string; dark: string }> = {
+                success: { base: brand.emerald, light: brand.emeraldLight, dark: brand.emeraldDark },
+                warning: { base: brand.amber, light: '#EFC066', dark: '#8C5C12' },
+                error: { base: brand.wine, light: brand.wineLight, dark: '#7F2727' },
+                info: { base: navyTint, light: '#9DBCE0', dark: '#0F3556' },
+                primary: { base: navyTint, light: '#9DBCE0', dark: navy },
+                secondary: { base: gold, light: goldLight, dark: goldDark }
+              };
+              const t = tint[ownerState.color as string];
+              return t
+                ? {
+                    backgroundColor: alpha(t.base, isDark ? 0.22 : 0.13),
+                    color: isDark ? t.light : t.dark,
+                    border: `1px solid ${alpha(t.base, isDark ? 0.4 : 0.24)}`
+                  }
+                : {};
+            })())
           })
         }
       },
