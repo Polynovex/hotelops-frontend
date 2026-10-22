@@ -11,6 +11,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import { api } from '../../services/api';
 import { EmptyState, MetricCard, PageHeader } from '../../components/premium';
+import TestimonialQrPanel from './TestimonialQrPanel';
 
 interface Testimonial {
   id: string;
@@ -153,6 +154,8 @@ const Testimonials = () => {
         <Grid item xs={12} sm={4}><MetricCard label="Live on website" value={counts.published} variant="tinted" /></Grid>
         <Grid item xs={12} sm={4}><MetricCard label="Drafts" value={counts.draft} detail="Not visible publicly" /></Grid>
       </Grid>
+
+      <TestimonialQrPanel />
 
       {loading ? (
         <Box sx={{ display: 'grid', placeItems: 'center', minHeight: '30vh' }}><CircularProgress /></Box>

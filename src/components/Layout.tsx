@@ -62,6 +62,7 @@ import {
   NightShelterRounded,
   AccountBalanceWalletRounded,
   RestaurantRounded,
+  StarRounded,
   AutoAwesomeRounded,
   TrendingUpRounded,
   PersonOutlineRounded,
@@ -123,6 +124,7 @@ interface NavGroup {
 type NavItem = NavLink | NavGroup;
 
 const isGroup = (item: NavItem): item is NavGroup => 'children' in item;
+const flatPaths = (items: NavItem[]) => items.flatMap((item) => (isGroup(item) ? item.children : [item])).map((link) => link.path);
 
 const navigationConfig: Record<NavRole, NavItem[]> = {
   SUPER_ADMIN: [
@@ -157,6 +159,7 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
         { label: 'Minibar', icon: RestaurantRounded, path: '/business/minibar', module: 'pms' },
         { label: 'Check-out Approvals', icon: ReceiptIcon, path: '/business/checkout-approvals', module: 'pms' },
         { label: 'Guest Book', icon: PeopleIcon, path: '/business/guests', module: 'pms' },
+        { label: 'Guest Feedback', icon: StarRounded, path: '/business/feedback' },
         { label: 'Guest Self-Registration', icon: PosIcon, path: '/business/guests/registration-links', module: 'pms' },
         // Company and travel-agent records, plus merge and blacklist.
         { label: 'Profile Management', icon: PeopleIcon, path: '/business/profiles', module: 'pms' },
@@ -334,6 +337,7 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
     { label: 'Check-out Approvals', icon: ReceiptIcon, path: '/business/checkout-approvals', module: 'pms' },
     { label: 'Minibar', icon: RestaurantRounded, path: '/business/minibar', module: 'pms' },
+    { label: 'Guest Feedback', icon: StarRounded, path: '/business/feedback' },
     { label: 'HR & Payroll', icon: UserIcon, path: '/business/hr' },
     { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' },
     { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
@@ -634,6 +638,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     // Straight after Reservations / Property & Guest where a role has it.
     const anchor = menuItems.findIndex((item) => item.label === 'Property & Guest' || item.label === 'Reservations' || item.label === 'Dashboard');
     menuItems.splice(anchor >= 0 ? anchor + 1 : menuItems.length, 0, { label: 'Banquet / Event', icon: CalendarIcon, children: eventChildren });
+  }
+
+  // Guest feedback for whoever holds VIEW_FEEDBACK (the Front Office Manager).
+  if (role !== 'SUPER_ADMIN' && can('VIEW_FEEDBACK') && !flatPaths(menuItems).includes('/business/feedback')) {
+    menuItems.push({ label: 'Guest Feedback', icon: StarRounded, path: '/business/feedback' });
   }
 
   const matchesPath = (target: string) => {

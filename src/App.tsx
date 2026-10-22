@@ -122,6 +122,8 @@ import SuppliersPage from './pages/business/finance/SuppliersPage';
 import QrCodesPage from './pages/business/pos/QrCodesPage';
 import PublicOrderPage from './pages/public/PublicOrderPage';
 import GuestRegistrationPage from './pages/public/GuestRegistrationPage';
+import PublicFeedbackPage from './pages/public/PublicFeedbackPage';
+import GuestFeedbackPage from './pages/business/feedback/GuestFeedbackPage';
 import GuestBookPage from './pages/business/guests/GuestBookPage';
 import DailyExpensesPage from './pages/business/finance/DailyExpensesPage';
 import TransactionHistoryPage from './pages/business/finance/TransactionHistoryPage';
@@ -424,6 +426,7 @@ function App() {
 
               {/* Guest self-registration — also reached by scanning a printed code */}
               <Route path="/guest/register/:code" element={<GuestRegistrationPage />} />
+              <Route path="/feedback/:code" element={<PublicFeedbackPage />} />
 
               <Route path="/login" element={<LoginPage />} />
               <Route path="/shift-locked" element={<ShiftLockedPage />} />
@@ -902,6 +905,14 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'FRONT_OFFICE']} anyPermission={['APPROVE_CHECKOUT_CHARGES']}>
                     <CheckoutApprovalsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/feedback"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'FRONT_OFFICE']} anyPermission={['VIEW_FEEDBACK']}>
+                    <GuestFeedbackPage />
                   </ProtectedRoute>
                 }
               />
