@@ -22,6 +22,7 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 import Layout from '../../../components/Layout';
 import { usePermissionStore } from '../../../store/permissionStore';
+import { useAuthStore } from '../../../store/authStore';
 import { formatNaira, hrService, type StaffHistoryEntry, type StaffProfile } from '../../../services/hr.service';
 import { getApiErrorMessage } from '../../../utils/apiError';
 import { JOB_TITLES_BY_DEPARTMENT } from './StaffManagement';
@@ -79,6 +80,11 @@ const StaffProfilePage: React.FC = () => {
   const can = usePermissionStore((state) => state.can);
   const canEdit = can('EDIT_STAFF');
   const canPay = can('VIEW_PAYROLL');
+  const role = useAuthStore((state) => state.user?.role);
+  const canUnlock = role === 'BUSINESS_ADMIN' || role === 'MANAGER';
+  const [unlockOpen, setUnlockOpen] = useState(false);
+  const [unlock, setUnlock] = useState({ minutes: '60', reason: '' });
+  const [unlockNote, setUnlockNote] = useState('');
 
   const [profile, setProfile] = useState<StaffProfile | null>(null);
   const [error, setError] = useState('');
@@ -169,12 +175,18 @@ const StaffProfilePage: React.FC = () => {
               {staff.jobTitle || 'No title'} · {humanise(staff.department)}{staff.staffNumber ? ` · ${staff.staffNumber}` : ''}
             </Typography>
           </Box>
-          {canEdit && !terminated && (
-            <Button variant="contained" startIcon={<TrendingUpRoundedIcon />} onClick={openPromote}>Promote / change position</Button>
-          )}
+          <Stack direction="row" spacing={1}>
+            {canUnlock && account && !terminated && (
+              <Button variant="outlined" onClick={() => { setUnlock({ minutes: '60', reason: '' }); setUnlockOpen(true); }}>Unlock account</Button>
+            )}
+            {canEdit && !terminated && (
+              <Button variant="contained" startIcon={<TrendingUpRoundedIcon />} onClick={openPromote}>Promote / change position</Button>
+            )}
+          </Stack>
         </Stack>
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {unlockNote && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setUnlockNote('')}>{unlockNote}</Alert>}
 
         <Grid container spacing={2.5}>
           <Grid item xs={12} md={6}>
@@ -336,6 +348,31 @@ const StaffProfilePage: React.FC = () => {
           <DialogActions>
             <Button onClick={() => setPromoteOpen(false)} disabled={saving}>Cancel</Button>
             <Button variant="contained" onClick={() => void savePromotion()} disabled={saving}>Save</Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog open={unlockOpen} onClose={() => setUnlockOpen(false)} fullWidth maxWidth="xs">
+          <DialogTitle>Unlock {staff.firstName}&apos;s account</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField select label="For" value={unlock.minutes} onChange={(e) => setUnlock({ ...unlock, minutes: e.target.value })}>
+                {[['30', '30 minutes'], ['60', '1 hour'], ['120', '2 hours'], ['240', '4 hours'], ['480', '8 hours']].map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)}
+              </TextField>
+              <TextField label="Reason" value={unlock.reason} onChange={(e) => setUnlock({ ...unlock, reason: e.target.value })} />
+              <Typography variant="caption" color="text.secondary">Lets them in outside their shift. Recorded in the audit trail; not counted as paid time.</Typography>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setUnlockOpen(false)}>Cancel</Button>
+            <Button variant="contained" disabled={unlock.reason.trim().length < 3} onClick={async () => {
+              try {
+                const result = await hrService.grantAccess(staff.id, Number(unlock.minutes), unlock.reason.trim());
+                setUnlockOpen(false);
+                setUnlockNote(`Unlocked until ${new Date(result.until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`);
+              } catch (err) {
+                setError(getApiErrorMessage(err, 'Could not unlock the account'));
+                setUnlockOpen(false);
+              }
+            }}>Unlock</Button>
           </DialogActions>
         </Dialog>
       </Container>

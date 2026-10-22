@@ -96,6 +96,15 @@ api.interceptors.response.use(
       window.location.href = '/mfa/setup';
     }
 
+    /*
+     * Access follows the rota. 423 means the shift (and its allowance) is
+     * over: the only things left are ending the shift and Staff Hub, so go to
+     * the screen that offers them.
+     */
+    if (error.response?.status === 423 && error.response?.data?.error === 'SHIFT_LOCKED' && !window.location.pathname.startsWith('/shift-locked')) {
+      window.location.href = '/shift-locked';
+    }
+
     return Promise.reject(error);
   }
 );

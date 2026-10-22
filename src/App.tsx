@@ -75,6 +75,8 @@ import CheckoutReviewPage from './pages/business/Reservations/CheckoutReviewPage
 import CheckoutApprovalsPage from './pages/business/Rooms/CheckoutApprovalsPage';
 import MinibarPage from './pages/business/Rooms/MinibarPage';
 import RoomInspectionPage from './pages/business/Housekeeping/RoomInspectionPage';
+import ShiftLockedPage from './pages/ShiftLockedPage';
+import StaffHomePage from './pages/StaffHomePage';
 import EventsPage from './pages/business/events/EventsPage';
 import EventFormPage from './pages/business/events/EventFormPage';
 import EventDetailPage from './pages/business/events/EventDetailPage';
@@ -424,6 +426,15 @@ function App() {
               <Route path="/guest/register/:code" element={<GuestRegistrationPage />} />
 
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/shift-locked" element={<ShiftLockedPage />} />
+              <Route
+                path="/staff/home"
+                element={
+                  <ProtectedRoute allowedRoles={['SUPPORT_STAFF', 'BUSINESS_ADMIN', 'MANAGER', 'RECEPTIONIST', 'FRONT_OFFICE', 'POS_STAFF', 'HOUSEKEEPING', 'ACCOUNTANT']}>
+                    <StaffHomePage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/usercode-login" element={<UserCodeLoginPage />} />
               <Route path="/logout" element={<LogoutPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />

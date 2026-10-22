@@ -1,4 +1,5 @@
 import PoweredBy from '../../../components/branding/PoweredBy';
+import OvertimeMatrixDialog from '../../../components/hr/OvertimeMatrixDialog';
 import { useAuthStore } from '../../../store/authStore';
 import HrTabs from './HrTabs';
 import Layout from '../../../components/Layout';
@@ -87,6 +88,7 @@ const PayrollPage = () => {
     void load();
   }, [load]);
 
+  const [matrixOpen, setMatrixOpen] = useState(false);
   const handleGenerate = async () => {
     setGenerating(true);
     try {
@@ -149,6 +151,9 @@ const PayrollPage = () => {
             Generate, process, and pay staff salaries. PAYE is calculated automatically.
           </Typography>
         </Box>
+        <Button variant="outlined" onClick={() => setMatrixOpen(true)} sx={{ mr: 1 }}>
+          Overtime rates
+        </Button>
         <Button variant="contained" startIcon={<PlayCircleIcon />} onClick={() => setGenOpen(true)}>
           Generate Payroll
         </Button>
@@ -373,6 +378,7 @@ const PayrollPage = () => {
         message={toast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
+      <OvertimeMatrixDialog open={matrixOpen} onClose={() => setMatrixOpen(false)} onSaved={() => setMatrixOpen(false)} />
     </Container>
   );
 };

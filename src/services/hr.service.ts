@@ -47,6 +47,18 @@ export interface StaffProfile {
   upcomingShifts: Array<{ id: string; date: string; startsAt: string; endsAt: string; position: string | null; status: string }>;
 }
 
+export interface ShiftAccess {
+  state: 'OPEN' | 'TOO_EARLY' | 'OFF_DUTY' | 'END_SHIFT_REQUIRED' | 'OVERTIME_PENDING';
+  reason?: string;
+  message?: string;
+  shiftId?: string;
+  endsAt?: string;
+  opensAt?: string;
+  overrideUntil?: string;
+  shift?: { id: string; startsAt: string; endsAt: string; position: string | null; overtimeStatus: string } | null;
+  attendance?: { id: string; clockIn: string | null; clockOut: string | null } | null;
+}
+
 export interface StaffMember {
   id: string;
   staffNumber: string | null;
@@ -211,6 +223,53 @@ export const hrService = {
   /** Removes platform access. The person stays on the HR roster. */
   async revokeAccount(staffId: string): Promise<void> {
     await api.delete(`/hr/staff/${staffId}/account`);
+  },
+
+  // ─── Rota, shift access, overtime ───
+  async generateRota(payload: {
+    from: string;
+    to: string;
+    departments: Array<{ department: string; shifts: Array<{ name: string; start: string; end: string; minStaff: number }> }>;
+    replace?: boolean;
+    saveTemplate?: boolean;
+  }) {
+    const { data } = await api.post('/hr/rota/generate', payload);
+    return data as { created: number; skipped: number; warnings: string[] };
+  },
+  async rotaTemplate() {
+    const { data } = await api.get('/hr/rota/template');
+    return (Array.isArray(data) ? data : []) as Array<{ department: string; shifts: Array<{ name: string; start: string; end: string; minStaff: number }> }>;
+  },
+  async attendanceCalendar(month: string) {
+    const { data } = await api.get('/hr/attendance/calendar', { params: { month } });
+    return data as { month: string; days: Record<string, { onTime: number; late: number; onLeave: number; overtime: number; rostered: number }> };
+  },
+  async cancelShift(id: string, reason: string) {
+    return (await api.post(`/hr/shifts/${id}/cancel`, { reason })).data;
+  },
+  async decideShiftOvertime(id: string, action: 'approve' | 'reject' | 'cancel') {
+    return (await api.post(`/hr/shifts/${id}/overtime/${action}`, {})).data;
+  },
+  async grantAccess(staffId: string, minutes: number, reason: string) {
+    return (await api.post(`/hr/staff/${staffId}/access-override`, { minutes, reason })).data as { until: string };
+  },
+  async shiftAccessPolicy() {
+    return (await api.get('/hr/shift-access-policy')).data as { enabled: boolean; earlyMinutes: number; afterMinutes: number };
+  },
+  async saveShiftAccessPolicy(policy: { enabled?: boolean; earlyMinutes?: number; afterMinutes?: number }) {
+    return (await api.put('/hr/shift-access-policy', policy)).data as { enabled: boolean; earlyMinutes: number; afterMinutes: number };
+  },
+  async overtimeMatrix() {
+    return (await api.get('/hr/overtime-matrix')).data as { defaultRate: number | null; rates: Array<{ department?: string | null; jobTitle?: string | null; hourlyRate: number }> };
+  },
+  async saveOvertimeMatrix(matrix: { defaultRate: number | null; rates: Array<{ department?: string | null; jobTitle?: string | null; hourlyRate: number }> }) {
+    return (await api.put('/hr/overtime-matrix', matrix)).data;
+  },
+  async myShiftAccess() {
+    return (await api.get('/hr/me/shift-access')).data as ShiftAccess;
+  },
+  async requestShiftOvertime(reason: string) {
+    return (await api.post('/hr/me/shift-overtime', { reason })).data as { status: string; message: string };
   },
 
   async getStaffProfile(id: string) {

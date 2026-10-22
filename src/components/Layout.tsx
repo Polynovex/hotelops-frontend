@@ -234,6 +234,7 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
    * produced a menu where every item failed with a 403.
    */
   SUPPORT_STAFF: [
+    { label: 'Dashboard', icon: DashboardIcon, path: '/staff/home' },
     { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' }
   ],
   RECEPTION: [
