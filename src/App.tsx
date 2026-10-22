@@ -70,6 +70,13 @@ import ArrivalsPage from './pages/business/Reservations/Arrivals';
 import DeparturesPage from './pages/business/Reservations/Departures';
 import InHousePage from './pages/business/Reservations/InHouse';
 import QRoomPage from './pages/business/Reservations/QRoom';
+import StaffProfilePage from './pages/business/hr/StaffProfilePage';
+import CheckoutReviewPage from './pages/business/Reservations/CheckoutReviewPage';
+import CheckoutApprovalsPage from './pages/business/Rooms/CheckoutApprovalsPage';
+import MinibarPage from './pages/business/Rooms/MinibarPage';
+import RoomInspectionPage from './pages/business/Housekeeping/RoomInspectionPage';
+import ShiftLockedPage from './pages/ShiftLockedPage';
+import StaffHomePage from './pages/StaffHomePage';
 import EventsPage from './pages/business/events/EventsPage';
 import EventFormPage from './pages/business/events/EventFormPage';
 import EventDetailPage from './pages/business/events/EventDetailPage';
@@ -115,6 +122,8 @@ import SuppliersPage from './pages/business/finance/SuppliersPage';
 import QrCodesPage from './pages/business/pos/QrCodesPage';
 import PublicOrderPage from './pages/public/PublicOrderPage';
 import GuestRegistrationPage from './pages/public/GuestRegistrationPage';
+import PublicFeedbackPage from './pages/public/PublicFeedbackPage';
+import GuestFeedbackPage from './pages/business/feedback/GuestFeedbackPage';
 import GuestBookPage from './pages/business/guests/GuestBookPage';
 import DailyExpensesPage from './pages/business/finance/DailyExpensesPage';
 import TransactionHistoryPage from './pages/business/finance/TransactionHistoryPage';
@@ -417,8 +426,18 @@ function App() {
 
               {/* Guest self-registration — also reached by scanning a printed code */}
               <Route path="/guest/register/:code" element={<GuestRegistrationPage />} />
+              <Route path="/feedback/:code" element={<PublicFeedbackPage />} />
 
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/shift-locked" element={<ShiftLockedPage />} />
+              <Route
+                path="/staff/home"
+                element={
+                  <ProtectedRoute allowedRoles={['SUPPORT_STAFF', 'BUSINESS_ADMIN', 'MANAGER', 'RECEPTIONIST', 'FRONT_OFFICE', 'POS_STAFF', 'HOUSEKEEPING', 'ACCOUNTANT']}>
+                    <StaffHomePage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/usercode-login" element={<UserCodeLoginPage />} />
               <Route path="/logout" element={<LogoutPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -882,6 +901,47 @@ function App() {
               />
 
               <Route
+                path="/business/checkout-approvals"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'FRONT_OFFICE']} anyPermission={['APPROVE_CHECKOUT_CHARGES']}>
+                    <CheckoutApprovalsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/feedback"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'FRONT_OFFICE']} anyPermission={['VIEW_FEEDBACK']}>
+                    <GuestFeedbackPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/minibar"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'RECEPTIONIST', 'FRONT_OFFICE']} anyPermission={['MANAGE_MINIBAR', 'CHECKOUT_CHARGES']}>
+                    <MinibarPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/housekeeping/inspection"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'HOUSEKEEPING', 'RECEPTIONIST', 'FRONT_OFFICE']} anyPermission={['ROOM_INSPECTION']}>
+                    <RoomInspectionPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/reservations/:id/checkout"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST', 'FRONT_OFFICE', 'MANAGER']} anyPermission={['CHECKOUT_CHARGES', 'APPROVE_CHECKOUT_CHARGES']}>
+                    <CheckoutReviewPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
                 path="/business/reservations/checkout"
                 element={
                   <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
@@ -1081,6 +1141,17 @@ function App() {
                     anyPermission={['HR_ACCESS', 'VIEW_STAFF']}
                   >
                     <HrDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/business/hr/staff/:id"
+                element={
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}
+                    anyPermission={['VIEW_STAFF']}
+                  >
+                    <StaffProfilePage />
                   </ProtectedRoute>
                 }
               />

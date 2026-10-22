@@ -1,6 +1,7 @@
 import HrTabs from './HrTabs';
 import Layout from '../../../components/Layout';
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -36,9 +37,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
 import KeyIcon from '@mui/icons-material/VpnKey';
 import KeyOffIcon from '@mui/icons-material/NoEncryptionGmailerrorred';
-import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
-import { PasswordConfirmDialog } from '../../../components/common/PasswordConfirmDialog';
-import { useAuthStore } from '../../../store/authStore';
 import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import {
   formatNaira,
@@ -56,7 +54,7 @@ import {
  * typically employs. Titles are suggestions on a free-text field — a hotel may
  * use its own wording, so nothing is rejected for being off-list.
  */
-const JOB_TITLES_BY_DEPARTMENT: Record<string, string[]> = {
+export const JOB_TITLES_BY_DEPARTMENT: Record<string, string[]> = {
   FRONT_DESK: ['Front Desk Agent', 'Receptionist', 'Front Office Manager', 'Night Auditor', 'Reservations Officer', 'Guest Relations Officer'],
   CONCIERGE: ['Concierge', 'Bell Attendant', 'Porter', 'Doorman', 'Airport Liaison'],
   HOUSEKEEPING: ['Housekeeper', 'Room Attendant', 'Housekeeping Supervisor', 'Executive Housekeeper', 'Public Area Cleaner', 'Linen Room Attendant'],
@@ -127,16 +125,11 @@ const StaffManagement = () => {
   const [statusFilter, setStatusFilter] = useState<StaffStatus | ''>('');
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const navigate = useNavigate();
   const [editing, setEditing] = useState<StaffMember | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [pendingTerminate, setPendingTerminate] = useState<StaffMember | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<StaffMember | null>(null);
-  // Owner and HR (DELETE_STAFF). Rendering only; the server re-checks.
-  const canDelete = useAuthStore((state) => {
-    const granted = state.user?.permissions ?? [];
-    return granted.includes('*') || granted.includes('DELETE_STAFF');
-  });
   const [pendingAccess, setPendingAccess] = useState<StaffMember | null>(null);
   const [pendingRevoke, setPendingRevoke] = useState<StaffMember | null>(null);
   const [accessLevel, setAccessLevel] = useState<StaffAccessLevel>('SELF_SERVICE');
@@ -297,15 +290,6 @@ const StaffManagement = () => {
     }
   };
 
-  /** Throws on failure so the password dialog stays open with the reason. */
-  const handleDelete = async (password: string) => {
-    if (!pendingDelete) return;
-    await hrService.deleteStaff(pendingDelete.id, password);
-    setToast(`${pendingDelete.firstName} ${pendingDelete.lastName} permanently deleted`);
-    setPendingDelete(null);
-    await load();
-  };
-
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <HrTabs />
@@ -361,8 +345,8 @@ const StaffManagement = () => {
         </TextField>
       </Stack>
 
-      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
-        <Table>
+      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflowX: 'auto' }}>
+        <Table size="small" sx={{ minWidth: 980 }}>
           <TableHead>
             <TableRow>
               <TableCell>Name</TableCell>
@@ -405,7 +389,13 @@ const StaffManagement = () => {
               staff.map((member) => (
                 <TableRow key={member.id} hover>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={600}>
+                    <Typography
+                      variant="body2"
+                      fontWeight={600}
+                      component="button"
+                      onClick={() => navigate(`/business/hr/staff/${member.id}`)}
+                      sx={{ background: 'none', border: 0, p: 0, cursor: 'pointer', color: 'primary.main', textAlign: 'left', font: 'inherit', fontWeight: 700, '&:hover': { textDecoration: 'underline' } }}
+                    >
                       {member.firstName} {member.lastName}
                     </Typography>
                     {member.email && (
@@ -443,6 +433,12 @@ const StaffManagement = () => {
                       subject={`${member.firstName} ${member.lastName}`}
                       actions={[
                         {
+                          key: 'view',
+                          label: 'View profile',
+                          icon: <PeopleIcon fontSize="small" />,
+                          onClick: () => navigate(`/business/hr/staff/${member.id}`)
+                        },
+                        {
                           key: 'edit',
                           label: 'Edit details',
                           icon: <EditIcon fontSize="small" />,
@@ -472,14 +468,6 @@ const StaffManagement = () => {
                           destructive: true,
                           hidden: member.status === 'TERMINATED',
                           onClick: () => setPendingTerminate(member)
-                        },
-                        {
-                          key: 'delete',
-                          label: 'Delete permanently',
-                          icon: <DeleteForeverIcon fontSize="small" />,
-                          destructive: true,
-                          hidden: !canDelete,
-                          onClick: () => setPendingDelete(member)
                         },
                         {
                           /*
@@ -730,23 +718,6 @@ const StaffManagement = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-      <PasswordConfirmDialog
-        open={Boolean(pendingDelete)}
-        title="Delete staff profile permanently?"
-        confirmLabel="Delete permanently"
-        onClose={() => setPendingDelete(null)}
-        onConfirm={handleDelete}
-      >
-        <Typography variant="body2">
-          <strong>
-            {pendingDelete?.firstName} {pendingDelete?.lastName}
-          </strong>{' '}
-          and their attendance, leave, payroll and review history will be erased.
-          Any login they have is revoked. This cannot be undone — to keep their
-          history, terminate them instead.
-        </Typography>
-      </PasswordConfirmDialog>
 
       <Dialog open={Boolean(pendingTerminate)} onClose={() => setPendingTerminate(null)}>
         <DialogTitle>Terminate staff member?</DialogTitle>

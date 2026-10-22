@@ -96,6 +96,15 @@ api.interceptors.response.use(
       window.location.href = '/mfa/setup';
     }
 
+    /*
+     * Access follows the rota. 423 means the shift (and its allowance) is
+     * over: the only things left are ending the shift and Staff Hub, so go to
+     * the screen that offers them.
+     */
+    if (error.response?.status === 423 && error.response?.data?.error === 'SHIFT_LOCKED' && !window.location.pathname.startsWith('/shift-locked')) {
+      window.location.href = '/shift-locked';
+    }
+
     return Promise.reject(error);
   }
 );
@@ -1156,7 +1165,9 @@ export const authService = {
   login: async (
     email: string,
     password: string,
-    mfaCode?: string
+    mfaCode?: string,
+    /** The business chosen when one email signs in to several. */
+    hotelId?: string
   ): Promise<{ token: string; refreshToken?: string; user: AuthUser } | { challenge: SignInChallenge }> => {
     const demoUser = DEMO_MODE_ENABLED
       ? DEMO_USERS.find((entry) => entry.email === email && entry.password === password)
@@ -1180,7 +1191,8 @@ export const authService = {
     const response = await api.post('/auth/login', {
       email,
       password,
-      ...(mfaCode ? { mfaCode: mfaCode.trim() } : {})
+      ...(mfaCode ? { mfaCode: mfaCode.trim() } : {}),
+      ...(hotelId ? { hotelId } : {})
     });
     if (response.data?.signInCodeRequired) {
       return { challenge: response.data as SignInChallenge };

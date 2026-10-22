@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  GlobalStyles,
   Grid,
   MenuItem,
   Paper,
@@ -59,6 +60,8 @@ interface Item {
   isActive: boolean;
   categoryId: string | null;
   category?: { name: string } | null;
+  /** Total taken out so far (stock out and housekeeping use). */
+  totalIssued?: number;
 }
 
 interface MovementRow {
@@ -242,6 +245,7 @@ const InventoryPage = () => {
             <Typography variant="body2" color="text.secondary">Stock by section, movements in and out, and valuation.</Typography>
           </Box>
           <Stack direction="row" spacing={1}>
+            <Button variant="outlined" onClick={() => window.print()} disabled={!items.length}>Print</Button>
             <Button variant="outlined" onClick={() => setNewCategory('')}>Add section</Button>
             <Button
               variant="contained"
@@ -292,6 +296,47 @@ const InventoryPage = () => {
 
         {loading && <LogoLoader inline minHeight={160} />}
 
+        {/* Printed instead of the screen: every item, not just the current page. */}
+        <GlobalStyles
+          styles={{
+            '#inventory-print': { display: 'none' },
+            '@media print': {
+              'body *': { visibility: 'hidden' },
+              '#inventory-print, #inventory-print *': { visibility: 'visible' },
+              '#inventory-print': { display: 'block', position: 'absolute', left: 0, top: 0, width: '100%', padding: 16, color: '#000', background: '#fff' },
+              '#inventory-print table': { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
+              '#inventory-print th, #inventory-print td': { border: '1px solid #999', padding: '4px 6px', textAlign: 'left' }
+            }
+          }}
+        />
+        <Box id="inventory-print">
+          <Typography variant="h6" fontWeight={800}>Inventory — {categoryId === 'ALL' ? 'All sections' : categories.find((c) => c.id === categoryId)?.name}</Typography>
+          <Typography variant="caption">Printed {new Date().toLocaleString('en-GB')}</Typography>
+          <table>
+            <thead>
+              <tr><th>SKU</th><th>Item</th><th>Section</th><th>Unit</th><th>Unit cost</th><th>Stock</th><th>Reorder margin</th><th>Value</th></tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.sku}</td>
+                  <td>{item.name}</td>
+                  <td>{item.category?.name ?? '—'}</td>
+                  <td>{item.unit}</td>
+                  <td>{naira(item.costPrice)}</td>
+                  <td>{item.currentStock}{item.totalIssued ? ` (${item.totalIssued} out)` : ''}</td>
+                  <td>{item.reorderLevel}</td>
+                  <td>{naira(item.currentStock * item.costPrice)}</td>
+                </tr>
+              ))}
+              <tr>
+                <td colSpan={7}><strong>Total value</strong></td>
+                <td><strong>{naira(items.reduce((sum, item) => sum + item.currentStock * item.costPrice, 0))}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </Box>
+
         {view === 'items' && !loading && (
           <DataTable
             rows={items}
@@ -301,19 +346,25 @@ const InventoryPage = () => {
             columns={[
               { key: 'sku', label: 'SKU', minWidth: 100 },
               { key: 'name', label: 'Item', minWidth: 180 },
-              { key: 'category', label: 'Section', minWidth: 160, render: (item) => item.category?.name ?? '—' },
+              { key: 'category', label: 'Section', minWidth: 140, render: (item) => item.category?.name ?? '—' },
+              { key: 'unit', label: 'Unit', minWidth: 80 },
+              { key: 'costPrice', label: 'Unit cost', minWidth: 110, render: (item) => naira(item.costPrice) },
               {
                 key: 'currentStock',
-                label: 'On hand',
-                minWidth: 120,
+                label: 'Stock',
+                minWidth: 130,
                 render: (item) => (
                   <Typography variant="body2" fontWeight={700} color={item.currentStock <= item.reorderLevel ? 'error.main' : undefined}>
-                    {item.currentStock} {item.unit}
+                    {item.currentStock}
+                    {item.totalIssued ? (
+                      <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.75, fontWeight: 600 }}>
+                        ({item.totalIssued} out)
+                      </Typography>
+                    ) : null}
                   </Typography>
                 )
               },
-              { key: 'reorderLevel', label: 'Reorder at', minWidth: 100 },
-              { key: 'costPrice', label: 'Unit cost', minWidth: 110, render: (item) => naira(item.costPrice) },
+              { key: 'reorderLevel', label: 'Reorder margin', minWidth: 110 },
               { key: 'value', label: 'Value', minWidth: 120, render: (item) => naira(item.currentStock * item.costPrice) },
               {
                 key: 'actions',

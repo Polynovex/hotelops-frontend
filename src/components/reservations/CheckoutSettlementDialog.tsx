@@ -56,6 +56,8 @@ const CheckoutSettlementDialog: React.FC<{
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  /** Set when check-out is on hold for something other than money (charges or damage awaiting a manager, inspection). */
+  const [held, setHeld] = useState(false);
 
   const load = useCallback(async () => {
     if (!reservationId) return;
@@ -73,6 +75,7 @@ const CheckoutSettlementDialog: React.FC<{
     setOverrideReason('');
     setError('');
     setNotice('');
+    setHeld(false);
     void load();
   }, [load]);
 
@@ -113,9 +116,10 @@ const CheckoutSettlementDialog: React.FC<{
     setBusy(true);
     setError('');
     try {
-      await reservationOpsService.checkOut(reservationId, owed ? { overrideReason: overrideReason.trim() } : {});
+      await reservationOpsService.checkOut(reservationId, owed || held ? { overrideReason: overrideReason.trim() } : {});
       onCheckedOut();
     } catch (err) {
+      if ((err as { response?: { data?: { error?: string } } })?.response?.data?.error === 'CHECKOUT_NOT_READY') setHeld(true);
       setError(getApiErrorMessage(err, 'Could not check out'));
     } finally {
       setBusy(false);
@@ -196,10 +200,10 @@ const CheckoutSettlementDialog: React.FC<{
                 <TextField size="small" label="Reference (optional)" value={reference} onChange={(e) => setReference(e.target.value)} fullWidth />
               </Stack>
             )}
-            {owed && canOverride && (
+            {(owed || held) && canOverride && (
               <TextField
                 size="small"
-                label="Manager override: reason to check out with a balance"
+                label={held && !owed ? 'Manager override: reason to check out now' : 'Manager override: reason to check out with a balance'}
                 value={overrideReason}
                 onChange={(e) => setOverrideReason(e.target.value)}
                 helperText="Only if the guest will pay later (e.g. company invoice). Recorded in the audit trail."
@@ -226,9 +230,9 @@ const CheckoutSettlementDialog: React.FC<{
           variant="contained"
           color="warning"
           onClick={() => void checkOut()}
-          disabled={busy || !bill || (owed && !(canOverride && overrideReason.trim().length >= 3))}
+          disabled={busy || !bill || ((owed || held) && !(canOverride && overrideReason.trim().length >= 3))}
         >
-          {owed ? 'Check out with balance' : 'Check out'}
+          {owed ? 'Check out with balance' : held ? 'Check out anyway' : 'Check out'}
         </Button>
       </DialogActions>
     </Dialog>

@@ -48,7 +48,10 @@ export interface ShiftScheduleRecord {
   position: string | null;
   notes: string | null;
   status: ScheduleStatus;
-  staff?: { id: string; firstName: string; lastName: string; jobTitle: string | null };
+  overtimeStatus?: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  overtimeReason?: string | null;
+  cancelReason?: string | null;
+  staff?: { id: string; firstName: string; lastName: string; jobTitle: string | null; department?: string | null };
 }
 
 const list = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);

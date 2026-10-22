@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useRoomTypeNames } from '../../../hooks/useRoomTypeNames';
 import {
   Alert,
   Box,
@@ -61,6 +62,7 @@ const roomStatusColor = (status: string) => {
 };
 
 export const RoomStatusBoardPage = () => {
+  const roomTypeName = useRoomTypeNames();
   const { on } = useWebSocket();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -765,7 +767,7 @@ export const RoomStatusBoardPage = () => {
                                   color: '#64748b'
                                 }}
                               >
-                                {room.roomType}
+                                {roomTypeName(room.roomType)}
                               </Typography>
                             </Box>
 
@@ -1029,6 +1031,7 @@ export const RoomStatusBoardPage = () => {
 
 
 export const RoomListPage = () => {
+  const roomTypeName = useRoomTypeNames();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -1118,9 +1121,93 @@ export const RoomListPage = () => {
     }
   };
 
+  // Edit and delete. A room can be deleted once nothing is booked in it; its
+  // room type can be deleted once it has no rooms left.
+  const [editingRoom, setEditingRoom] = useState<RoomRecord | null>(null);
+  const [roomEdit, setRoomEdit] = useState({ roomNumber: '', name: '', roomType: '', floor: 1, rate: 0 });
+  const [deletingRoom, setDeletingRoom] = useState<RoomRecord | null>(null);
+  const [roomBusy, setRoomBusy] = useState(false);
+  const [roomDialogError, setRoomDialogError] = useState('');
+
+  const startEditRoom = (room: RoomRecord) => {
+    setRoomEdit({ roomNumber: room.roomNumber, name: room.name ?? '', roomType: room.roomType, floor: room.floor, rate: room.rate });
+    setRoomDialogError('');
+    setEditingRoom(room);
+  };
+
+  const saveRoom = async () => {
+    if (!editingRoom) return;
+    setRoomBusy(true);
+    setRoomDialogError('');
+    try {
+      await roomOpsService.updateRoom(editingRoom.id, {
+        roomNumber: roomEdit.roomNumber.trim(),
+        name: roomEdit.name.trim() || null,
+        roomType: roomEdit.roomType,
+        floor: Number(roomEdit.floor),
+        rate: Number(roomEdit.rate)
+      });
+      setEditingRoom(null);
+      await load();
+    } catch (err: unknown) {
+      setRoomDialogError(getApiErrorMessage(err, 'Could not save the room'));
+    } finally {
+      setRoomBusy(false);
+    }
+  };
+
+  const confirmDeleteRoom = async () => {
+    if (!deletingRoom) return;
+    setRoomBusy(true);
+    setRoomDialogError('');
+    try {
+      await roomOpsService.deleteRoom(deletingRoom.id);
+      setDeletingRoom(null);
+      await load();
+    } catch (err: unknown) {
+      setRoomDialogError(getApiErrorMessage(err, 'Could not delete the room'));
+    } finally {
+      setRoomBusy(false);
+    }
+  };
+
   return (
     <Layout>
       <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Dialog open={Boolean(editingRoom)} onClose={() => !roomBusy && setEditingRoom(null)} fullWidth maxWidth="xs">
+          <DialogTitle>Edit room {editingRoom?.roomNumber}</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              {roomDialogError && <Alert severity="error">{roomDialogError}</Alert>}
+              <TextField label="Room number" value={roomEdit.roomNumber} onChange={(e) => setRoomEdit({ ...roomEdit, roomNumber: e.target.value })} />
+              <TextField label="Name (optional)" value={roomEdit.name} onChange={(e) => setRoomEdit({ ...roomEdit, name: e.target.value })} />
+              <TextField select label="Room type" value={roomEdit.roomType} onChange={(e) => setRoomEdit({ ...roomEdit, roomType: e.target.value })}>
+                {[...roomTypes, ...(roomTypes.some((t) => t.code === roomEdit.roomType) ? [] : [{ code: roomEdit.roomType, name: roomTypeName(roomEdit.roomType) } as RoomTypeRecord])].map((t) => (
+                  <MenuItem key={t.code} value={t.code}>{t.name}</MenuItem>
+                ))}
+              </TextField>
+              <TextField type="number" label="Floor" value={roomEdit.floor} onChange={(e) => setRoomEdit({ ...roomEdit, floor: Number(e.target.value) })} />
+              <TextField type="number" label="Rate (₦)" value={roomEdit.rate} onChange={(e) => setRoomEdit({ ...roomEdit, rate: Number(e.target.value) })} />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditingRoom(null)} disabled={roomBusy}>Cancel</Button>
+            <Button variant="contained" onClick={() => void saveRoom()} disabled={roomBusy || !roomEdit.roomNumber.trim()}>Save</Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog open={Boolean(deletingRoom)} onClose={() => !roomBusy && setDeletingRoom(null)} fullWidth maxWidth="xs">
+          <DialogTitle>Delete room {deletingRoom?.roomNumber}?</DialogTitle>
+          <DialogContent>
+            {roomDialogError && <Alert severity="error" sx={{ mb: 1.5 }}>{roomDialogError}</Alert>}
+            <Typography variant="body2">
+              The room is removed from inventory. Past reservations keep their records. A room with an active reservation cannot be deleted.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDeletingRoom(null)} disabled={roomBusy}>Keep it</Button>
+            <Button color="error" variant="contained" onClick={() => void confirmDeleteRoom()} disabled={roomBusy}>Delete</Button>
+          </DialogActions>
+        </Dialog>
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>Room List</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Room inventory and status operations wired to room APIs.
@@ -1191,7 +1278,7 @@ export const RoomListPage = () => {
               minWidth: 120,
               render: (room) => (room.name ? `${room.roomNumber} · ${room.name}` : room.roomNumber)
             },
-            { key: 'roomType', label: 'Type', minWidth: 140 },
+            { key: 'roomType', label: 'Type', minWidth: 140, render: (room) => roomTypeName(room.roomType) },
             { key: 'floor', label: 'Floor', minWidth: 90 },
             {
               key: 'rate',
@@ -1210,12 +1297,14 @@ export const RoomListPage = () => {
             {
               key: 'actions',
               label: 'Action',
-              minWidth: 220,
+              minWidth: 400,
               render: (room) => (
                 <Stack direction="row" spacing={1}>
                   <Button size="small" onClick={() => navigate(`/business/rooms/${room.id}`)}>Detail</Button>
                   <Button size="small" onClick={() => void updateStatus(room.id, 'AVAILABLE')}>Ready</Button>
                   <Button size="small" color="warning" onClick={() => void updateStatus(room.id, 'DIRTY')}>Dirty</Button>
+                  <Button size="small" onClick={() => startEditRoom(room)}>Edit</Button>
+                  <Button size="small" color="error" onClick={() => { setRoomDialogError(''); setDeletingRoom(room); }}>Delete</Button>
                 </Stack>
               )
             }
@@ -1229,6 +1318,7 @@ export const RoomListPage = () => {
 };
 
 export const RoomDetailPage = () => {
+  const roomTypeName = useRoomTypeNames();
   const { id } = useParams();
   const [room, setRoom] = useState<RoomRecord | null>(null);
   const [reservations, setReservations] = useState<ReservationRecord[]>([]);
@@ -1261,7 +1351,7 @@ export const RoomDetailPage = () => {
             <Paper sx={{ p: 3 }}>
               <Typography variant="h4" sx={{ fontWeight: 700 }}>{`Room ${room.roomNumber}`}</Typography>
               <Stack spacing={1.2} sx={{ mt: 2 }}>
-                <Typography><strong>Type:</strong> {room.roomType}</Typography>
+                <Typography><strong>Type:</strong> {roomTypeName(room.roomType)}</Typography>
                 <Typography><strong>Floor:</strong> {room.floor}</Typography>
                 <Typography><strong>Rate:</strong> ₦{room.rate.toLocaleString()}</Typography>
                 <Typography><strong>Status:</strong> {room.status}</Typography>

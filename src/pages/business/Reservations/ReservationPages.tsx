@@ -1,4 +1,6 @@
 import CheckoutSettlementDialog from '../../../components/reservations/CheckoutSettlementDialog';
+import EventRoomBlocks from '../../../components/events/EventRoomBlocks';
+import { useRoomTypeNames } from '../../../hooks/useRoomTypeNames';
 import { EditReservationDialog, VoidReservationDialog, useRoomPromotions } from '../../../components/reservations/ReservationDialogs';
 import { useAuthStore } from '../../../store/authStore';
 import { promotionsApi, type ApplicableRoomPromotion } from '../../../services/promotions';
@@ -177,6 +179,7 @@ const RoomAssignmentDialog = ({
   onClose: () => void;
   onAssign: (roomId: string, reason?: string) => Promise<void>;
 }) => {
+  const roomTypeName = useRoomTypeNames();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -243,7 +246,7 @@ const RoomAssignmentDialog = ({
           >
             {rooms.map((room) => (
               <MenuItem key={room.id} value={room.id}>
-                {room.roomNumber} · {room.roomType} · {room.status}
+                {room.roomNumber} · {roomTypeName(room.roomType)} · {room.status}
               </MenuItem>
             ))}
           </TextField>
@@ -1227,6 +1230,7 @@ export const CheckInPage = () => {
 };
 
 export const CheckOutPage = () => {
+  const navigate = useNavigate();
   const [checkoutId, setCheckoutId] = useState<string | null>(null);
   const { on } = useWebSocket();
   const [targetDate, setTargetDate] = useState(todayDate());
@@ -1330,14 +1334,24 @@ export const CheckOutPage = () => {
               label: 'Action',
               minWidth: 180,
               render: (reservation) => (
-                <Button
-                  size="small"
-                  color="warning"
-                  disabled={reservation.status !== 'CHECKED_IN'}
-                  onClick={() => setCheckoutId(reservation.id)}
-                >
-                  Settle & check out
-                </Button>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={reservation.status !== 'CHECKED_IN'}
+                    onClick={() => navigate(`/business/reservations/${reservation.id}/checkout`)}
+                  >
+                    Review charges
+                  </Button>
+                  <Button
+                    size="small"
+                    color="warning"
+                    disabled={reservation.status !== 'CHECKED_IN'}
+                    onClick={() => setCheckoutId(reservation.id)}
+                  >
+                    Settle & check out
+                  </Button>
+                </Stack>
               )
             }
           ]}
@@ -1560,12 +1574,14 @@ export const QRoomPage = () => {
             await load();
           }}
         />
+        <EventRoomBlocks />
       </Container>
     </Layout>
   );
 };
 
 export const StayViewPage = () => {
+  const roomTypeName = useRoomTypeNames();
   const { on } = useWebSocket();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -1741,7 +1757,7 @@ export const StayViewPage = () => {
                     <TableBody>
                       {stayView.rates.map((rate) => (
                         <TableRow key={rate.roomType}>
-                          <TableCell>{rate.roomType}</TableCell>
+                          <TableCell>{roomTypeName(rate.roomType)}</TableCell>
                           <TableCell>₦{rate.baseRate.toLocaleString()}</TableCell>
                           <TableCell>{rate.availableRooms}</TableCell>
                         </TableRow>
@@ -1785,7 +1801,7 @@ export const StayViewPage = () => {
                         <Chip size="small" label={room.status} color={room.status === 'MAINTENANCE' ? 'error' : room.status === 'CLEANING' ? 'warning' : room.status === 'OCCUPIED' ? 'info' : 'success'} />
                       </Stack>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                        {room.roomType} · Floor {room.floor}
+                        {roomTypeName(room.roomType)} · Floor {room.floor}
                       </Typography>
                       <Divider sx={{ mb: 1.5 }} />
                       <Stack spacing={1}>

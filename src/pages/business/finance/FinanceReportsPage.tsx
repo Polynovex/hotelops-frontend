@@ -9,6 +9,8 @@ import {
   MenuItem,
   Paper,
   Stack,
+  Tab,
+  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -24,6 +26,7 @@ import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import { dailyRecords, naira, type Meta } from '../../../services/dailyRecords';
 import { getApiErrorMessage } from '../../../utils/apiError';
+import UsaliReports from '../../../components/finance/UsaliReports';
 
 /**
  * Finance reports and management summaries, built only from approved daily
@@ -71,6 +74,9 @@ const BELOW: Record<string, string> = {
 };
 
 export default function FinanceReportsPage() {
+  // Management reports (HotelOpX terms), the USALI-aligned statement, and the
+  // mapping between them — all from the same approved records.
+  const [mode, setMode] = useState<'management' | 'usali' | 'mapping'>('management');
   const [period, setPeriod] = useState<Period>('monthly');
   const [range, setRange] = useState({ from: '', to: new Date().toISOString().slice(0, 10) });
   const [meta, setMeta] = useState<Meta | null>(null);
@@ -109,7 +115,7 @@ export default function FinanceReportsPage() {
             <Typography variant="h4" fontWeight={700}>Finance reports</Typography>
             <Typography variant="body2" color="text.secondary">From approved daily records only. Pending submissions and edits are not counted.</Typography>
           </Box>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ display: mode === 'management' ? 'flex' : 'none' }}>
             <ToggleButtonGroup exclusive size="small" value={period} onChange={(_event, value) => value && setPeriod(value)}>
               {(['daily', 'weekly', 'monthly', 'yearly'] as Period[]).map((value) => (
                 <ToggleButton key={value} value={value} sx={{ textTransform: 'capitalize' }}>{value}</ToggleButton>
@@ -120,6 +126,16 @@ export default function FinanceReportsPage() {
           </Stack>
         </Stack>
 
+        <Tabs value={mode} onChange={(_event, value) => setMode(value)} sx={{ mb: 2 }} variant="scrollable" allowScrollButtonsMobile>
+          <Tab value="management" label="Management reports" />
+          <Tab value="usali" label="USALI statement" />
+          <Tab value="mapping" label="USALI mapping" />
+        </Tabs>
+
+        {mode !== 'management' ? (
+          <UsaliReports view={mode} onViewChange={setMode} />
+        ) : (
+        <>
         {loading && <LogoLoader inline minHeight={160} />}
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {data && data.pendingDays > 0 && (
@@ -315,6 +331,8 @@ export default function FinanceReportsPage() {
               </>
             )}
           </>
+        )}
+        </>
         )}
       </Container>
     </Layout>

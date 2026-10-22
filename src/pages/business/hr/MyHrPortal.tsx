@@ -1,4 +1,5 @@
 import Layout from '../../../components/Layout';
+import ShiftOvertimeCard from '../../../components/hr/ShiftOvertimeCard';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -266,6 +267,7 @@ const MyHrPortal = () => {
           </>
         }
       />
+      <ShiftOvertimeCard />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
