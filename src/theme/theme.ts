@@ -668,9 +668,10 @@ export const createAppTheme = (mode: PaletteMode, colors: BrandColors = {}) => {
             fontWeight: 600,
             borderRadius: 10,
             border: `1px solid ${isDark ? alpha('#F6F2EA', 0.14) : alpha(brand.ink, 0.14)}`,
-            '&.Mui-selected': {
-              backgroundColor: alpha(gold, 0.16),
-              color: brand.ink,
+            '&.Mui-selected, &.Mui-selected:hover': {
+              backgroundColor: alpha(gold, isDark ? 0.24 : 0.16),
+              // Ink on a dark surface vanished; light text there.
+              color: isDark ? '#F6F2EA' : brand.ink,
               borderColor: gold
             }
           }
