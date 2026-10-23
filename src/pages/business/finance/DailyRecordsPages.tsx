@@ -297,7 +297,7 @@ export function DailyRecordsPage() {
           {role !== 'BUSINESS_ADMIN' && <Button variant="outlined" onClick={() => setAsking(true)}>Request access to older records</Button>}
         </Stack>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={4} lg={3}>
+          <Grid item xs={12} sm={7} md={5} lg={4} xl={3}>
             <Paper variant="outlined" sx={{ p: 2 }}>
               <RecordCalendar
                 month={calendar.month}
@@ -323,7 +323,7 @@ export function DailyRecordsPage() {
               </Paper>
             )}
           </Grid>
-          <Grid item xs={12} md={8} lg={9}>
+          <Grid item xs={12} md={7} lg={8} xl={9}>
             <RecordPanel key={selected} date={selected} mode="entry" meta={meta} onChanged={() => void calendar.reload()} />
           </Grid>
         </Grid>
@@ -396,7 +396,7 @@ export function FinanceApprovalsPage() {
           </Typography>
         </Box>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={4} lg={3}>
+          <Grid item xs={12} sm={7} md={5} lg={4} xl={3}>
             <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
               <Typography fontWeight={800} sx={{ mb: 1 }}>Waiting for you ({pending.length})</Typography>
               {pending.length === 0 && <Typography variant="body2" color="text.secondary">Nothing to approve.</Typography>}
@@ -442,7 +442,7 @@ export function FinanceApprovalsPage() {
               </Paper>
             )}
           </Grid>
-          <Grid item xs={12} md={8} lg={9}>
+          <Grid item xs={12} md={7} lg={8} xl={9}>
             {selected ? (
               <RecordPanel
                 key={selected}

@@ -1,4 +1,5 @@
 import HrTabs from './HrTabs';
+import { PasswordConfirmDialog } from '../../../components/common/PasswordConfirmDialog';
 import Layout from '../../../components/Layout';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -188,12 +189,26 @@ const StaffManagement = () => {
   const setField = (key: keyof FormState, value: unknown) =>
     setForm((current) => ({ ...current, [key]: value }));
 
+  /** An email change is confirmed with the editor's password first. */
+  const [confirmEmail, setConfirmEmail] = useState(false);
+  const emailChanged = Boolean(
+    editing && (form.email ?? '').trim().toLowerCase() !== (editing.email ?? '').trim().toLowerCase() && (form.email ?? '').trim()
+  );
+
   const handleSave = async () => {
     if (!form.firstName?.trim() || !form.lastName?.trim()) {
       setError('First and last name are required');
       return;
     }
+    if (emailChanged) {
+      setConfirmEmail(true);
+      return;
+    }
+    await save();
+  };
 
+  /** With a password, throws on failure so the confirmation dialog shows why. */
+  const save = async (password?: string) => {
     setSaving(true);
     try {
       // Strip empty strings so optional fields are omitted rather than rejected.
@@ -207,8 +222,9 @@ const StaffManagement = () => {
         // silently re-assert them.
         delete payload.accessLevel;
         delete payload.userId;
-        await hrService.updateStaff(editing.id, payload);
-        setToast('Staff record updated');
+        await hrService.updateStaff(editing.id, { ...payload, ...(password ? { password } : {}) });
+        setToast(password ? `Email changed. ${editing.email ?? 'The old address'} is free to use again.` : 'Staff record updated');
+        setConfirmEmail(false);
       } else {
         await hrService.createStaff(payload);
         setToast('Staff member added');
@@ -217,8 +233,9 @@ const StaffManagement = () => {
       setDialogOpen(false);
       await load();
     } catch (err: unknown) {
+      if (password) throw err;
       const response = (err as { response?: { data?: { message?: string; error?: string; issues?: Array<{ message: string }> } } }).response;
-      setError(response?.data?.issues?.[0]?.message || response?.data?.error || 'Failed to save staff record');
+      setError(response?.data?.issues?.[0]?.message || response?.data?.message || response?.data?.error || 'Failed to save staff record');
     } finally {
       setSaving(false);
     }
@@ -491,6 +508,20 @@ const StaffManagement = () => {
           </TableBody>
         </Table>
       </TableContainer>
+
+      <PasswordConfirmDialog
+        open={confirmEmail}
+        title="Change this staff member's email?"
+        confirmLabel="Change email"
+        confirmColor="primary"
+        onClose={() => setConfirmEmail(false)}
+        onConfirm={(password) => save(password)}
+      >
+        <Typography variant="body2">
+          {editing?.email ? <><strong>{editing.email}</strong> stops working at once and can be used for someone else. </> : null}
+          {editing?.userId ? <>They will sign in with <strong>{form.email}</strong> from now on.</> : <>The record will use <strong>{form.email}</strong>.</>}
+        </Typography>
+      </PasswordConfirmDialog>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="md">
         <DialogTitle>{editing ? 'Edit staff member' : 'Add staff member'}</DialogTitle>

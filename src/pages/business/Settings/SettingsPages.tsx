@@ -28,6 +28,7 @@ import {
   ContentCopyRounded,
   KeyRounded,
   PersonRemoveRounded,
+  AlternateEmailRounded,
   PersonAddAlt1Rounded
 } from '@mui/icons-material';
 import Layout from '../../../components/Layout';
@@ -259,6 +260,8 @@ export const UsersSettingsPage = () => {
   const isOwner = useAuthStore((state) => String(state.user?.role || '').toUpperCase() === 'BUSINESS_ADMIN');
   const [pendingRotate, setPendingRotate] = useState<SettingUserRecord | null>(null);
   const [pendingRemove, setPendingRemove] = useState<SettingUserRecord | null>(null);
+  const [pendingEmail, setPendingEmail] = useState<SettingUserRecord | null>(null);
+  const [newEmail, setNewEmail] = useState('');
   const theme = useTheme();
   const [rows, setRows] = useState<SettingUserRecord[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -351,11 +354,19 @@ export const UsersSettingsPage = () => {
   };
 
   /** Throws on failure so the password dialog stays open and shows why. */
+  const runEmailChange = async (user: SettingUserRecord, password: string) => {
+    const result = await settingsOpsService.changeUserEmail(user.id, newEmail.trim(), password);
+    setPendingEmail(null);
+    await reload();
+    enqueueSnackbar(`${result.message} ${user.email} is free to use again.`, { variant: 'success' });
+  };
+
+  /** Throws on failure so the password dialog stays open and shows why. */
   const runRemove = async (user: SettingUserRecord, password: string) => {
     await settingsOpsService.removeUser(user.id, password);
     setPendingRemove(null);
     await reload();
-    enqueueSnackbar(`${user.name} no longer has access`, { variant: 'success' });
+    enqueueSnackbar(`${user.name} has been removed. ${user.email} can be used for someone else.`, { variant: 'success' });
   };
 
   const runRotate = async (user: SettingUserRecord) => {
@@ -548,6 +559,15 @@ export const UsersSettingsPage = () => {
                       onClick: () => rotateCode(row)
                     },
                     {
+                      key: 'email',
+                      label: 'Change email',
+                      icon: <AlternateEmailRounded fontSize="small" />,
+                      onClick: () => {
+                        setNewEmail(row.email);
+                        setPendingEmail(row);
+                      }
+                    },
+                    {
                       key: 'toggle',
                       label: row.isActive ? 'Deactivate user' : 'Reactivate user',
                       destructive: row.isActive,
@@ -584,9 +604,31 @@ export const UsersSettingsPage = () => {
           onConfirm={(password) => (pendingRemove ? runRemove(pendingRemove, password) : Promise.resolve())}
         >
           <Typography variant="body2">
-            Their sign-in is revoked and their HR record is marked terminated.
-            Their history stays intact — shifts, orders and audit entries still
-            show who did what — and an HR administrator can reinstate them.
+            They are removed from the business for good: they disappear from staff and HR lists,
+            can no longer sign in, and <strong>{pendingRemove?.email}</strong> can be used for someone else.
+            Past records (shifts, orders, payroll) still show their name. This cannot be undone.
+          </Typography>
+        </PasswordConfirmDialog>
+
+        <PasswordConfirmDialog
+          open={Boolean(pendingEmail)}
+          title={`Change ${pendingEmail?.name ?? ''}'s email`}
+          confirmLabel="Change email"
+          confirmColor="primary"
+          onClose={() => setPendingEmail(null)}
+          onConfirm={(password) => (pendingEmail ? runEmailChange(pendingEmail, password) : Promise.resolve())}
+        >
+          <TextField
+            fullWidth
+            type="email"
+            label="New email"
+            value={newEmail}
+            onChange={(event) => setNewEmail(event.target.value)}
+            sx={{ mt: 1, mb: 1.5 }}
+          />
+          <Typography variant="body2" color="text.secondary">
+            They sign in with the new address from now on. <strong>{pendingEmail?.email}</strong> stops working at once
+            and can be used for someone else.
           </Typography>
         </PasswordConfirmDialog>
 

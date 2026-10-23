@@ -292,7 +292,7 @@ export const hrService = {
     return data as StaffMember;
   },
 
-  async updateStaff(id: string, payload: Partial<StaffMember> & { clockPin?: string }) {
+  async updateStaff(id: string, payload: Partial<StaffMember> & { clockPin?: string; password?: string }) {
     const { data } = await api.put(`/hr/staff/${id}`, payload);
     return data as StaffMember;
   },

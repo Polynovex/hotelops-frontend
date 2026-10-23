@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useAuthStore } from '../../../store/authStore';
 import { useRoomTypeNames } from '../../../hooks/useRoomTypeNames';
 import {
   Box,
@@ -175,6 +176,7 @@ export const HousekeepingTaskBoardPage = () => {
 };
 
 export const RoomStatusUpdatePage = () => {
+  const isHousekeeper = useAuthStore((state) => String(state.user?.role || '').toUpperCase()) === 'HOUSEKEEPING';
   const roomTypeName = useRoomTypeNames();
   const [rooms, setRooms] = useState<RoomRecord[]>([]);
   const [filter, setFilter] = useState('ALL');
@@ -221,9 +223,14 @@ export const RoomStatusUpdatePage = () => {
               <Typography variant="body2" color="text.secondary">{roomTypeName(room.roomType)}</Typography>
               <Chip sx={{ mt: 1.2 }} label={room.status} color={statusColor(room.status) as 'default'} />
               <Stack spacing={1} sx={{ mt: 1.5 }}>
-                <Button size="small" onClick={() => void setStatus(room.id, 'DIRTY')}>Dirty</Button>
-                <Button size="small" onClick={() => void setStatus(room.id, 'CLEANING')}>Cleaning</Button>
-                <Button size="small" onClick={() => void setStatus(room.id, 'AVAILABLE')}>Inspected/Ready</Button>
+                {/* Housekeepers only mark out of order; cleaning follows their tasks. */}
+                {!isHousekeeper && (
+                  <>
+                    <Button size="small" onClick={() => void setStatus(room.id, 'DIRTY')}>Dirty</Button>
+                    <Button size="small" onClick={() => void setStatus(room.id, 'CLEANING')}>Cleaning</Button>
+                    <Button size="small" onClick={() => void setStatus(room.id, 'AVAILABLE')}>Inspected/Ready</Button>
+                  </>
+                )}
                 <Button size="small" color="error" onClick={() => void setStatus(room.id, 'OUT_OF_ORDER')}>Out of Order</Button>
               </Stack>
             </Paper>

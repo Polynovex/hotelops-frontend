@@ -235,13 +235,13 @@ export const PageHeader = ({
   actions?: React.ReactNode;
 }) => (
   <Stack
-    direction={{ xs: 'column', sm: 'row' }}
+    direction={{ xs: 'column', lg: 'row' }}
     justifyContent="space-between"
-    alignItems={{ sm: 'center' }}
+    alignItems={{ lg: 'center' }}
     spacing={2}
     sx={{ mb: 3 }}
   >
-    <Box>
+    <Box sx={{ minWidth: 0 }}>
       <Typography variant="h4" fontWeight={700}>
         {title}
       </Typography>
@@ -251,7 +251,12 @@ export const PageHeader = ({
         </Typography>
       )}
     </Box>
-    {actions && <Stack direction="row" spacing={1}>{actions}</Stack>}
+    {/* Actions wrap onto a second line instead of squeezing their labels. */}
+    {actions && (
+      <Stack direction="row" flexWrap="wrap" useFlexGap gap={1} sx={{ flexShrink: 0, '& .MuiButton-root': { whiteSpace: 'nowrap' } }}>
+        {actions}
+      </Stack>
+    )}
   </Stack>
 );
 

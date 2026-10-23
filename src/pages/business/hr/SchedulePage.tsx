@@ -263,8 +263,10 @@ const SchedulePage = () => {
           <CircularProgress />
         </Box>
       ) : (
-        <Box sx={{ overflowX: 'auto' }}>
-          <Stack direction="row" spacing={1.5} sx={{ minWidth: 900, pb: 1 }}>
+        // Side by side from tablet width up; on a phone the days stack, each
+        // as tall as its own shifts, instead of a wide row to scroll sideways.
+        <Box sx={{ overflowX: { xs: 'visible', md: 'auto' } }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ minWidth: { xs: 0, md: 900 }, pb: 1 }}>
             {weekDays.map((day) => {
               const key = isoDay(day);
               const shifts = byDay.get(key) || [];
@@ -276,7 +278,7 @@ const SchedulePage = () => {
                   variant="outlined"
                   sx={{
                     flex: 1,
-                    minWidth: 150,
+                    minWidth: { xs: 0, md: 150 },
                     p: 1.5,
                     borderRadius: 2,
                     borderColor: isToday ? 'primary.main' : undefined,
