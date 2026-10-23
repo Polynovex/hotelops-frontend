@@ -1,4 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { useAuthStore } from '../../../store/authStore';
+import { usePermissionStore } from '../../../store/permissionStore';
 import {
   Alert,
   Box,
@@ -79,6 +81,15 @@ const emptyForm = (): FormState => ({
  * filled in many times a day — while approval is a separate, deliberate step.
  */
 const DailyExpensesPage = () => {
+  /*
+   * Whoever records an expense cannot approve it: the General Manager's
+   * entries go to the owner and the owner's to the GM. Approve shows only to
+   * those who may approve, and never on their own entries.
+   */
+  const userId = useAuthStore((state) => state.user?.id);
+  const canApprove = usePermissionStore((state) => state.can)('APPROVE_EXPENSE');
+  // From an "awaiting approval" notice: open on pending entries of the last month.
+  const pendingLink = new URLSearchParams(window.location.search).get('status') === 'PENDING';
   const [rows, setRows] = useState<Expense[]>([]);
   const [total, setTotal] = useState(0);
   const [totals, setTotals] = useState<ExpenseTotals>({ pending: 0, approved: 0, rejected: 0, net: 0 });
@@ -88,9 +99,9 @@ const DailyExpensesPage = () => {
   const [toast, setToast] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const [from, setFrom] = useState(today());
+  const [from, setFrom] = useState(() => (pendingLink ? new Date(Date.now() - 31 * 86_400_000).toISOString().slice(0, 10) : today()));
   const [to, setTo] = useState(today());
-  const [statusFilter, setStatusFilter] = useState<ExpenseStatus | ''>('');
+  const [statusFilter, setStatusFilter] = useState<ExpenseStatus | ''>(pendingLink ? 'PENDING' : '');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
@@ -450,6 +461,7 @@ const DailyExpensesPage = () => {
                 <TableCell>Description</TableCell>
                 <TableCell align="right">Amount</TableCell>
                 <TableCell>Paid by</TableCell>
+                <TableCell>Recorded by</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
@@ -457,7 +469,7 @@ const DailyExpensesPage = () => {
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                     <CircularProgress size={28} />
                   </TableCell>
                 </TableRow>
@@ -465,7 +477,7 @@ const DailyExpensesPage = () => {
 
               {!loading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                     <Typography variant="body2" color="text.secondary">
                       No expenses recorded for this period.
                     </Typography>
@@ -497,6 +509,12 @@ const DailyExpensesPage = () => {
                   </TableCell>
                   <TableCell>{expense.paymentMethod.replace('_', ' ')}</TableCell>
                   <TableCell>
+                    <Typography variant="body2">{expense.recordedBy === userId ? 'You' : expense.recordedByName || '—'}</Typography>
+                    {expense.status === 'APPROVED' && expense.approvedByName && (
+                      <Typography variant="caption" color="text.secondary" display="block">Approved by {expense.approvedByName}</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <Chip
                       size="small"
                       label={expense.status}
@@ -505,6 +523,11 @@ const DailyExpensesPage = () => {
                     {expense.rejectionReason && (
                       <Typography variant="caption" color="error" display="block">
                         {expense.rejectionReason}
+                      </Typography>
+                    )}
+                    {expense.status === 'PENDING' && expense.recordedBy === userId && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Awaiting approval by someone else
                       </Typography>
                     )}
                   </TableCell>
@@ -516,7 +539,7 @@ const DailyExpensesPage = () => {
                           key: 'approve',
                           label: 'Approve',
                           icon: <CheckCircleIcon fontSize="small" />,
-                          hidden: expense.status !== 'PENDING',
+                          hidden: expense.status !== 'PENDING' || !canApprove || expense.recordedBy === userId,
                           onClick: () => void approve(expense)
                         },
                         {
@@ -532,7 +555,7 @@ const DailyExpensesPage = () => {
                           label: 'Reject',
                           icon: <CancelIcon fontSize="small" />,
                           destructive: true,
-                          hidden: expense.status !== 'PENDING',
+                          hidden: expense.status !== 'PENDING' || !canApprove || expense.recordedBy === userId,
                           onClick: () => { setRejectReason(''); setPendingReject(expense); }
                         },
                         {

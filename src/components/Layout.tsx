@@ -82,6 +82,7 @@ import { useColorMode } from '../theme/colorMode';
 import { DemoModeBanner } from './DemoModeBanner';
 import DesktopUpdateBanner from './DesktopUpdateBanner';
 import { usePermissionStore } from '../store/permissionStore';
+import { featureForPath, usePlanStore } from '../store/planStore';
 import PoweredBy from './branding/PoweredBy';
 import TenantLogo from './branding/TenantLogo';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -350,8 +351,12 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
       icon: AssessmentIcon,
       children: [
         { label: 'Daily Records', icon: CalendarIcon, path: '/business/finance/daily-records' },
+        // The GM records spend for the owner to approve, and approves the owner's.
+        { label: 'Daily Expenditure', icon: AssessmentIcon, path: '/business/finance/expenses' },
         { label: 'Finance Reports', icon: AssessmentIcon, path: '/business/finance/reports' },
+        { label: 'Budgets', icon: AccountBalanceWalletRounded, path: '/business/finance/budgets' },
         { label: 'Suppliers & Creditors', icon: ReceiptIcon, path: '/business/finance/suppliers' },
+        { label: 'Transaction History', icon: HistoryIcon, path: '/business/finance/transactions' },
         { label: 'POS Payments', icon: PosIcon, path: '/business/pos/payments', module: 'pos' }
       ]
     },
@@ -394,11 +399,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // rather than in authStore to avoid a circular import through the api client.
   // The store keys its cache on user id, so a different user signing in on the
   // same browser triggers a re-fetch rather than reusing stale permissions.
+  // What the plan includes (banquet, promotions and full finance are Enterprise only).
+  const loadPlan = usePlanStore((state) => state.load);
+  const planHas = usePlanStore((state) => state.has);
+  usePlanStore((state) => state.features);
   useEffect(() => {
     if (user?.id) {
       void loadPermissions(user.id);
+      if (String(user.role).toUpperCase() !== 'SUPER_ADMIN') void loadPlan(user.id);
     }
-  }, [user?.id, loadPermissions]);
+  }, [user?.id, user?.role, loadPermissions, loadPlan]);
+  const inPlan = (path: string) => {
+    const feature = featureForPath(path);
+    return !feature || planHas(feature);
+  };
   const [drawerOpen, setDrawerOpen] = useState(false);
   /**
    * Desktop only: the sidebar shrinks to an icon rail to give the page more
@@ -480,6 +494,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const handleLogout = () => {
+    usePlanStore.getState().reset();
     logout();
     navigate('/login');
   };
@@ -608,7 +623,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const menuItems = (navigationConfig[role] || []).reduce<NavItem[]>((acc, item) => {
     if (isGroup(item)) {
       const children = item.children.filter(
-        (child) => !child.module || isModuleEnabled(child.module)
+        (child) => (!child.module || isModuleEnabled(child.module)) && inPlan(child.path)
       );
       if (children.length > 0) {
         acc.push({ ...item, children });
@@ -616,7 +631,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       return acc;
     }
 
-    if (!item.module || isModuleEnabled(item.module)) {
+    if ((!item.module || isModuleEnabled(item.module)) && inPlan(item.path)) {
       acc.push(item);
     }
     return acc;
@@ -666,7 +681,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     can('MANAGE_EVENTS') && { label: 'Create New Event', icon: CalendarIcon, path: '/business/events/new', module: 'pms' as const },
     can('EVENT_PRICING') && { label: 'Event Types', icon: Settings, path: '/business/events/types', module: 'pms' as const },
     (can('MANAGE_PROMOTIONS') || role === 'BUSINESS_ADMIN') && { label: 'Event Promotions', icon: WorkspacePremium, path: '/business/promotions?tab=EVENT', module: 'pms' as const }
-  ].filter(Boolean) as NavLink[];
+  ].filter(Boolean).filter((link) => inPlan((link as NavLink).path)) as NavLink[];
   if (role !== 'SUPER_ADMIN' && eventChildren.length > 0 && !menuItems.some((item) => item.label === 'Banquet / Event')) {
     // Straight after Reservations / Property & Guest where a role has it.
     const anchor = menuItems.findIndex((item) => item.label === 'Property & Guest' || item.label === 'Reservations' || item.label === 'Dashboard');
@@ -1363,7 +1378,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         sx={{
           flexGrow: 1,
           minWidth: 0,
-          p: { xs: 2, md: 3 },
+          // Tighter gutters: the page sits close to the sidebar and the right
+          // edge. Pages wrap themselves in a Container, whose own gutter is
+          // trimmed here too rather than in every page.
+          px: { xs: 1.5, md: 2 },
+          py: { xs: 2, md: 2.5 },
+          '& .MuiContainer-root': { px: { xs: 0, sm: 0.5, md: 1 } },
           marginTop: '88px',
           minHeight: 'calc(100vh - 88px)',
           overflowX: 'hidden'

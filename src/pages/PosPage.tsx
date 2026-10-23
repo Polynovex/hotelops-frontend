@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import RowActionsMenu from '../components/common/RowActionsMenu';
 import {
   Alert,
   Box,
@@ -330,23 +331,14 @@ const PosPage: React.FC = () => {
                     </TableCell>
                     <TableCell>{format(new Date(order.createdAt), 'yyyy-MM-dd HH:mm')}</TableCell>
                     <TableCell>
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        {order.orderStatus === 'OPEN' && (
-                          <Button size="small" onClick={() => void handleSendToKds(order.id)}>
-                            Send KDS
-                          </Button>
-                        )}
-                        {order.orderStatus === 'SENT_TO_KITCHEN' && (
-                          <Button size="small" onClick={() => void handleCompleteOrder(order.id)}>
-                            Complete
-                          </Button>
-                        )}
-                        {order.orderStatus !== 'VOIDED' && order.orderStatus !== 'COMPLETED' && (
-                          <Button size="small" color="error" onClick={() => void handleVoidOrder(order.id)}>
-                            Void
-                          </Button>
-                        )}
-                      </Stack>
+                      <RowActionsMenu
+                        subject={order.orderNumber ?? order.id}
+                        actions={[
+                          { key: 'kds', label: 'Send to kitchen', hidden: order.orderStatus !== 'OPEN', onClick: () => void handleSendToKds(order.id) },
+                          { key: 'complete', label: 'Complete', hidden: order.orderStatus !== 'SENT_TO_KITCHEN', onClick: () => void handleCompleteOrder(order.id) },
+                          { key: 'void', label: 'Void', destructive: true, hidden: order.orderStatus === 'VOIDED' || order.orderStatus === 'COMPLETED', onClick: () => void handleVoidOrder(order.id) }
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

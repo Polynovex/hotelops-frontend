@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { featureForPath, usePlanStore } from './store/planStore';
+import PlanUpgradeNotice from './components/plan/PlanUpgradeNotice';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SnackbarProvider } from 'notistack';
@@ -323,7 +325,17 @@ const ProtectedRoute = ({
     return <Navigate to={resolveModuleFallbackPath(user)} replace />;
   }
 
-  return children;
+  return <PlanGate>{children}</PlanGate>;
+};
+
+/** Pages the business's plan does not include show the upgrade notice instead. */
+const PlanGate = ({ children }: { children: JSX.Element }) => {
+  const location = useLocation();
+  const role = useAuthStore((state) => String(state.user?.role || '').toUpperCase());
+  const has = usePlanStore((state) => state.has);
+  usePlanStore((state) => state.features);
+  const feature = role === 'SUPER_ADMIN' ? null : featureForPath(location.pathname);
+  return feature && !has(feature) ? <PlanUpgradeNotice feature={feature} /> : children;
 };
 
 /** Sends /business/housekeeping to the right screen for the signed-in role. */

@@ -17,6 +17,9 @@ export interface Expense {
   approvedAt: string | null;
   rejectionReason: string | null;
   recordedBy: string | null;
+  /** Names, so the list shows who recorded it and who still has to act. */
+  recordedByName?: string | null;
+  approvedByName?: string | null;
   notes: string | null;
   createdAt: string;
 }

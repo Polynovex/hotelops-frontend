@@ -1309,13 +1309,16 @@ export const RoomListPage = () => {
               label: 'Action',
               minWidth: 400,
               render: (room) => (
-                <Stack direction="row" spacing={1}>
-                  <Button size="small" onClick={() => navigate(`/business/rooms/${room.id}`)}>Detail</Button>
-                  <Button size="small" onClick={() => void updateStatus(room.id, 'AVAILABLE')}>Ready</Button>
-                  <Button size="small" color="warning" onClick={() => void updateStatus(room.id, 'DIRTY')}>Dirty</Button>
-                  <Button size="small" onClick={() => startEditRoom(room)}>Edit</Button>
-                  <Button size="small" color="error" onClick={() => { setRoomDialogError(''); setDeletingRoom(room); }}>Delete</Button>
-                </Stack>
+                <RowActionsMenu
+                  subject={`Room ${room.roomNumber}`}
+                  actions={[
+                    { key: 'detail', label: 'Detail', onClick: () => navigate(`/business/rooms/${room.id}`) },
+                    { key: 'ready', label: 'Mark ready', onClick: () => void updateStatus(room.id, 'AVAILABLE') },
+                    { key: 'dirty', label: 'Mark dirty', onClick: () => void updateStatus(room.id, 'DIRTY') },
+                    { key: 'edit', label: 'Edit', onClick: () => startEditRoom(room) },
+                    { key: 'delete', label: 'Delete', destructive: true, onClick: () => { setRoomDialogError(''); setDeletingRoom(room); } }
+                  ]}
+                />
               )
             }
           ]}

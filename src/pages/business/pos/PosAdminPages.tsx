@@ -1,4 +1,4 @@
-import AddOnsDialog from '../../../components/pos/AddOnsDialog';
+import AddOnsDialog, { addOnsOf } from '../../../components/pos/AddOnsDialog';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -1021,7 +1021,21 @@ export const PosMenuManagementPage = () => {
               key: 'price',
               label: 'Price',
               minWidth: 130,
-              render: (item) => `₦${item.price.toLocaleString()}`
+              render: (item) => {
+                const extras = addOnsOf(item.modifiers);
+                const prices = extras.map((a) => a.price);
+                return (
+                  <Box>
+                    <Typography variant="body2">₦{item.price.toLocaleString()}</Typography>
+                    {extras.length > 0 && (
+                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'none' }}>
+                        {extras.length} add-on{extras.length === 1 ? '' : 's'}: +₦{Math.min(...prices).toLocaleString()}
+                        {Math.max(...prices) !== Math.min(...prices) ? ` to +₦${Math.max(...prices).toLocaleString()}` : ''}
+                      </Typography>
+                    )}
+                  </Box>
+                );
+              }
             },
             {
               key: 'status',

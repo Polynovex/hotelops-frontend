@@ -22,6 +22,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography
 } from '@mui/material';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -212,12 +213,21 @@ const EventDetailPage: React.FC = () => {
           <Paper variant="outlined" sx={{ p: 1.5, mb: 2, borderRadius: 2 }}>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
               <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>Status:</Typography>
-              {NEXT[event.status].map((s) => (
-                <Button key={s} size="small" variant={s === 'CONFIRMED' ? 'contained' : 'outlined'} color={s === 'CANCELLED' ? 'error' : 'primary'} disabled={busy}
-                  onClick={() => (s === 'CANCELLED' ? (setReason(''), setCancelOpen(true)) : void move(s))}>
-                  {ACTION_LABEL[s]}
-                </Button>
-              ))}
+              {NEXT[event.status].map((s) => {
+                // An event is completed only once it is paid in full.
+                const unpaid = s === 'COMPLETED' && event.balance > 0;
+                const button = (
+                  <Button key={s} size="small" variant={s === 'CONFIRMED' ? 'contained' : 'outlined'} color={s === 'CANCELLED' ? 'error' : 'primary'} disabled={busy || unpaid}
+                    onClick={() => (s === 'CANCELLED' ? (setReason(''), setCancelOpen(true)) : void move(s))}>
+                    {ACTION_LABEL[s]}
+                  </Button>
+                );
+                return unpaid ? (
+                  <Tooltip key={s} title={`Record the outstanding ${formatCurrency(event.balance)} before completing this event`}>
+                    <span>{button}</span>
+                  </Tooltip>
+                ) : button;
+              })}
             </Stack>
           </Paper>
         )}

@@ -171,6 +171,11 @@ export interface PlanSummary {
   hasMultiProperty?: boolean;
   hasAdvancedAnalytics?: boolean;
   hasApiAccess?: boolean;
+  hasHr?: boolean;
+  hasInventory?: boolean;
+  hasLoyalty?: boolean;
+  hasEvents?: boolean;
+  hasPromotions?: boolean;
   supportLevel?: 'EMAIL' | 'PRIORITY' | 'DEDICATED' | string;
 }
 
@@ -198,6 +203,11 @@ export interface PlanPayload {
   hasMultiProperty?: boolean;
   hasAdvancedAnalytics?: boolean;
   hasApiAccess?: boolean;
+  hasHr?: boolean;
+  hasInventory?: boolean;
+  hasLoyalty?: boolean;
+  hasEvents?: boolean;
+  hasPromotions?: boolean;
   supportLevel?: 'EMAIL' | 'PRIORITY' | 'DEDICATED';
 }
 

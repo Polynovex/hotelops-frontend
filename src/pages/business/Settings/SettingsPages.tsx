@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Avatar,
@@ -914,76 +914,128 @@ export const TaxSettingsPage = () => {
  */
 
 
+type BackupRow = { key: string; kind: 'NIGHT_AUDIT' | 'DAILY' | 'MANUAL'; size: number; createdAt: string };
+const BACKUP_KIND_LABEL: Record<BackupRow['kind'], string> = {
+  NIGHT_AUDIT: 'After night audit',
+  DAILY: 'Daily automatic',
+  MANUAL: 'Taken by you'
+};
+const fileSize = (bytes: number) =>
+  bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+
+/**
+ * The hotel's real backups: taken after each night audit, every day for all
+ * hotels, and whenever the owner asks. Any of them can be downloaded; a
+ * restore replaces live data, so HotelOpX support carries it out.
+ */
 export const BackupRestoreSettingsPage = () => {
-  const [rows, setRows] = useState(settingsOpsService.listBackups());
-  const [notes, setNotes] = useState('');
+  const { enqueueSnackbar } = useSnackbar();
+  const [rows, setRows] = useState<BackupRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState('');
   const [restoreTarget, setRestoreTarget] = useState<string | null>(null);
 
-  const createBackup = () => {
-    settingsOpsService.createBackup(notes.trim() || undefined);
-    setRows(settingsOpsService.listBackups());
-    setNotes('');
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await apiClient.get('/backups');
+      setRows(Array.isArray(data?.backups) ? data.backups : []);
+      setError('');
+    } catch (err) {
+      setError(userActionError(err, 'Could not load your backups'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const createBackup = async () => {
+    setBusy('create');
+    try {
+      const { data } = await apiClient.post('/backups', {});
+      enqueueSnackbar(data?.message || 'Backup started', { variant: 'success' });
+      // It runs in the background; check back for it shortly.
+      window.setTimeout(() => void load(), 20000);
+    } catch (err) {
+      enqueueSnackbar(userActionError(err, 'Could not start a backup'), { variant: 'error' });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const download = async (row: BackupRow) => {
+    setBusy(row.key);
+    try {
+      const { data } = await apiClient.get('/backups/download', { params: { key: row.key } });
+      // A short-lived link straight to the file; the browser saves it.
+      window.location.assign(data.url);
+    } catch (err) {
+      enqueueSnackbar(userActionError(err, 'Could not download this backup'), { variant: 'error' });
+    } finally {
+      setBusy('');
+    }
   };
 
   return (
     <Layout>
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <SettingsTabs />
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>Backup & Restore</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Create snapshot records and track restore points.
-        </Typography>
-
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            <TextField label="Backup Notes" value={notes} onChange={(event) => setNotes(event.target.value)} fullWidth />
-            <Button variant="contained" onClick={createBackup}>Create Backup</Button>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} spacing={2} sx={{ mb: 3 }}>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>Backup & Restore</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Your data is backed up after every night audit and once a day. Take one now, or download any backup to keep a copy yourself.
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+            <Button onClick={() => void load()} disabled={loading}>Refresh</Button>
+            <Button variant="contained" onClick={() => void createBackup()} disabled={busy === 'create'}>
+              {busy === 'create' ? 'Starting…' : 'Back up now'}
+            </Button>
           </Stack>
-        </Paper>
+        </Stack>
+
+        {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
 
         <DataTable
           rows={rows}
-          rowKey={(row) => row.id}
+          rowKey={(row) => row.key}
           defaultRowsPerPage={10}
-          emptyText="No backups created yet."
+          emptyText={loading ? 'Loading backups…' : 'No backups yet. One is taken after your next night audit, or take one now.'}
           columns={[
-            { key: 'id', label: 'Backup ID', minWidth: 220 },
-            {
-              key: 'createdAt',
-              label: 'Created At',
-              minWidth: 190,
-              render: (row) => new Date(row.createdAt).toLocaleString()
-            },
-            { key: 'createdBy', label: 'Created By', minWidth: 190 },
-            {
-              key: 'notes',
-              label: 'Notes',
-              minWidth: 240,
-              render: (row) => row.notes || '—'
-            },
+            { key: 'createdAt', label: 'Taken', minWidth: 190, render: (row) => new Date(row.createdAt).toLocaleString() },
+            { key: 'kind', label: 'Type', minWidth: 170, render: (row) => <Chip size="small" label={BACKUP_KIND_LABEL[row.kind]} color={row.kind === 'MANUAL' ? 'secondary' : 'default'} /> },
+            { key: 'size', label: 'Size', minWidth: 90, render: (row) => fileSize(row.size) },
             {
               key: 'action',
-              label: 'Action',
-              minWidth: 120,
+              label: '',
+              minWidth: 150,
               render: (row) => (
-                <Button size="small" onClick={() => setRestoreTarget(row.id)}>Restore</Button>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <Button size="small" variant="outlined" onClick={() => void download(row)} disabled={busy === row.key}>
+                    {busy === row.key ? 'Preparing…' : 'Download'}
+                  </Button>
+                  <RowActionsMenu subject="backup" actions={[{ key: 'restore', label: 'Restore…', onClick: () => setRestoreTarget(row.key) }]} />
+                </Stack>
               )
             }
           ]}
         />
 
         {/*
-          This replaced alert("Restore flow … is queued"), which claimed a
-          restore had been queued when nothing was. A restore overwrites a
-          property's live data, so it is carried out by HotelOpX support rather
-          than by a button, and the dialog now says so.
+          A restore overwrites a property's live data, so it is carried out by
+          HotelOpX support rather than by a button, and the dialog says so.
         */}
         <Dialog open={Boolean(restoreTarget)} onClose={() => setRestoreTarget(null)} fullWidth maxWidth="sm">
           <DialogTitle>Restore this backup?</DialogTitle>
           <DialogContent>
             <Typography sx={{ mb: 2 }}>
-              Restoring replaces your property&apos;s current data with this snapshot. Anything recorded since it was
-              taken — bookings, payments, orders — would be lost, so restores are carried out by HotelOpX support
+              Restoring replaces your property&apos;s current data with this backup. Anything recorded since it was
+              taken (bookings, payments, orders) would be lost, so restores are carried out by HotelOpX support
               after confirming with you.
             </Typography>
             <Typography variant="body2" color="text.secondary">

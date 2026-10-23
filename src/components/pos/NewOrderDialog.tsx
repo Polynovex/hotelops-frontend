@@ -67,6 +67,8 @@ export function NewOrderDialog({
   const [tableNumber, setTableNumber] = useState('');
   const [promoCode, setPromoCode] = useState('');
   const [bookingId, setBookingId] = useState('');
+  /** In-house rooms to charge, by room number and guest name. */
+  const [rooms, setRooms] = useState<Array<{ bookingId: string; roomNumber: string; guestName: string }>>([]);
   const [loadingMenu, setLoadingMenu] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -98,6 +100,11 @@ export function NewOrderDialog({
       .catch((err) => setError(getApiErrorMessage(err, 'Could not load the menu')))
       .finally(() => setLoadingMenu(false));
   }, [open, outletId]);
+
+  useEffect(() => {
+    if (!open || orderType !== 'ROOM_SERVICE') return;
+    posFlow.chargeableRooms().then(setRooms).catch(() => setRooms([]));
+  }, [open, orderType]);
 
   const categories = useMemo(
     () => ['ALL', ...new Set(menu.map((item) => item.category || 'Other'))],
@@ -142,7 +149,7 @@ export function NewOrderDialog({
       return;
     }
     if (orderType === 'ROOM_SERVICE' && !bookingId.trim()) {
-      setError('Room service needs the reservation it is charged to.');
+      setError('Choose the room to charge.');
       return;
     }
     setSaving(true);
@@ -252,7 +259,20 @@ export function NewOrderDialog({
                 helperText="Automatic promotions are applied without a code"
               />
               {orderType === 'ROOM_SERVICE' && (
-                <TextField size="small" label="Reservation ID" value={bookingId} onChange={(event) => setBookingId(event.target.value)} helperText="The checked-in reservation to charge" />
+                <TextField
+                  select
+                  size="small"
+                  label="Charge to room"
+                  value={bookingId}
+                  onChange={(event) => setBookingId(event.target.value)}
+                  helperText={rooms.length ? 'Checked-in rooms' : 'No guest is checked in right now'}
+                >
+                  {rooms.map((room) => (
+                    <MenuItem key={room.bookingId} value={room.bookingId}>
+                      Room {room.roomNumber}{room.guestName ? ` · ${room.guestName}` : ''}
+                    </MenuItem>
+                  ))}
+                </TextField>
               )}
 
               <Divider />

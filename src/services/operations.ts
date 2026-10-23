@@ -2274,26 +2274,7 @@ export const settingsOpsService = {
    * one to the browser would invite the same mistake again.
    */
 
-
-  listBackups(): SettingsStore['backups'] {
-    return getSettingsStore().backups;
-  },
-
-  createBackup(notes?: string): SettingsStore['backups'][number] {
-    const store = getSettingsStore();
-    const user = useAuthStore.getState().user;
-    const backup = {
-      id: makeId('backup'),
-      createdAt: new Date().toISOString(),
-      createdBy: user?.email || 'system@hotelopx.ng',
-      notes
-    };
-
-    store.backups.unshift(backup);
-    saveSettingsStore(store);
-    pushAudit({ action: 'CREATE', entity: 'BACKUP', entityId: backup.id, details: { notes } });
-    return backup;
-  }
+  // Backups are real now: see Settings → Backup & Restore (GET/POST /backups).
 };
 
 export interface AuditRecord {

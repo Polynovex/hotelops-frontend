@@ -27,6 +27,7 @@ import LogoLoader from '../../../components/LogoLoader';
 import { dailyRecords, naira, type Meta } from '../../../services/dailyRecords';
 import { getApiErrorMessage } from '../../../utils/apiError';
 import UsaliReports from '../../../components/finance/UsaliReports';
+import { usePlanStore } from '../../../store/planStore';
 
 /**
  * Finance reports and management summaries, built only from approved daily
@@ -77,6 +78,8 @@ export default function FinanceReportsPage() {
   // Management reports (HotelOpX terms), the USALI-aligned statement, and the
   // mapping between them — all from the same approved records.
   const [mode, setMode] = useState<'management' | 'usali' | 'mapping'>('management');
+  const hasFullFinance = usePlanStore((state) => state.has)('FULL_FINANCE');
+  usePlanStore((state) => state.features);
   const [period, setPeriod] = useState<Period>('monthly');
   const [range, setRange] = useState({ from: '', to: new Date().toISOString().slice(0, 10) });
   const [meta, setMeta] = useState<Meta | null>(null);
@@ -128,8 +131,9 @@ export default function FinanceReportsPage() {
 
         <Tabs value={mode} onChange={(_event, value) => setMode(value)} sx={{ mb: 2 }} variant="scrollable" allowScrollButtonsMobile>
           <Tab value="management" label="Management reports" />
-          <Tab value="usali" label="USALI statement" />
-          <Tab value="mapping" label="USALI mapping" />
+          {/* USALI is part of full finance (Enterprise). */}
+          {hasFullFinance && <Tab value="usali" label="USALI statement" />}
+          {hasFullFinance && <Tab value="mapping" label="USALI mapping" />}
         </Tabs>
 
         {mode !== 'management' ? (

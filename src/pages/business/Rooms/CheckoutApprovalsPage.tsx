@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert,
@@ -131,11 +132,14 @@ const CheckoutApprovalsPage: React.FC = () => {
                     <TableCell><Chip size="small" label={CHARGE_STATUS_LABEL[c.status]} color={c.status === 'DISPUTED' ? 'error' : 'warning'} /></TableCell>
                     <TableCell>
                       {canApprove && (
-                        <Stack direction="row" spacing={0.5}>
-                          <Button size="small" color="success" onClick={() => void act(() => checkoutApi.decideCharge(c.id, 'approve'), `${c.reference} approved.`)}>Approve</Button>
-                          <Button size="small" onClick={() => askReason(`Waive ${c.reference}`, (r) => checkoutApi.decideCharge(c.id, 'waive', r))}>Waive</Button>
-                          <Button size="small" color="error" onClick={() => askReason(`Reject ${c.reference}`, (r) => checkoutApi.decideCharge(c.id, 'reject', r))}>Reject</Button>
-                        </Stack>
+                        <RowActionsMenu
+                          subject={c.reference}
+                          actions={[
+                            { key: 'approve', label: 'Approve', onClick: () => void act(() => checkoutApi.decideCharge(c.id, 'approve'), `${c.reference} approved.`) },
+                            { key: 'waive', label: 'Waive', onClick: () => askReason(`Waive ${c.reference}`, (r) => checkoutApi.decideCharge(c.id, 'waive', r)) },
+                            { key: 'reject', label: 'Reject', destructive: true, onClick: () => askReason(`Reject ${c.reference}`, (r) => checkoutApi.decideCharge(c.id, 'reject', r)) }
+                          ]}
+                        />
                       )}
                     </TableCell>
                   </TableRow>
@@ -169,15 +173,14 @@ const CheckoutApprovalsPage: React.FC = () => {
                     <TableCell align="right">{d.recoveryCharge != null ? formatCurrency(d.recoveryCharge) : '—'}</TableCell>
                     <TableCell><Chip size="small" label={DAMAGE_STATUS_LABEL[d.status]} color={d.status === 'APPROVED' ? 'success' : d.status === 'DISPUTED' ? 'error' : ['WAIVED', 'CLOSED'].includes(d.status) ? 'default' : 'warning'} /></TableCell>
                     <TableCell>
-                      <Stack direction="row" spacing={0.5}>
-                        {d.bookingId && <Button size="small" onClick={() => navigate(`/business/reservations/${d.bookingId}/checkout`)}>Open stay</Button>}
-                        {canApprove && (d.status === 'AWAITING_APPROVAL' || d.status === 'DISPUTED') && (
-                          <Button size="small" color="success" onClick={() => void act(() => checkoutApi.decideDamage(d.id, 'approve'), `${d.reference} approved.`)}>Approve</Button>
-                        )}
-                        {canApprove && !d.bookingId && !['WAIVED', 'CLOSED'].includes(d.status) && (
-                          <Button size="small" onClick={() => askReason(`Close ${d.reference}`, (r) => checkoutApi.decideDamage(d.id, 'close', r))}>Close</Button>
-                        )}
-                      </Stack>
+                      <RowActionsMenu
+                        subject={d.reference}
+                        actions={[
+                          { key: 'stay', label: 'Open stay', hidden: !d.bookingId, onClick: () => navigate(`/business/reservations/${d.bookingId}/checkout`) },
+                          { key: 'approve', label: 'Approve', hidden: !(canApprove && (d.status === 'AWAITING_APPROVAL' || d.status === 'DISPUTED')), onClick: () => void act(() => checkoutApi.decideDamage(d.id, 'approve'), `${d.reference} approved.`) },
+                          { key: 'close', label: 'Close', hidden: !(canApprove && !d.bookingId && !['WAIVED', 'CLOSED'].includes(d.status)), onClick: () => askReason(`Close ${d.reference}`, (r) => checkoutApi.decideDamage(d.id, 'close', r)) }
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

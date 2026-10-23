@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
@@ -306,20 +307,20 @@ const CheckoutReviewPage: React.FC = () => {
                       <TableCell><Chip size="small" label={DAMAGE_STATUS_LABEL[d.status]} color={STATUS_COLOR[d.status]} /></TableCell>
                       <TableCell align="right">{d.recoveryCharge != null ? formatCurrency(d.recoveryCharge) : '—'}</TableCell>
                       <TableCell align="right">
-                        <Stack direction="row" spacing={0.5} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
-                          {['REPORTED', 'UNDER_ASSESSMENT', 'AWAITING_APPROVAL', 'DISPUTED'].includes(d.status) && (
-                            <Button size="small" onClick={() => { setAssessment({ assessmentMethod: d.assessmentMethod ?? 'REPAIR', assessedCost: d.assessedCost != null ? String(d.assessedCost) : '', recoveryCharge: d.recoveryCharge != null ? String(d.recoveryCharge) : '', assessment: d.assessment ?? '' }); setAssessing(d); }}>Assess</Button>
-                          )}
-                          {canApprove && (d.status === 'AWAITING_APPROVAL' || d.status === 'DISPUTED') && (
-                            <Button size="small" color="success" onClick={() => void run(() => checkoutApi.decideDamage(d.id, 'approve'), `${d.reference} approved.`)}>Approve charge</Button>
-                          )}
-                          {['REPORTED', 'UNDER_ASSESSMENT', 'AWAITING_APPROVAL'].includes(d.status) && (
-                            <Button size="small" color="warning" onClick={() => askReason(`Guest disputes ${d.reference}`, (r) => checkoutApi.decideDamage(d.id, 'dispute', r))}>Guest disputes</Button>
-                          )}
-                          {canApprove && !['APPROVED', 'WAIVED', 'CLOSED'].includes(d.status) && (
-                            <Button size="small" onClick={() => askReason(`Waive ${d.reference}`, (r) => checkoutApi.decideDamage(d.id, 'waive', r))}>Waive</Button>
-                          )}
-                        </Stack>
+                        <RowActionsMenu
+                          subject={d.reference}
+                          actions={[
+                            {
+                              key: 'assess',
+                              label: 'Assess',
+                              hidden: !['REPORTED', 'UNDER_ASSESSMENT', 'AWAITING_APPROVAL', 'DISPUTED'].includes(d.status),
+                              onClick: () => { setAssessment({ assessmentMethod: d.assessmentMethod ?? 'REPAIR', assessedCost: d.assessedCost != null ? String(d.assessedCost) : '', recoveryCharge: d.recoveryCharge != null ? String(d.recoveryCharge) : '', assessment: d.assessment ?? '' }); setAssessing(d); }
+                            },
+                            { key: 'approve', label: 'Approve charge', hidden: !(canApprove && (d.status === 'AWAITING_APPROVAL' || d.status === 'DISPUTED')), onClick: () => void run(() => checkoutApi.decideDamage(d.id, 'approve'), `${d.reference} approved.`) },
+                            { key: 'dispute', label: 'Guest disputes', hidden: !['REPORTED', 'UNDER_ASSESSMENT', 'AWAITING_APPROVAL'].includes(d.status), onClick: () => askReason(`Guest disputes ${d.reference}`, (r) => checkoutApi.decideDamage(d.id, 'dispute', r)) },
+                            { key: 'waive', label: 'Waive', destructive: true, hidden: !(canApprove && !['APPROVED', 'WAIVED', 'CLOSED'].includes(d.status)), onClick: () => askReason(`Waive ${d.reference}`, (r) => checkoutApi.decideDamage(d.id, 'waive', r)) }
+                          ]}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
