@@ -127,7 +127,8 @@ const SystemHealthPage = () => {
                 {([
                   { label: 'Database', status: services.database, required: true },
                   { label: 'Cache (Redis)', status: services.cache, required: false },
-                  { label: 'Queue (RabbitMQ)', status: services.eventBus, required: false }
+                  // RabbitMQ was replaced by Amazon SQS; the server reports it as eventBus.
+                  { label: 'Event queue (Amazon SQS)', status: services.eventBus, required: false }
                 ]).map((dependency) => (
                   <Stack
                     key={dependency.label}
