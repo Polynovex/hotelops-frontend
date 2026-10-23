@@ -69,6 +69,8 @@ import {
   BadgeRounded,
   ExpandLessRounded,
   ExpandMoreRounded,
+  MenuOpenRounded,
+  ChevronRightRounded,
   LockOutlined,
   Visibility,
   VisibilityOff
@@ -371,6 +373,9 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
 };
 
 const drawerWidth = 304;
+/** Width of the collapsed sidebar: icons only. */
+const railWidth = 84;
+const RAIL_KEY = 'hox.sidebar.collapsed';
 
 const moduleMeta = {
   pms: { label: 'PMS', icon: NightShelterRounded },
@@ -395,6 +400,28 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   }, [user?.id, loadPermissions]);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  /**
+   * Desktop only: the sidebar shrinks to an icon rail to give the page more
+   * room. Remembered per browser, so it stays the way the person left it.
+   */
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(RAIL_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleCollapsed = () =>
+    setCollapsed((prev) => {
+      try {
+        localStorage.setItem(RAIL_KEY, prev ? '0' : '1');
+      } catch {
+        // Storage unavailable: the choice lasts for this visit only.
+      }
+      return !prev;
+    });
+  /** In the rail, a group opens as a fly-out menu beside its icon. */
+  const [flyout, setFlyout] = useState<{ anchor: HTMLElement; label: string } | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
@@ -420,6 +447,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { mode, toggleColorMode } = useColorMode();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isDark = mode === 'dark';
+  const rail = !isMobile && collapsed;
+  const sidebarWidth = rail ? railWidth : drawerWidth;
+  const widthTransition = theme.transitions.create(['width', 'margin'], {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.standard
+  });
 
   const isSuperAdmin = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
   // The business's own logo leads; HotelOpX is the "Powered by" credit.
@@ -667,6 +700,101 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     })
   );
 
+  const railLinkSx = (active: boolean) => ({
+    mb: 0.75,
+    justifyContent: 'center',
+    px: 0,
+    minHeight: 48,
+    color: active ? theme.palette.secondary.light : 'rgba(248,244,236,0.84)',
+    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.06)' },
+    '& .MuiListItemIcon-root': {
+      minWidth: 0,
+      justifyContent: 'center',
+      color: active ? theme.palette.secondary.light : 'rgba(248,244,236,0.6)'
+    }
+  });
+  const flyoutGroup = flyout ? menuItems.find((item) => item.label === flyout.label) : undefined;
+
+  const railContent = (
+    <Box sx={{ width: railWidth, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+      <Box sx={{ py: 2.5, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <Tooltip title={brandName} placement="right">
+          <Avatar
+            src={isSuperAdmin ? '/icon.png' : undefined}
+            variant="rounded"
+            sx={{ width: 44, height: 44, bgcolor: 'secondary.main', color: 'primary.main', fontWeight: 800 }}
+          >
+            {(brandName || 'H').charAt(0).toUpperCase()}
+          </Avatar>
+        </Tooltip>
+        <Tooltip title="Expand sidebar" placement="right">
+          <IconButton aria-label="Expand sidebar" onClick={toggleCollapsed} size="small" sx={{ color: 'rgba(248,244,236,0.72)', border: '1px solid rgba(255,255,255,0.12)' }}>
+            <ChevronRightRounded fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+      <List sx={{ mt: 1.5, px: 1.5, flexGrow: 1, overflowY: 'auto' }}>
+        {menuItems.map((item) => {
+          if (!isGroup(item)) {
+            const isActive = matchesPath(item.path);
+            return (
+              <Tooltip key={item.label} title={item.label} placement="right">
+                <ListItemButton aria-label={item.label} selected={isActive} onClick={() => navigate(item.path)} sx={railLinkSx(isActive)}>
+                  <ListItemIcon><item.icon /></ListItemIcon>
+                </ListItemButton>
+              </Tooltip>
+            );
+          }
+          const holdsActive = item.children.some((child) => matchesPath(child.path));
+          return (
+            <Tooltip key={item.label} title={item.label} placement="right">
+              <ListItemButton
+                aria-label={item.label}
+                aria-haspopup="menu"
+                selected={holdsActive}
+                onClick={(event) => setFlyout({ anchor: event.currentTarget, label: item.label })}
+                sx={railLinkSx(holdsActive)}
+              >
+                <ListItemIcon><item.icon /></ListItemIcon>
+              </ListItemButton>
+            </Tooltip>
+          );
+        })}
+      </List>
+      <Box sx={{ py: 2, display: 'flex', justifyContent: 'center', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+        <Tooltip title={`${isSuperAdmin ? user?.name || 'Super Admin' : user?.hotelName || ''} · ${displayRole(normalizedRole)}`} placement="right">
+          <Avatar sx={{ bgcolor: 'secondary.main', color: 'primary.main' }}>
+            {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
+          </Avatar>
+        </Tooltip>
+      </Box>
+      <Menu
+        open={Boolean(flyout && flyoutGroup)}
+        anchorEl={flyout?.anchor}
+        onClose={() => setFlyout(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{ paper: { sx: { ml: 1, minWidth: 240 } } }}
+      >
+        <Typography variant="overline" sx={{ px: 2, color: 'text.secondary' }}>{flyout?.label}</Typography>
+        {flyoutGroup && isGroup(flyoutGroup) &&
+          flyoutGroup.children.map((child) => (
+            <MenuItem
+              key={child.label}
+              selected={matchesPath(child.path)}
+              onClick={() => {
+                setFlyout(null);
+                navigate(child.path);
+              }}
+            >
+              <ListItemIcon><child.icon fontSize="small" /></ListItemIcon>
+              <ListItemText primary={child.label} />
+            </MenuItem>
+          ))}
+      </Menu>
+    </Box>
+  );
+
   const drawerContent = (
     <Box sx={{ width: drawerWidth, height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Box
@@ -862,8 +990,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         position="fixed"
         sx={{
           zIndex: theme.zIndex.drawer + 1,
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          ml: { md: `${drawerWidth}px` }
+          width: { md: `calc(100% - ${sidebarWidth}px)` },
+          ml: { md: `${sidebarWidth}px` },
+          transition: widthTransition
         }}
       >
         <Toolbar sx={{ minHeight: '88px !important', px: { xs: 2, md: 3 } }}>
@@ -874,16 +1003,26 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             {drawerOpen ? <CloseIcon /> : <MenuIcon />}
           </IconButton>
+          <Tooltip title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+            <IconButton
+              color="inherit"
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              onClick={toggleCollapsed}
+              sx={{ mr: 2, display: { xs: 'none', md: 'inline-flex' } }}
+            >
+              {collapsed ? <MenuIcon /> : <MenuOpenRounded />}
+            </IconButton>
+          </Tooltip>
 
-          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box>
+          <Box sx={{ flexGrow: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ minWidth: 0 }}>
               <Typography
                 variant="caption"
-                sx={{ color: 'text.secondary', letterSpacing: '0.12em' }}
+                sx={{ color: 'text.secondary', letterSpacing: '0.12em', display: { xs: 'none', sm: 'block' } }}
               >
                 COMMAND CENTER
               </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
+              <Typography variant="h6" noWrap sx={{ fontWeight: 700, letterSpacing: '-0.02em', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                 {activeItem?.label || brandName}
               </Typography>
             </Box>
@@ -1201,16 +1340,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         open={isMobile ? drawerOpen : true}
         onClose={() => setDrawerOpen(false)}
         sx={{
-          width: drawerWidth,
+          width: isMobile ? drawerWidth : sidebarWidth,
           flexShrink: 0,
+          transition: widthTransition,
           '& .MuiDrawer-paper': {
-            width: drawerWidth,
+            width: isMobile ? drawerWidth : sidebarWidth,
             boxSizing: 'border-box',
-            height: '100vh'
+            height: '100vh',
+            overflowX: 'hidden',
+            transition: widthTransition
           }
         }}
       >
-        {drawerContent}
+        {rail ? railContent : drawerContent}
       </Drawer>
 
       <Box

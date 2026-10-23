@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper,
   Stack, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography
 } from '@mui/material';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { superAdminService, type BusinessSummary } from '../../services/api';
 import { feedbackApi, type FeedbackLink } from '../../services/feedback';
 import { getApiErrorMessage } from '../../utils/apiError';
@@ -21,6 +22,10 @@ const TestimonialQrPanel = ({ onChanged }: { onChanged?: () => void }) => {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [qr, setQr] = useState<{ link: FeedbackLink; dataUrl: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<FeedbackLink | null>(null);
+  // Set synchronously, so a double click cannot send two requests before the
+  // button re-renders as disabled.
+  const creating = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -37,6 +42,8 @@ const TestimonialQrPanel = ({ onChanged }: { onChanged?: () => void }) => {
   }, [load]);
 
   const create = async () => {
+    if (creating.current) return;
+    creating.current = true;
     setBusy(true);
     try {
       const link = await feedbackApi.createTestimonialLink({ hotelId: hotelId || null, label: label.trim() || undefined });
@@ -47,6 +54,21 @@ const TestimonialQrPanel = ({ onChanged }: { onChanged?: () => void }) => {
       onChanged?.();
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not create the code'));
+    } finally {
+      creating.current = false;
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!pendingDelete) return;
+    setBusy(true);
+    try {
+      await feedbackApi.deleteTestimonialLink(pendingDelete.id);
+      setPendingDelete(null);
+      await load();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not delete the code'));
     } finally {
       setBusy(false);
     }
@@ -79,7 +101,9 @@ const TestimonialQrPanel = ({ onChanged }: { onChanged?: () => void }) => {
         </Typography>
         {error && <Alert severity="error" sx={{ mt: 1.5 }} onClose={() => setError('')}>{error}</Alert>}
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ mt: 1.5 }}>
-          <TextField select size="small" label="Business" value={hotelId} onChange={(e) => setHotelId(e.target.value)} sx={{ minWidth: 240 }}>
+          <TextField select size="small" label="Business" value={hotelId} onChange={(e) => setHotelId(e.target.value)} sx={{ minWidth: 240 }}
+            // Show "Any (general code)" when nothing is chosen, rather than an empty box.
+            SelectProps={{ displayEmpty: true }} InputLabelProps={{ shrink: true }}>
             <MenuItem value="">Any (general code)</MenuItem>
             {businesses.map((b) => <MenuItem key={b.id} value={b.id}>{b.businessName || b.name}</MenuItem>)}
           </TextField>
@@ -105,12 +129,29 @@ const TestimonialQrPanel = ({ onChanged }: { onChanged?: () => void }) => {
                 <TableCell>{link.label || '—'}</TableCell>
                 <TableCell>{link.responseCount}</TableCell>
                 <TableCell><Switch checked={link.isActive} onChange={(e) => void toggle(link, e.target.checked)} /></TableCell>
-                <TableCell align="right"><Button size="small" startIcon={<QrCode2Icon />} onClick={() => void showQr(link)}>QR code</Button></TableCell>
+                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                  <Button size="small" startIcon={<QrCode2Icon />} onClick={() => void showQr(link)}>QR code</Button>
+                  <Button size="small" color="error" startIcon={<DeleteOutlineIcon />} onClick={() => setPendingDelete(link)}>Delete</Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       )}
+
+      <Dialog open={Boolean(pendingDelete)} onClose={() => setPendingDelete(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete this testimonial code?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {pendingDelete?.hotelName || 'This general code'}{pendingDelete?.label ? ` (${pendingDelete.label})` : ''} will stop working, including any copy already sent or printed.
+            Testimonials already received through it are kept.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDelete(null)}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={() => void remove()} disabled={busy}>Delete</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={Boolean(qr)} onClose={() => setQr(null)} maxWidth="xs" fullWidth>
         <DialogTitle>Testimonial QR code{qr?.link.hotelName ? ` · ${qr.link.hotelName}` : ''}</DialogTitle>

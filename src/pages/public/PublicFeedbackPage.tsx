@@ -14,10 +14,12 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
-  Typography
+  Typography,
+  useTheme
 } from '@mui/material';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { RATING_LABEL, publicFeedbackApi } from '../../services/feedback';
+import TenantLogo from '../../components/branding/TenantLogo';
 
 // Outside the page component so typing doesn't remount the form.
 const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -33,6 +35,7 @@ const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
  */
 const PublicFeedbackPage: React.FC = () => {
   const { code = '' } = useParams<{ code: string }>();
+  const dark = useTheme().palette.mode === 'dark';
   const [form, setForm] = useState<Awaited<ReturnType<typeof publicFeedbackApi.form>> | null>(null);
   const [loadError, setLoadError] = useState('');
   const [ratings, setRatings] = useState<Record<string, number | null>>({});
@@ -111,7 +114,19 @@ const PublicFeedbackPage: React.FC = () => {
       <Paper variant="outlined" sx={{ p: { xs: 2.5, md: 4 }, borderRadius: 3 }}>
         <Stack spacing={2.5}>
           <Box textAlign="center">
-            {form.logoUrl && <Box component="img" src={form.logoUrl} alt="" sx={{ height: 56, mb: 1 }} />}
+            {isTestimonial ? (
+              // HotelOpX asking for the testimonial: our own mark, the white-text
+              // version on a dark background.
+              <Box component="img" src={dark ? '/logo1.png' : '/logo.png'} alt="HotelOpX" sx={{ height: 64, maxWidth: '80%', objectFit: 'contain', mb: 1 }} />
+            ) : (
+              form.logoUrl && (
+                // The hotel's own logo. On a dark background it gets a light
+                // plate, so a dark-ink logo stays readable.
+                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
+                  <TenantLogo branding={{ name: form.hotelName, logo: form.logoUrl }} surface={dark ? 'dark' : 'light'} height={56} maxWidth={240} />
+                </Box>
+              )
+            )}
             <Typography variant="h5" fontWeight={800}>
               {isTestimonial ? 'Share your HotelOpX experience' : `How was your stay${form.hotelName ? ` at ${form.hotelName}` : ''}?`}
             </Typography>

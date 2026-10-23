@@ -332,16 +332,16 @@ export const DIAGNOSTICS: Diagnostic[] = [
   {
     id: 'infra-eventbus-down',
     category: 'API',
-    codes: ['eventBus: down', 'RabbitMQ'],
-    symptom: 'System Stats shows the queue as down. Users report nothing.',
-    cause: 'RabbitMQ unreachable. Events fall back to in-process delivery.',
+    codes: ['eventBus: down', 'SQS'],
+    symptom: 'System Stats shows the event queue as down. Users report nothing.',
+    cause: 'The Amazon SQS event queue is not configured. Events fall back to in-process delivery.',
     resolution: [
       'Confirm nothing user-facing is broken — it usually is not.',
-      'Check CloudAMQP is up and RABBITMQ_URL is set in the deployed environment.',
+      'Check SQS_EVENTS_QUEUE_URL is set in the deployed environment and the queue exists in us-east-2.',
       'Raise a P3. What is lost is the durable event archive, not functionality.'
     ],
     severity: 'P3',
-    tags: ['queue down', 'rabbitmq', 'event bus'],
+    tags: ['queue down', 'sqs', 'event bus'],
     actions: [{ label: 'System Stats', to: '/super-admin/stats' }]
   },
 

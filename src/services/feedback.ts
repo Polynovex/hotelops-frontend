@@ -61,6 +61,9 @@ export const feedbackApi = {
   testimonialLinks: async () => (await api.get('/admin/feedback-links')).data as FeedbackLink[],
   createTestimonialLink: async (payload: { hotelId?: string | null; label?: string }) => (await api.post('/admin/feedback-links', payload)).data as FeedbackLink,
   updateTestimonialLink: async (id: string, isActive: boolean) => (await api.put(`/admin/feedback-links/${id}`, { isActive })).data as FeedbackLink,
+  deleteTestimonialLink: async (id: string) => {
+    await api.delete(`/admin/feedback-links/${id}`);
+  },
   testimonialQr: async (id: string) => (await api.get(`/admin/feedback-links/${id}/qr`)).data as { url: string; dataUrl: string }
 };
 

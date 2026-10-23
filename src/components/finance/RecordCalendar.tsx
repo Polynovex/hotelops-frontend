@@ -42,7 +42,10 @@ export function RecordCalendar({
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <Box>
+    // Never wider than its card: columns shrink with the space they are given
+    // (minmax(0, 1fr)) and each day fills its cell rather than a fixed size, so
+    // the weekend columns cannot spill out over the panel beside it.
+    <Box sx={{ width: '100%', maxWidth: 460, mx: 'auto' }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
         <IconButton onClick={() => shift(-1)} aria-label="Previous month"><ChevronLeftRounded /></IconButton>
         <Typography fontWeight={800}>
@@ -50,9 +53,11 @@ export function RecordCalendar({
         </Typography>
         <IconButton onClick={() => shift(1)} aria-label="Next month"><ChevronRightRounded /></IconButton>
       </Stack>
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: { xs: 0.5, sm: 0.75 } }}>
         {WEEKDAYS.map((day) => (
-          <Typography key={day} variant="caption" color="text.secondary" align="center">{day}</Typography>
+          <Typography key={day} variant="caption" color="text.secondary" align="center" noWrap sx={{ fontSize: { xs: 10, sm: 11 }, letterSpacing: 0 }}>
+            {day.slice(0, 2)}
+          </Typography>
         ))}
         {Array.from({ length: leading }).map((_, index) => <Box key={`pad-${index}`} />)}
         {days.map((day) => {
@@ -66,8 +71,14 @@ export function RecordCalendar({
                 disabled={day.hidden || future}
                 onClick={() => onSelect(day)}
                 sx={{
+                  width: '100%',
+                  minWidth: 0,
                   aspectRatio: '1 / 1',
-                  minHeight: 36,
+                  maxHeight: 52,
+                  p: 0,
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: { xs: 12, sm: 13 },
                   borderRadius: 1.5,
                   border: '2px solid',
                   borderColor: selected === day.date ? 'primary.main' : colour.border,
@@ -76,7 +87,10 @@ export function RecordCalendar({
                   fontWeight: 700,
                   cursor: day.hidden || future ? 'default' : 'pointer',
                   opacity: day.hidden ? 0.4 : 1,
-                  font: 'inherit'
+                  fontFamily: 'inherit',
+                  transition: 'border-color 120ms ease',
+                  '&:hover:not(:disabled)': { borderColor: 'primary.main' },
+                  '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 1 }
                 }}
               >
                 {Number(day.date.slice(8))}

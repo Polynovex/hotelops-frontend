@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useAuthStore } from '../../../store/authStore';
 import { useRoomTypeNames } from '../../../hooks/useRoomTypeNames';
 import {
   Alert,
@@ -63,6 +64,11 @@ const roomStatusColor = (status: string) => {
 
 export const RoomStatusBoardPage = () => {
   const roomTypeName = useRoomTypeNames();
+  /*
+   * Housekeepers only take a room out of order here. Dirty, cleaning and
+   * ready follow the tasks a manager assigns, and the server holds them to it.
+   */
+  const isHousekeeper = useAuthStore((state) => String(state.user?.role || '').toUpperCase()) === 'HOUSEKEEPING';
   const { on } = useWebSocket();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -862,6 +868,7 @@ export const RoomStatusBoardPage = () => {
 
                           {/* Actions */}
                           <Stack spacing={1}>
+                            {!isHousekeeper && (<>
                             <Button
                               fullWidth
                               size="small"
@@ -907,8 +914,10 @@ export const RoomStatusBoardPage = () => {
                             >
                               {room.status === 'OCCUPIED' ? 'Request clean (mark dirty)' : 'Mark Dirty'}
                             </Button>
+                            </>)}
 
                             <Stack direction="row" spacing={1}>
+                              {!isHousekeeper && (
                               <Button
                                 fullWidth
                                 size="small"
@@ -947,6 +956,7 @@ export const RoomStatusBoardPage = () => {
                               >
                                 Cleaning
                               </Button>
+                              )}
 
                               <Button
                                 fullWidth

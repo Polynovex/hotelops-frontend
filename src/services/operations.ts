@@ -2110,6 +2110,12 @@ export const settingsOpsService = {
    * record is terminated. The user row itself is kept so audit logs, shifts
    * and orders still resolve to a person — reversible from the HR screen.
    */
+  async changeUserEmail(userId: string, email: string, password: string) {
+    // Confirmed with the actor's password; the old address is released.
+    const { data } = await api.put(`/users/${userId}/email`, { email, password });
+    return data as { id: string; email: string; message: string };
+  },
+
   async removeUser(userId: string, password: string) {
     // The server re-checks the actor's password before removing anyone.
     const { data } = await api.post(`/users/${userId}/remove`, { password });
