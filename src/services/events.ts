@@ -203,7 +203,17 @@ export interface EventDetail extends EventBooking {
   promotion: { name: string; code: string } | null;
   createdByName: string | null;
   eventType: { name: string; serviceChargeRate: number; moveable: boolean; location: string; capacity: number | null };
-  hotel: { displayName: string; address: string; phone: string; email: string; logoUrl: string | null; vatRate: number; currency: string } | null;
+  hotel: {
+    displayName: string;
+    address: string;
+    phone: string;
+    email: string;
+    logoUrl: string | null;
+    vatRate: number;
+    currency: string;
+    /** Bank, signatory and website for the invoice (Settings, Business profile). */
+    invoice?: { website?: string; tagline?: string; contactEmail?: string; bankName?: string; accountName?: string; accountNumber?: string; signatoryName?: string; signatoryTitle?: string };
+  } | null;
 }
 
 export const eventsApi = {

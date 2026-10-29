@@ -10,6 +10,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Grid,
   IconButton,
   MenuItem,
   Paper,
@@ -87,6 +88,9 @@ export const BusinessProfileSettingsPage = () => {
   const [primaryColor, setPrimaryColor] = useState(currentUser?.brandColors?.primary ?? '');
   const [accentColor, setAccentColor] = useState(currentUser?.brandColors?.accent ?? '');
   const logoPreview = useMemo(() => (logoFile ? URL.createObjectURL(logoFile) : removeLogo ? null : logoUrl), [logoFile, removeLogo, logoUrl]);
+  /** Printed on invoices, receipts and quotations. */
+  const [invoice, setInvoice] = useState({ website: '', tagline: '', contactEmail: '', bankName: '', accountName: '', accountNumber: '', signatoryName: '', signatoryTitle: '' });
+  const [logoNote, setLogoNote] = useState('');
 
   useEffect(() => {
     apiClient
@@ -95,9 +99,34 @@ export const BusinessProfileSettingsPage = () => {
         setLogoUrl(data.logoUrl ?? null);
         setPrimaryColor(data.colors?.primary ?? '');
         setAccentColor(data.colors?.accent ?? '');
+        // Saved on the server now; the browser copy was only a stand-in.
+        if (data.businessName || data.name) setName(data.businessName || data.name);
+        if (data.phone != null) setPhone(data.phone);
+        if (data.address != null) setAddress(data.address);
+        if (data.timezone) setTimezone(data.timezone);
+        if (data.currency) setCurrency(data.currency);
+        setInvoice((current) => ({ ...current, ...(data.invoice ?? {}), contactEmail: data.invoice?.contactEmail ?? data.email ?? '' }));
       })
       .catch(() => undefined);
   }, []);
+
+  /** Warns about logos that will look poor once fitted to the fixed logo box. */
+  const checkLogo = (file: File) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const ratio = img.width / img.height;
+      setLogoNote(
+        img.width < 300
+          ? `This logo is ${img.width}×${img.height}px; it may look blurry. Use at least 600×200px.`
+          : ratio > 6 || ratio < 0.5
+            ? `This logo is very ${ratio > 6 ? 'wide' : 'tall'} (${img.width}×${img.height}px). It will be fitted, but a 3:1 landscape or a square logo looks best.`
+            : ''
+      );
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -105,12 +134,16 @@ export const BusinessProfileSettingsPage = () => {
     setSaveError(null);
     setSaveSuccess(false);
     try {
-      // Always save local profile fields
       settingsOpsService.updateBusinessProfile({ name, email, phone, address, timezone, currency });
 
       // Name, logo and colours: what staff and guests see first.
       const formData = new FormData();
       if (name) formData.append('businessName', name);
+      formData.append('phone', phone);
+      formData.append('address', address);
+      if (timezone) formData.append('timezone', timezone);
+      if (currency) formData.append('currency', currency);
+      Object.entries(invoice).forEach(([key, value]) => formData.append(key, value));
       formData.append('primaryColor', primaryColor);
       formData.append('accentColor', accentColor);
       if (logoFile) formData.append('logo', await logoAsPng(logoFile));
@@ -147,8 +180,9 @@ export const BusinessProfileSettingsPage = () => {
               {saveSuccess && <Alert severity="success" onClose={() => setSaveSuccess(false)}>Saved successfully</Alert>}
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+                {/* The same fixed, centred box the sidebar uses, so what you see is what staff see. */}
                 <Box
-                  sx={{ width: 96, height: 96, borderRadius: 2, border: '1px solid', borderColor: 'divider', p: 0.75, display: 'grid', placeItems: 'center', bgcolor: 'background.default' }}
+                  sx={{ width: 180, height: 72, borderRadius: 2, border: '1px solid', borderColor: 'divider', p: 1, display: 'grid', placeItems: 'center', bgcolor: 'background.default', flexShrink: 0 }}
                 >
                   {logoPreview ? (
                     <Box component="img" src={logoPreview} alt={name} sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
@@ -158,9 +192,11 @@ export const BusinessProfileSettingsPage = () => {
                 </Box>
                 <Stack spacing={1}>
                   <Typography variant="subtitle2">Your logo</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Shown on the sidebar, receipts, reports and your QR ordering menu. PNG, JPG or WebP up to 5 MB.
+                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'none' }}>
+                    Shown on the sidebar, receipts, invoices and your QR pages, fitted into a fixed box.
+                    Best: a landscape logo about 600×200px (3:1) or a square one at least 400×400px, PNG with a transparent background, up to 5 MB.
                   </Typography>
+                  {logoNote && <Alert severity="warning" sx={{ py: 0 }}>{logoNote}</Alert>}
                   <Stack direction="row" spacing={1}>
                     <Button component="label" variant="outlined" size="small">
                       {logoPreview ? 'Change logo' : 'Upload logo'}
@@ -173,6 +209,7 @@ export const BusinessProfileSettingsPage = () => {
                           if (file) {
                             setLogoFile(file);
                             setRemoveLogo(false);
+                            checkLogo(file);
                           }
                         }}
                       />
@@ -233,6 +270,35 @@ export const BusinessProfileSettingsPage = () => {
                 <TextField label="Timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} fullWidth />
                 <TextField label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value)} fullWidth />
               </Stack>
+
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Invoice details</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5, textTransform: 'none' }}>
+                  Printed on event invoices, quotations and receipts: where guests pay, and who signs.
+                </Typography>
+                <Grid container spacing={2}>
+                  {([
+                    ['bankName', 'Bank name'],
+                    ['accountName', 'Account name'],
+                    ['accountNumber', 'Account number'],
+                    ['contactEmail', 'Email on documents'],
+                    ['website', 'Website'],
+                    ['tagline', 'Tagline (optional)'],
+                    ['signatoryName', 'Signed by (name)'],
+                    ['signatoryTitle', 'Their title, e.g. General Manager']
+                  ] as Array<[keyof typeof invoice, string]>).map(([key, label]) => (
+                    <Grid item xs={12} sm={6} key={key}>
+                      <TextField
+                        label={label}
+                        value={invoice[key]}
+                        onChange={(e) => setInvoice({ ...invoice, [key]: e.target.value })}
+                        fullWidth
+                        inputProps={key === 'accountNumber' ? { inputMode: 'numeric' } : undefined}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              </Box>
               <Button type="submit" variant="contained" disabled={saving}>
                 {saving ? 'Saving…' : 'Save Profile'}
               </Button>

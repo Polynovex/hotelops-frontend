@@ -254,6 +254,10 @@ export interface CreateBusinessPayload {
   adminUserCode?: string;
   adminFirstName?: string;
   adminLastName?: string;
+  /** Core products; Finance is always on. */
+  products?: { pms: boolean; pos: boolean; hr: boolean };
+  /** Add-ons switched on at onboarding. */
+  addOnIds?: string[];
 }
 
 export type BusinessModuleName = 'pms' | 'pos' | 'finance';

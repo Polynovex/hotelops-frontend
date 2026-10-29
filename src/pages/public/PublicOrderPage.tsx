@@ -305,7 +305,10 @@ const PublicOrderPage = () => {
         <Toolbar sx={{ gap: 2 }}>
           {/* The business's own logo and name lead; HotelOpX is the footer credit. */}
           {menu.business.logoUrl ? (
-            <Box component="img" src={menu.business.logoUrl} alt="" sx={{ height: 36, maxWidth: 120, objectFit: 'contain' }} />
+            // A fixed, centred box, like the dashboard sidebar.
+            <Box sx={{ width: 120, height: 40, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <Box component="img" src={menu.business.logoUrl} alt="" sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+            </Box>
           ) : null}
           <Typography variant="h6" fontWeight={800} noWrap>
             {menu.business.name}

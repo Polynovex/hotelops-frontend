@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { printReceipt } from '../../../utils/receipt';
+import { usePlanStore } from '../../../store/planStore';
 import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import {
   Alert,
@@ -312,7 +314,8 @@ const PosOrdersPage = () => {
                       actions={[
                         { key: 'pay', label: 'Take payment', hidden: primary === 'pay' || !(live && unpaid), onClick: () => setPaying(order) },
                         { key: 'close', label: 'Serve & close', hidden: primary === 'close' || !(order.orderStatus === 'READY' && !unpaid), onClick: () => void run(() => posFlow.complete(order.id), `${order.orderNumber} served and closed`) },
-                        { key: 'discount', label: 'Discount', icon: <LocalOfferRounded fontSize="small" />, hidden: !live, onClick: () => setDiscountOrder(order) }
+                        { key: 'discount', label: 'Discount', icon: <LocalOfferRounded fontSize="small" />, hidden: !live, onClick: () => setDiscountOrder(order) },
+                        { key: 'receipt', label: order.paymentStatus === 'COMPLETED' ? 'Print receipt' : 'Print bill', onClick: () => void printReceipt(order, usePlanStore.getState().business) }
                       ]}
                     />
                   </Stack>
@@ -336,8 +339,21 @@ const PosOrdersPage = () => {
           order={paying}
           onClose={() => setPaying(null)}
           onPaid={(message) => {
+            const paidOrder = paying;
             setPaying(null);
-            enqueueSnackbar(message, { variant: 'success' });
+            // Offer the receipt straight away: to the till printer in the
+            // desktop app, otherwise the print dialog (or Save as PDF).
+            enqueueSnackbar(message, {
+              variant: 'success',
+              autoHideDuration: 8000,
+              action: paidOrder
+                ? () => (
+                    <Button color="inherit" size="small" onClick={() => void printReceipt({ ...paidOrder, paymentStatus: 'COMPLETED' }, usePlanStore.getState().business, { amount: paidOrder.total })}>
+                      Print receipt
+                    </Button>
+                  )
+                : undefined
+            });
             void load();
           }}
         />
