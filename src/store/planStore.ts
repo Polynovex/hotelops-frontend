@@ -3,9 +3,10 @@ import { create } from 'zustand';
 /**
  * What the business's plan includes, for the signed-in user.
  *
- * Banquet & events, promotions and full finance (the ledger, statements, USALI
- * and forecasting) are Enterprise only; guest feedback, PMS, POS and basic
- * finance are on every plan. The server enforces this on every request; this
+ * Promotions and full finance (the ledger, statements, USALI and forecasting)
+ * come with Professional and Enterprise; the loyalty programme with Enterprise
+ * only; guest feedback, PMS, POS and basic finance are on every plan. Banquet
+ * & events, minibar and HR are switched per business. The server enforces this on every request; this
  * store only hides what the plan does not include, so nobody lands on a page
  * that will be refused.
  */
@@ -87,6 +88,7 @@ export const featureForPath = (path: string): PlanFeature | null => {
   // HR & payroll is switched per business.
   if (p.startsWith('/business/hr')) return 'HR';
   if (p.startsWith('/business/promotions')) return 'PROMOTIONS';
+  if (p.startsWith('/business/loyalty')) return 'LOYALTY';
   if (
     [
       '/business/accounting/forecasting',
@@ -111,5 +113,6 @@ export const FEATURE_LABEL: Record<string, string> = {
   HR: 'HR & payroll',
   EVENTS: 'Banquet & events',
   PROMOTIONS: 'Promotions',
-  FULL_FINANCE: 'Full finance (ledger, statements, USALI and forecasting)'
+  FULL_FINANCE: 'Full finance (ledger, statements, USALI and forecasting)',
+  LOYALTY: 'The loyalty programme'
 };

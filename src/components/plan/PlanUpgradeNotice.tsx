@@ -7,13 +7,13 @@ import { FEATURE_LABEL, usePlanStore } from '../../store/planStore';
 /** Shown in place of a page the business's plan does not include. */
 /** Add-ons are switched on per business; the rest come with a plan. */
 const ADD_ON_FEATURES = new Set(['EVENTS', 'MINIBAR', 'HR']);
-const PLANS_WITH: Record<string, string> = { PROMOTIONS: 'Professional and Enterprise plans', FULL_FINANCE: 'Enterprise plan' };
+const PLANS_WITH: Record<string, string> = { PROMOTIONS: 'Professional and Enterprise plans', FULL_FINANCE: 'Professional and Enterprise plans', LOYALTY: 'Enterprise plan' };
 
 const PlanUpgradeNotice = ({ feature }: { feature: string }) => {
   const navigate = useNavigate();
   const plan = usePlanStore((state) => state.plan);
   const isAddOn = ADD_ON_FEATURES.has(feature);
-  const title = feature === 'HR' ? 'HR & payroll is not switched on' : isAddOn ? 'Add-on not switched on' : feature === 'PROMOTIONS' ? 'Available on Professional' : 'Available on Enterprise';
+  const title = feature === 'HR' ? 'HR & payroll is not switched on' : isAddOn ? 'Add-on not switched on' : feature === 'PROMOTIONS' || feature === 'FULL_FINANCE' ? 'Available on Professional' : 'Available on Enterprise';
   return (
     <Layout>
       <Container maxWidth="sm" sx={{ py: { xs: 4, md: 8 } }}>
