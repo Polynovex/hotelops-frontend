@@ -6,7 +6,11 @@
  * clipped page. This copies the element and the page's styles into a hidden
  * frame and prints that, so the printout is exactly the element.
  */
-export const printElement = (elementId: string, title = document.title) => {
+/**
+ * `keepColors` prints the element as designed (invoices, receipts with a
+ * coloured header and totals bar); otherwise it is forced to black on white.
+ */
+export const printElement = (elementId: string, title = document.title, options: { keepColors?: boolean } = {}) => {
   const source = document.getElementById(elementId);
   if (!source) return false;
 
@@ -34,10 +38,13 @@ export const printElement = (elementId: string, title = document.title) => {
   html, body { background: #fff !important; color: #111 !important; margin: 0; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .print-root { box-shadow: none !important; border: none !important; }
+  ${options.keepColors ? `
+  .print-root { width: 190mm; margin: 0 auto; }
+  .print-root * { box-shadow: none !important; }` : `
   /* Plain black on white, whatever theme the app is in. */
   .print-root, .print-root * { color: #111 !important; background-color: transparent !important; box-shadow: none !important; }
   .print-root table { border-collapse: collapse; width: 100%; }
-  .print-root td, .print-root th { border-bottom: 1px solid #ccc !important; }
+  .print-root td, .print-root th { border-bottom: 1px solid #ccc !important; }`}
 </style></head><body><div class="print-root">${source.outerHTML}</div></body></html>`);
   doc.close();
 

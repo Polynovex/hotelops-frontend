@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import { useSearchParams } from 'react-router-dom';
 import {
   Alert,
@@ -13,7 +14,6 @@ import {
   DialogTitle,
   Drawer,
   Grid,
-  IconButton,
   Paper,
   Stack,
   Tab,
@@ -24,7 +24,6 @@ import {
   TableRow,
   Tabs,
   TextField,
-  Tooltip,
   Typography
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
@@ -307,20 +306,24 @@ const PromotionTable: React.FC<{
               <TableCell align="right">{money(promo.performance?.netRevenue ?? 0)}</TableCell>
               <TableCell align="right">{money(promo.performance?.discountCost ?? 0)}</TableCell>
               <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                <Tooltip title="Performance & history"><IconButton size="small" onClick={() => onDetail(promo)}><HistoryRoundedIcon fontSize="small" /></IconButton></Tooltip>
-                {canManage && (
-                  <>
-                    <Tooltip title="Edit"><IconButton size="small" onClick={() => onEdit(promo)}><EditRoundedIcon fontSize="small" /></IconButton></Tooltip>
-                    {promo.effectiveStatus === 'DRAFT' && <Button size="small" onClick={() => onAct(promo, 'publish')}>Publish</Button>}
-                    {(promo.effectiveStatus === 'ACTIVE' || promo.effectiveStatus === 'SCHEDULED') && (
-                      <Tooltip title="Pause"><IconButton size="small" onClick={() => onAct(promo, 'pause')}><PauseRoundedIcon fontSize="small" /></IconButton></Tooltip>
-                    )}
-                    {promo.effectiveStatus === 'PAUSED' && (
-                      <Tooltip title="Resume"><IconButton size="small" onClick={() => onAct(promo, 'resume')}><PlayArrowRoundedIcon fontSize="small" /></IconButton></Tooltip>
-                    )}
-                    <Tooltip title="Archive"><IconButton size="small" onClick={() => onAct(promo, 'archive')}><ArchiveRoundedIcon fontSize="small" /></IconButton></Tooltip>
-                  </>
-                )}
+                {/* Publish stays one click away; everything else is in the menu. */}
+                {canManage && promo.effectiveStatus === 'DRAFT' && <Button size="small" onClick={() => onAct(promo, 'publish')}>Publish</Button>}
+                <RowActionsMenu
+                  subject={promo.name}
+                  actions={[
+                    { key: 'detail', label: 'Performance & history', icon: <HistoryRoundedIcon fontSize="small" />, onClick: () => onDetail(promo) },
+                    { key: 'edit', label: 'Edit', icon: <EditRoundedIcon fontSize="small" />, hidden: !canManage, onClick: () => onEdit(promo) },
+                    {
+                      key: 'pause',
+                      label: 'Pause',
+                      icon: <PauseRoundedIcon fontSize="small" />,
+                      hidden: !canManage || !(promo.effectiveStatus === 'ACTIVE' || promo.effectiveStatus === 'SCHEDULED'),
+                      onClick: () => onAct(promo, 'pause')
+                    },
+                    { key: 'resume', label: 'Resume', icon: <PlayArrowRoundedIcon fontSize="small" />, hidden: !canManage || promo.effectiveStatus !== 'PAUSED', onClick: () => onAct(promo, 'resume') },
+                    { key: 'archive', label: 'Archive', icon: <ArchiveRoundedIcon fontSize="small" />, destructive: true, hidden: !canManage, onClick: () => onAct(promo, 'archive') }
+                  ]}
+                />
               </TableCell>
             </TableRow>
           ))}

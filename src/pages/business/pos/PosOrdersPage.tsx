@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { printReceipt } from '../../../utils/receipt';
+import { usePlanStore } from '../../../store/planStore';
+import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import {
   Alert,
   Box,
@@ -288,29 +291,33 @@ const PosOrdersPage = () => {
               render: (order) => {
                 const live = order.orderStatus !== 'VOIDED' && order.orderStatus !== 'COMPLETED';
                 const unpaid = needsPayment(order) && order.paymentStatus !== 'COMPLETED';
+                // One next step on the row; anything else is in the menu.
+                const primary = order.orderStatus === 'OPEN' ? 'kitchen' : live && unpaid ? 'pay' : order.orderStatus === 'READY' ? 'close' : null;
                 return (
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    {order.orderStatus === 'OPEN' && (
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    {primary === 'kitchen' && (
                       <Button size="small" variant="contained" onClick={() => void sendToKitchen(order)} disabled={saving}>
                         {order.isQrOrder ? 'Accept & send to kitchen' : 'Send to kitchen'}
                       </Button>
                     )}
-                    {live && unpaid && (
-                      <Button size="small" variant="outlined" color="success" onClick={() => setPaying(order)}>
-                        Take payment
-                      </Button>
+                    {primary === 'pay' && (
+                      <Button size="small" variant="outlined" color="success" onClick={() => setPaying(order)}>Take payment</Button>
                     )}
-                    {order.orderStatus === 'READY' && !unpaid && (
+                    {primary === 'close' && (
                       <Button size="small" variant="contained" color="success" onClick={() => void run(() => posFlow.complete(order.id), `${order.orderNumber} served and closed`)} disabled={saving}>
                         Serve & close
                       </Button>
                     )}
-                    {live && (
-                      <Button size="small" variant="outlined" color="secondary" startIcon={<LocalOfferRounded fontSize="small" />} onClick={() => setDiscountOrder(order)}>
-                        Discount
-                      </Button>
-                    )}
                     {/* Edit and Void live on the admin Sales page (Sales → Orders), not here. */}
+                    <RowActionsMenu
+                      subject={order.orderNumber}
+                      actions={[
+                        { key: 'pay', label: 'Take payment', hidden: primary === 'pay' || !(live && unpaid), onClick: () => setPaying(order) },
+                        { key: 'close', label: 'Serve & close', hidden: primary === 'close' || !(order.orderStatus === 'READY' && !unpaid), onClick: () => void run(() => posFlow.complete(order.id), `${order.orderNumber} served and closed`) },
+                        { key: 'discount', label: 'Discount', icon: <LocalOfferRounded fontSize="small" />, hidden: !live, onClick: () => setDiscountOrder(order) },
+                        { key: 'receipt', label: order.paymentStatus === 'COMPLETED' ? 'Print receipt' : 'Print bill', onClick: () => void printReceipt(order, usePlanStore.getState().business) }
+                      ]}
+                    />
                   </Stack>
                 );
               }
@@ -332,8 +339,21 @@ const PosOrdersPage = () => {
           order={paying}
           onClose={() => setPaying(null)}
           onPaid={(message) => {
+            const paidOrder = paying;
             setPaying(null);
-            enqueueSnackbar(message, { variant: 'success' });
+            // Offer the receipt straight away: to the till printer in the
+            // desktop app, otherwise the print dialog (or Save as PDF).
+            enqueueSnackbar(message, {
+              variant: 'success',
+              autoHideDuration: 8000,
+              action: paidOrder
+                ? () => (
+                    <Button color="inherit" size="small" onClick={() => void printReceipt({ ...paidOrder, paymentStatus: 'COMPLETED' }, usePlanStore.getState().business, { amount: paidOrder.total })}>
+                      Print receipt
+                    </Button>
+                  )
+                : undefined
+            });
             void load();
           }}
         />

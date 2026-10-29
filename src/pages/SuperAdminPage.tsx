@@ -1,4 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { getApiErrorMessage } from '../utils/apiError';
+import ProductsPicker, { type Products } from '../components/super-admin/ProductsPicker';
+import EmailBusinessesDialog from '../components/super-admin/EmailBusinessesDialog';
+import { addOnApi, type AddOnRecord } from '../services/addons';
 import {
   Alert,
   AlertTitle,
@@ -125,6 +129,18 @@ const SuperAdminPage: React.FC = () => {
     finance: ''
   });
 
+  // Products and add-ons for a new business, and the add-on catalogue.
+  const [createProducts, setCreateProducts] = useState<Products>({ pms: true, pos: true, hr: false });
+  const [createAddOnIds, setCreateAddOnIds] = useState<string[]>([]);
+  const [catalogue, setCatalogue] = useState<AddOnRecord[]>([]);
+  // The business open in "Manage modules": its HR switch and add-ons.
+  const [businessAddOns, setBusinessAddOns] = useState<AddOnRecord[]>([]);
+  const [businessProducts, setBusinessProducts] = useState<Products | null>(null);
+  const [productBusy, setProductBusy] = useState(false);
+  // Email to all businesses, or to the ones chosen.
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailTarget, setEmailTarget] = useState<BusinessSummary | null>(null);
+
   const [newBusiness, setNewBusiness] = useState({
     name: '',
     email: '',
@@ -242,7 +258,40 @@ const SuperAdminPage: React.FC = () => {
     setModuleBusiness(business);
     setModuleReasons({ pms: '', pos: '', finance: '' });
     setOpenModulesDialog(true);
+    setBusinessProducts({ pms: business.pmsEnabled !== false, pos: business.posEnabled !== false, hr: Boolean((business as { hrEnabled?: boolean }).hrEnabled) });
+    addOnApi.forBusiness(business.id).then(setBusinessAddOns).catch(() => setBusinessAddOns([]));
     await loadModuleManagerData(business.id);
+  };
+
+  /** Saves HR (and PMS/POS) for the business open in Manage modules. */
+  const saveBusinessProducts = async (next: Products) => {
+    if (!moduleBusiness) return;
+    setProductBusy(true);
+    try {
+      const saved = await addOnApi.setProducts(moduleBusiness.id, next);
+      setBusinessProducts({ pms: saved.pmsEnabled, pos: saved.posEnabled, hr: saved.hrEnabled });
+      updateBusinessLocally(moduleBusiness.id, { pmsEnabled: saved.pmsEnabled, posEnabled: saved.posEnabled, hrEnabled: saved.hrEnabled } as Partial<BusinessSummary>);
+      enqueueSnackbar('Products updated', { variant: 'success' });
+    } catch (err) {
+      enqueueSnackbar(getApiErrorMessage(err, 'Could not update products'), { variant: 'error' });
+    } finally {
+      setProductBusy(false);
+    }
+  };
+
+  /** Switches one add-on for the business open in Manage modules. */
+  const toggleBusinessAddOn = async (addOn: AddOnRecord, enabled: boolean) => {
+    if (!moduleBusiness) return;
+    setProductBusy(true);
+    try {
+      await addOnApi.setForBusiness(moduleBusiness.id, addOn.id, enabled);
+      setBusinessAddOns(await addOnApi.forBusiness(moduleBusiness.id));
+      enqueueSnackbar(`${addOn.name} ${enabled ? 'switched on' : 'switched off'}`, { variant: 'success' });
+    } catch (err) {
+      enqueueSnackbar(getApiErrorMessage(err, `Could not update ${addOn.name}`), { variant: 'error' });
+    } finally {
+      setProductBusy(false);
+    }
   };
 
   const closeManageModules = () => {
@@ -384,9 +433,8 @@ const SuperAdminPage: React.FC = () => {
         adminUserCode: trimmedUserCode || undefined,
         adminFirstName: newBusiness.adminFirstName.trim() || 'Business',
         adminLastName: newBusiness.adminLastName.trim() || 'Admin',
-        pmsEnabled: true,
-        posEnabled: true,
-        financeEnabled: true
+        products: createProducts,
+        addOnIds: createAddOnIds
       };
 
       const created = await superAdminService.createBusiness(payload);
@@ -535,10 +583,17 @@ const SuperAdminPage: React.FC = () => {
             <Button variant="outlined" onClick={() => void loadData()} disabled={loading || saving}>
               Refresh
             </Button>
+            <Button variant="outlined" onClick={() => { setEmailTarget(null); setEmailOpen(true); }}>
+              Email businesses
+            </Button>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => setOpenCreateDialog(true)}
+              onClick={() => {
+                setOpenCreateDialog(true);
+                setCreateAddOnIds([]);
+                addOnApi.catalogue().then(setCatalogue).catch(() => setCatalogue([]));
+              }}
               disabled={saving}
             >
               Create Business
@@ -722,8 +777,13 @@ const SuperAdminPage: React.FC = () => {
                   />
                   <Chip
                     size="small"
-                    color={business.financeEnabled ? 'success' : 'default'}
-                    label={`FIN ${business.financeEnabled ? 'ON' : 'OFF'}`}
+                    color="success"
+                    label="FIN ON"
+                  />
+                  <Chip
+                    size="small"
+                    color={(business as { hrEnabled?: boolean }).hrEnabled ? 'success' : 'default'}
+                    label={`HR ${(business as { hrEnabled?: boolean }).hrEnabled ? 'ON' : 'OFF'}`}
                   />
                 </Stack>
               )
@@ -739,6 +799,7 @@ const SuperAdminPage: React.FC = () => {
                 <BusinessActionsMenu
                   business={business}
                   onManageModules={() => void openManageModules(business)}
+                  onEmail={() => { setEmailTarget(business); setEmailOpen(true); }}
                   onToggleStatus={() => handleStatusChange(business)}
                   onDelete={(password) => handleDeleteBusiness(business, password)}
                   onPurge={(confirmName, password) => handlePurgeBusiness(business, confirmName, password)}
@@ -748,6 +809,13 @@ const SuperAdminPage: React.FC = () => {
           ]}
         />
       </Container>
+
+      <EmailBusinessesDialog
+        open={emailOpen}
+        onClose={() => setEmailOpen(false)}
+        businesses={businesses as never}
+        preselect={emailTarget as never}
+      />
 
       <Dialog open={openModulesDialog} onClose={closeManageModules} fullWidth maxWidth="md">
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -764,9 +832,23 @@ const SuperAdminPage: React.FC = () => {
             </Alert>
           )}
 
+          {businessProducts && (
+            <Paper variant="outlined" sx={{ p: 2, mb: 2.5 }}>
+              <ProductsPicker
+                products={businessProducts}
+                onProducts={(next) => void saveBusinessProducts(next)}
+                catalogue={businessAddOns}
+                selected={(addOn) => Boolean(addOn.enabled)}
+                onToggleAddOn={(addOn, on) => void toggleBusinessAddOn(addOn, on)}
+                busy={productBusy}
+              />
+            </Paper>
+          )}
+
           {moduleStatus && (
             <Stack spacing={2.5}>
-              {(['pms', 'pos', 'finance'] as BusinessModuleName[]).map((moduleName) => {
+              {/* Finance is always on, so only the PMS and POS can be paused here. */}
+              {(['pms', 'pos'] as BusinessModuleName[]).map((moduleName) => {
                 const status = moduleStatus[moduleName];
                 return (
                   <Paper key={moduleName} variant="outlined" sx={{ p: 2 }}>
@@ -955,9 +1037,13 @@ const SuperAdminPage: React.FC = () => {
               select
               label="Plan"
               value={newBusiness.planId}
-              onChange={(event) =>
-                setNewBusiness((prev) => ({ ...prev, planId: event.target.value }))
-              }
+              onChange={(event) => {
+                const planId = event.target.value;
+                setNewBusiness((prev) => ({ ...prev, planId }));
+                // The plan suggests the products; the operator can change them.
+                const plan = plans.find((entry) => entry.id === planId);
+                if (plan) setCreateProducts({ pms: plan.hasPms !== false, pos: plan.hasPos !== false, hr: Boolean(plan.hasHr) });
+              }}
               fullWidth
             >
               <MenuItem value="">No plan</MenuItem>
@@ -967,6 +1053,16 @@ const SuperAdminPage: React.FC = () => {
                 </MenuItem>
               ))}
             </TextField>
+
+            <ProductsPicker
+              products={createProducts}
+              onProducts={setCreateProducts}
+              catalogue={catalogue}
+              selected={(addOn) => createAddOnIds.includes(addOn.id)}
+              onToggleAddOn={(addOn, on) =>
+                setCreateAddOnIds((ids) => (on ? [...ids, addOn.id] : ids.filter((id) => id !== addOn.id)))
+              }
+            />
 
             <Divider />
 

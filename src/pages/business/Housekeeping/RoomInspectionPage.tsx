@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePlanStore } from '../../../store/planStore';
 import {
   Alert,
   Box,
@@ -42,6 +43,8 @@ const RoomInspectionPage: React.FC = () => {
   const [rooms, setRooms] = useState<RoomRow[]>([]);
   const [roomId, setRoomId] = useState('');
   const [stay, setStay] = useState<Stay | null>(null);
+  const hasMinibar = usePlanStore((state) => state.has)('MINIBAR');
+  usePlanStore((state) => state.features);
   const [minibar, setMinibar] = useState<Array<{ itemId: string; name: string; price: number; parQuantity: number }>>([]);
   const [remaining, setRemaining] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
@@ -148,6 +151,8 @@ const RoomInspectionPage: React.FC = () => {
               </Paper>
             </Grid>
 
+            {/* Only for businesses with the Minibar add-on. */}
+            {hasMinibar && (
             <Grid item xs={12} md={7}>
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
                 <Typography fontWeight={800} sx={{ mb: 1 }}>Minibar — what is left?</Typography>
@@ -192,8 +197,9 @@ const RoomInspectionPage: React.FC = () => {
                 )}
               </Paper>
             </Grid>
+            )}
 
-            <Grid item xs={12} md={5}>
+            <Grid item xs={12} md={hasMinibar ? 5 : 12}>
               <Stack spacing={2}>
                 <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                   <Typography fontWeight={800} sx={{ mb: 1 }}>Damage and repairs</Typography>

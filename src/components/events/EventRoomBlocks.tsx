@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { usePlanStore } from '../../store/planStore';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Box, Chip, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { api } from '../../services/api';
@@ -31,13 +32,22 @@ const EventRoomBlocks: React.FC = () => {
   const navigate = useNavigate();
   const [rows, setRows] = useState<Block[]>([]);
   const [error, setError] = useState('');
+  // Banquet & events is Enterprise only; without it there are no blocks to show.
+  const hasEvents = usePlanStore((state) => state.has)('EVENTS');
+  usePlanStore((state) => state.features);
 
   useEffect(() => {
+    if (!hasEvents) return;
     api
       .get('/events/room-blocks')
       .then(({ data }) => setRows(Array.isArray(data) ? data : []))
-      .catch((err) => setError(getApiErrorMessage(err, 'Could not load event room blocks')));
-  }, []);
+      .catch((err) => {
+        if (err?.response?.data?.error === 'FEATURE_DISABLED') return;
+        setError(getApiErrorMessage(err, 'Could not load event room blocks'));
+      });
+  }, [hasEvents]);
+
+  if (!hasEvents) return null;
 
   return (
     <Paper variant="outlined" sx={{ mt: 3, borderRadius: 2, overflow: 'hidden' }}>

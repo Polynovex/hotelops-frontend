@@ -41,8 +41,31 @@ const blankPlan: PlanPayload = {
   hasMultiProperty: false,
   hasAdvancedAnalytics: false,
   hasApiAccess: false,
+  hasHr: false,
+  hasInventory: false,
+  hasLoyalty: false,
+  hasEvents: false,
+  hasPromotions: false,
   supportLevel: 'EMAIL'
 };
+
+/**
+ * What a plan can switch on. Guest feedback is on every plan and has no
+ * switch. Banquet & events, promotions and full finance are Enterprise
+ * features by default.
+ */
+const FEATURE_TOGGLES: Array<{ key: keyof PlanPayload; label: string }> = [
+  { key: 'hasPms', label: 'PMS' },
+  { key: 'hasPos', label: 'POS' },
+  { key: 'hasBasicFinance', label: 'Basic finance' },
+  { key: 'hasFullFinance', label: 'Full finance' },
+  { key: 'hasHr', label: 'HR & payroll' },
+  { key: 'hasInventory', label: 'Inventory' },
+  { key: 'hasLoyalty', label: 'Loyalty' },
+  { key: 'hasEvents', label: 'Banquet & events' },
+  { key: 'hasPromotions', label: 'Promotions' },
+  { key: 'hasApiAccess', label: 'API access' }
+];
 
 const PlansPage = () => {
   const { enqueueSnackbar } = useSnackbar();
@@ -108,6 +131,11 @@ const PlansPage = () => {
       hasMultiProperty: Boolean(plan.hasMultiProperty),
       hasAdvancedAnalytics: Boolean(plan.hasAdvancedAnalytics),
       hasApiAccess: Boolean(plan.hasApiAccess),
+      hasHr: Boolean(plan.hasHr),
+      hasInventory: Boolean(plan.hasInventory),
+      hasLoyalty: Boolean(plan.hasLoyalty),
+      hasEvents: Boolean(plan.hasEvents),
+      hasPromotions: Boolean(plan.hasPromotions),
       supportLevel: (plan.supportLevel as PlanPayload['supportLevel']) || 'EMAIL'
     });
     setOpenDialog(true);
@@ -267,6 +295,10 @@ const PlansPage = () => {
                   {plan.hasPms && <Chip label="PMS" size="small" />}
                   {plan.hasPos && <Chip label="POS" size="small" />}
                   {plan.hasFullFinance ? <Chip label="FULL FIN" size="small" color="success" /> : plan.hasBasicFinance && <Chip label="BASIC FIN" size="small" color="warning" />}
+                  {plan.hasHr && <Chip label="HR" size="small" />}
+                  {plan.hasInventory && <Chip label="INVENTORY" size="small" />}
+                  {plan.hasEvents && <Chip label="BANQUET" size="small" color="secondary" />}
+                  {plan.hasPromotions && <Chip label="PROMOS" size="small" color="secondary" />}
                   {plan.hasApiAccess && <Chip label="API" size="small" />}
                 </Stack>
               )
@@ -334,11 +366,16 @@ const PlansPage = () => {
                 <Paper sx={{ p: 2, backgroundColor: '#f9fbfd' }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Feature Toggles</Typography>
                   <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-                    <Button variant={form.hasPms ? 'contained' : 'outlined'} onClick={() => setForm((prev) => ({ ...prev, hasPms: !prev.hasPms }))}>PMS</Button>
-                    <Button variant={form.hasPos ? 'contained' : 'outlined'} onClick={() => setForm((prev) => ({ ...prev, hasPos: !prev.hasPos }))}>POS</Button>
-                    <Button variant={form.hasBasicFinance ? 'contained' : 'outlined'} onClick={() => setForm((prev) => ({ ...prev, hasBasicFinance: !prev.hasBasicFinance }))}>Basic Finance</Button>
-                    <Button variant={form.hasFullFinance ? 'contained' : 'outlined'} onClick={() => setForm((prev) => ({ ...prev, hasFullFinance: !prev.hasFullFinance }))}>Full Finance</Button>
-                    <Button variant={form.hasApiAccess ? 'contained' : 'outlined'} onClick={() => setForm((prev) => ({ ...prev, hasApiAccess: !prev.hasApiAccess }))}>API Access</Button>
+                    {FEATURE_TOGGLES.map(({ key, label }) => (
+                      <Button
+                        key={key}
+                        aria-pressed={Boolean(form[key])}
+                        variant={form[key] ? 'contained' : 'outlined'}
+                        onClick={() => setForm((prev) => ({ ...prev, [key]: !prev[key] }))}
+                      >
+                        {label}
+                      </Button>
+                    ))}
                   </Stack>
                 </Paper>
               </Stack>

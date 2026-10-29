@@ -1,4 +1,5 @@
 import CheckoutSettlementDialog from '../../../components/reservations/CheckoutSettlementDialog';
+import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import EventRoomBlocks from '../../../components/events/EventRoomBlocks';
 import { useRoomTypeNames } from '../../../hooks/useRoomTypeNames';
 import { EditReservationDialog, VoidReservationDialog, useRoomPromotions } from '../../../components/reservations/ReservationDialogs';
@@ -130,23 +131,25 @@ const ReservationTable = ({
           key: 'actions',
           label: 'Action',
           minWidth: 320,
-          render: (reservation) => (
-            <Stack direction="row" spacing={1}>
-              {onView && <Button size="small" onClick={() => onView(reservation.id)}>View</Button>}
-              {onCheckIn && reservation.status !== 'CHECKED_IN' && reservation.status !== 'CHECKED_OUT' && (
-                <Button size="small" color="success" onClick={() => onCheckIn(reservation.id)}>Check In</Button>
-              )}
-              {onCheckOut && reservation.status === 'CHECKED_IN' && (
-                <Button size="small" color="warning" onClick={() => onCheckOut(reservation.id)}>Check Out</Button>
-              )}
-              {onEdit && reservation.status !== 'CHECKED_OUT' && reservation.status !== 'CANCELLED' && (
-                <Button size="small" onClick={() => onEdit(reservation)}>Edit</Button>
-              )}
-              {onVoid && !['CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'].includes(reservation.status) && (
-                <Button size="small" color="error" onClick={() => onVoid(reservation)}>Void</Button>
-              )}
-            </Stack>
-          )
+          render: (reservation) => {
+            const canCheckIn = Boolean(onCheckIn) && reservation.status !== 'CHECKED_IN' && reservation.status !== 'CHECKED_OUT' && reservation.status !== 'CANCELLED';
+            const canCheckOut = Boolean(onCheckOut) && reservation.status === 'CHECKED_IN';
+            return (
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                {/* The next step stays one click away; the rest is in the menu. */}
+                {canCheckIn && <Button size="small" color="success" onClick={() => onCheckIn?.(reservation.id)}>Check In</Button>}
+                {canCheckOut && <Button size="small" color="warning" onClick={() => onCheckOut?.(reservation.id)}>Check Out</Button>}
+                <RowActionsMenu
+                  subject={reservation.guestName ?? reservation.id}
+                  actions={[
+                    { key: 'view', label: 'View', hidden: !onView, onClick: () => onView?.(reservation.id) },
+                    { key: 'edit', label: 'Edit', hidden: !onEdit || reservation.status === 'CHECKED_OUT' || reservation.status === 'CANCELLED', onClick: () => onEdit?.(reservation) },
+                    { key: 'void', label: 'Void', destructive: true, hidden: !onVoid || ['CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'].includes(reservation.status), onClick: () => onVoid?.(reservation) }
+                  ]}
+                />
+              </Stack>
+            );
+          }
         }
       ]}
     />
@@ -1179,30 +1182,29 @@ export const CheckInPage = () => {
               label: 'Actions',
               minWidth: 300,
               render: (reservation) => (
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  <Button size="small" onClick={() => setSelectedReservation(reservation)}>
-                    {reservation.roomId ? 'Change Room' : 'Assign Room'}
-                  </Button>
-                  {!reservation.isQRoom && (
-                    <Button
-                      size="small"
-                      onClick={() =>
-                        void reservationOpsService
-                          .setQRoom(reservation.id, { priority: 1, preStayCharging: true, releaseRoom: !reservation.roomId })
-                          .then(() => load())
-                      }
-                    >
-                      Q-Room
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  {reservation.roomId ? (
+                    <Button size="small" color="success" onClick={() => void reservationOpsService.checkIn(reservation.id).then(() => load())}>
+                      Check In
                     </Button>
+                  ) : (
+                    <Button size="small" onClick={() => setSelectedReservation(reservation)}>Assign Room</Button>
                   )}
-                  <Button
-                    size="small"
-                    color="success"
-                    disabled={!reservation.roomId}
-                    onClick={() => void reservationOpsService.checkIn(reservation.id).then(() => load())}
-                  >
-                    Check In
-                  </Button>
+                  <RowActionsMenu
+                    subject={reservation.guestName ?? reservation.id}
+                    actions={[
+                      { key: 'change', label: 'Change room', hidden: !reservation.roomId, onClick: () => setSelectedReservation(reservation) },
+                      {
+                        key: 'qroom',
+                        label: 'Move to Q-Room',
+                        hidden: Boolean(reservation.isQRoom),
+                        onClick: () =>
+                          void reservationOpsService
+                            .setQRoom(reservation.id, { priority: 1, preStayCharging: true, releaseRoom: !reservation.roomId })
+                            .then(() => load())
+                      }
+                    ]}
+                  />
                 </Stack>
               )
             }

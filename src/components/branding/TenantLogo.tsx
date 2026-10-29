@@ -111,12 +111,15 @@ export const TenantLogo = ({
   return (
     <Box
       sx={{
+        // A fixed box, the logo centred inside it: any shape or size of
+        // upload fits the same space instead of pushing the layout around.
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'flex-start',
+        justifyContent: 'center',
         height,
-        maxWidth,
-        width: 'auto',
+        width: maxWidth,
+        maxWidth: '100%',
+        flexShrink: 0,
         borderRadius: backdrop === 'transparent' ? 0 : 1,
         px: backdrop === 'transparent' ? 0 : 1,
         bgcolor: backdrop,

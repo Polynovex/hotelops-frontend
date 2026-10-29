@@ -16,6 +16,7 @@ import {
   TextField,
   Tooltip
 } from '@mui/material';
+import MailOutlineRounded from '@mui/icons-material/MailOutlineRounded';
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded';
 import SettingsRounded from '@mui/icons-material/SettingsRounded';
 import PauseCircleRounded from '@mui/icons-material/PauseCircleOutlineRounded';
@@ -32,6 +33,8 @@ interface BusinessLike {
 interface Props {
   business: BusinessLike;
   onManageModules: () => void;
+  /** Opens the email dialog with this business chosen. */
+  onEmail?: () => void;
   onToggleStatus: () => Promise<void> | void;
   /** Both deletes carry the super admin's password; the server re-checks it. */
   onDelete: (password: string) => Promise<void>;
@@ -50,6 +53,7 @@ interface Props {
 export function BusinessActionsMenu({
   business,
   onManageModules,
+  onEmail,
   onToggleStatus,
   onDelete,
   onPurge
@@ -124,6 +128,12 @@ export function BusinessActionsMenu({
           <ListItemIcon><SettingsRounded fontSize="small" /></ListItemIcon>
           <ListItemText>Manage modules</ListItemText>
         </MenuItem>
+        {onEmail && (
+          <MenuItem onClick={run(onEmail)}>
+            <ListItemIcon><MailOutlineRounded fontSize="small" /></ListItemIcon>
+            <ListItemText>Send email</ListItemText>
+          </MenuItem>
+        )}
 
         <MenuItem onClick={run(onToggleStatus)}>
           <ListItemIcon>

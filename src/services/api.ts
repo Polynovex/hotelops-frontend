@@ -171,6 +171,11 @@ export interface PlanSummary {
   hasMultiProperty?: boolean;
   hasAdvancedAnalytics?: boolean;
   hasApiAccess?: boolean;
+  hasHr?: boolean;
+  hasInventory?: boolean;
+  hasLoyalty?: boolean;
+  hasEvents?: boolean;
+  hasPromotions?: boolean;
   supportLevel?: 'EMAIL' | 'PRIORITY' | 'DEDICATED' | string;
 }
 
@@ -198,6 +203,11 @@ export interface PlanPayload {
   hasMultiProperty?: boolean;
   hasAdvancedAnalytics?: boolean;
   hasApiAccess?: boolean;
+  hasHr?: boolean;
+  hasInventory?: boolean;
+  hasLoyalty?: boolean;
+  hasEvents?: boolean;
+  hasPromotions?: boolean;
   supportLevel?: 'EMAIL' | 'PRIORITY' | 'DEDICATED';
 }
 
@@ -244,6 +254,10 @@ export interface CreateBusinessPayload {
   adminUserCode?: string;
   adminFirstName?: string;
   adminLastName?: string;
+  /** Core products; Finance is always on. */
+  products?: { pms: boolean; pos: boolean; hr: boolean };
+  /** Add-ons switched on at onboarding. */
+  addOnIds?: string[];
 }
 
 export type BusinessModuleName = 'pms' | 'pos' | 'finance';

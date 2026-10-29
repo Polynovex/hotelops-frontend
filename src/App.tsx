@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { featureForPath, usePlanStore } from './store/planStore';
+import PlanUpgradeNotice from './components/plan/PlanUpgradeNotice';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SnackbarProvider } from 'notistack';
@@ -138,6 +140,9 @@ import DesktopOfflineIndicator from './components/DesktopOfflineIndicator';
 import ShiftGatedRoute from './components/ShiftGatedRoute';
 import DemoRequestsPage from './pages/super-admin/DemoRequests';
 import TestimonialsPage from './pages/super-admin/Testimonials';
+import AddOnsPage from './pages/super-admin/AddOnsPage';
+import { BillingDocumentPage, BillingListPage } from './pages/super-admin/BillingPages';
+import AddOnOutletPage from './pages/business/addons/AddOnOutletPage';
 import ReceptionDashboard from './pages/roles/ReceptionDashboard';
 import PosDashboard from './pages/roles/PosDashboard';
 import FinanceDashboard from './pages/roles/FinanceDashboard';
@@ -206,15 +211,18 @@ const isModuleEnabledForUser = (user: ModuleAwareUser, module: AppModule) => {
     return true;
   }
 
+  // The business's products as the server last reported them; the copy on
+  // the signed-in user only until they load. Finance is always on.
+  const products = usePlanStore.getState().products;
   if (module === 'pms') {
-    return user.pmsEnabled !== false;
+    return products ? products.pms : user.pmsEnabled !== false;
   }
 
   if (module === 'pos') {
-    return user.posEnabled !== false;
+    return products ? products.pos : user.posEnabled !== false;
   }
 
-  return user.financeEnabled !== false;
+  return true;
 };
 
 const resolveModuleFallbackPath = (user: ModuleAwareUser) => {
@@ -323,7 +331,17 @@ const ProtectedRoute = ({
     return <Navigate to={resolveModuleFallbackPath(user)} replace />;
   }
 
-  return children;
+  return <PlanGate>{children}</PlanGate>;
+};
+
+/** Pages the business's plan does not include show the upgrade notice instead. */
+const PlanGate = ({ children }: { children: JSX.Element }) => {
+  const location = useLocation();
+  const role = useAuthStore((state) => String(state.user?.role || '').toUpperCase());
+  const has = usePlanStore((state) => state.has);
+  usePlanStore((state) => state.features);
+  const feature = role === 'SUPER_ADMIN' ? null : featureForPath(location.pathname);
+  return feature && !has(feature) ? <PlanUpgradeNotice feature={feature} /> : children;
 };
 
 /** Sends /business/housekeeping to the right screen for the signed-in role. */
@@ -427,6 +445,24 @@ function App() {
               {/* Guest self-registration — also reached by scanning a printed code */}
               <Route path="/guest/register/:code" element={<GuestRegistrationPage />} />
               <Route path="/feedback/:code" element={<PublicFeedbackPage />} />
+              <Route
+                path="/business/add-ons/:code"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                    <AddOnOutletPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/super-admin/billing" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><BillingListPage /></ProtectedRoute>} />
+              <Route path="/super-admin/billing/:id" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><BillingDocumentPage /></ProtectedRoute>} />
+              <Route
+                path="/super-admin/add-ons"
+                element={
+                  <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                    <AddOnsPage />
+                  </ProtectedRoute>
+                }
+              />
 
               <Route path="/login" element={<LoginPage />} />
               <Route path="/shift-locked" element={<ShiftLockedPage />} />

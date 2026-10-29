@@ -1,4 +1,5 @@
 import HrTabs from './HrTabs';
+import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import Layout from '../../../components/Layout';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -456,21 +457,14 @@ const AttendancePage = () => {
                     </TableCell>
                     {(canApprove || canEdit) && (
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                        {canApprove && (
-                          <>
-                            <Button size="small" color="success" startIcon={<CheckRoundedIcon />} onClick={() => openReview(record, 'APPROVE')}>
-                              Approve
-                            </Button>
-                            <Button size="small" color="error" startIcon={<CloseRoundedIcon />} onClick={() => openReview(record, 'REJECT')}>
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                        {canEdit && (
-                          <Button size="small" startIcon={<EditRoundedIcon />} onClick={() => openEdit(record)}>
-                            Edit
-                          </Button>
-                        )}
+                        <RowActionsMenu
+                          subject={record.staff ? `${record.staff.firstName} ${record.staff.lastName}` : 'attendance'}
+                          actions={[
+                            { key: 'approve', label: 'Approve', icon: <CheckRoundedIcon fontSize="small" />, hidden: !canApprove, onClick: () => openReview(record, 'APPROVE') },
+                            { key: 'edit', label: 'Edit', icon: <EditRoundedIcon fontSize="small" />, hidden: !canEdit, onClick: () => openEdit(record) },
+                            { key: 'reject', label: 'Reject', icon: <CloseRoundedIcon fontSize="small" />, destructive: true, hidden: !canApprove, onClick: () => openReview(record, 'REJECT') }
+                          ]}
+                        />
                       </TableCell>
                     )}
                   </TableRow>

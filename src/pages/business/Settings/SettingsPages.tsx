@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Avatar,
@@ -10,6 +10,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Grid,
   IconButton,
   MenuItem,
   Paper,
@@ -87,6 +88,9 @@ export const BusinessProfileSettingsPage = () => {
   const [primaryColor, setPrimaryColor] = useState(currentUser?.brandColors?.primary ?? '');
   const [accentColor, setAccentColor] = useState(currentUser?.brandColors?.accent ?? '');
   const logoPreview = useMemo(() => (logoFile ? URL.createObjectURL(logoFile) : removeLogo ? null : logoUrl), [logoFile, removeLogo, logoUrl]);
+  /** Printed on invoices, receipts and quotations. */
+  const [invoice, setInvoice] = useState({ website: '', tagline: '', contactEmail: '', bankName: '', accountName: '', accountNumber: '', signatoryName: '', signatoryTitle: '' });
+  const [logoNote, setLogoNote] = useState('');
 
   useEffect(() => {
     apiClient
@@ -95,9 +99,34 @@ export const BusinessProfileSettingsPage = () => {
         setLogoUrl(data.logoUrl ?? null);
         setPrimaryColor(data.colors?.primary ?? '');
         setAccentColor(data.colors?.accent ?? '');
+        // Saved on the server now; the browser copy was only a stand-in.
+        if (data.businessName || data.name) setName(data.businessName || data.name);
+        if (data.phone != null) setPhone(data.phone);
+        if (data.address != null) setAddress(data.address);
+        if (data.timezone) setTimezone(data.timezone);
+        if (data.currency) setCurrency(data.currency);
+        setInvoice((current) => ({ ...current, ...(data.invoice ?? {}), contactEmail: data.invoice?.contactEmail ?? data.email ?? '' }));
       })
       .catch(() => undefined);
   }, []);
+
+  /** Warns about logos that will look poor once fitted to the fixed logo box. */
+  const checkLogo = (file: File) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const ratio = img.width / img.height;
+      setLogoNote(
+        img.width < 300
+          ? `This logo is ${img.width}×${img.height}px; it may look blurry. Use at least 600×200px.`
+          : ratio > 6 || ratio < 0.5
+            ? `This logo is very ${ratio > 6 ? 'wide' : 'tall'} (${img.width}×${img.height}px). It will be fitted, but a 3:1 landscape or a square logo looks best.`
+            : ''
+      );
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -105,12 +134,16 @@ export const BusinessProfileSettingsPage = () => {
     setSaveError(null);
     setSaveSuccess(false);
     try {
-      // Always save local profile fields
       settingsOpsService.updateBusinessProfile({ name, email, phone, address, timezone, currency });
 
       // Name, logo and colours: what staff and guests see first.
       const formData = new FormData();
       if (name) formData.append('businessName', name);
+      formData.append('phone', phone);
+      formData.append('address', address);
+      if (timezone) formData.append('timezone', timezone);
+      if (currency) formData.append('currency', currency);
+      Object.entries(invoice).forEach(([key, value]) => formData.append(key, value));
       formData.append('primaryColor', primaryColor);
       formData.append('accentColor', accentColor);
       if (logoFile) formData.append('logo', await logoAsPng(logoFile));
@@ -147,8 +180,9 @@ export const BusinessProfileSettingsPage = () => {
               {saveSuccess && <Alert severity="success" onClose={() => setSaveSuccess(false)}>Saved successfully</Alert>}
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+                {/* The same fixed, centred box the sidebar uses, so what you see is what staff see. */}
                 <Box
-                  sx={{ width: 96, height: 96, borderRadius: 2, border: '1px solid', borderColor: 'divider', p: 0.75, display: 'grid', placeItems: 'center', bgcolor: 'background.default' }}
+                  sx={{ width: 180, height: 72, borderRadius: 2, border: '1px solid', borderColor: 'divider', p: 1, display: 'grid', placeItems: 'center', bgcolor: 'background.default', flexShrink: 0 }}
                 >
                   {logoPreview ? (
                     <Box component="img" src={logoPreview} alt={name} sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
@@ -158,9 +192,11 @@ export const BusinessProfileSettingsPage = () => {
                 </Box>
                 <Stack spacing={1}>
                   <Typography variant="subtitle2">Your logo</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Shown on the sidebar, receipts, reports and your QR ordering menu. PNG, JPG or WebP up to 5 MB.
+                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'none' }}>
+                    Shown on the sidebar, receipts, invoices and your QR pages, fitted into a fixed box.
+                    Best: a landscape logo about 600×200px (3:1) or a square one at least 400×400px, PNG with a transparent background, up to 5 MB.
                   </Typography>
+                  {logoNote && <Alert severity="warning" sx={{ py: 0 }}>{logoNote}</Alert>}
                   <Stack direction="row" spacing={1}>
                     <Button component="label" variant="outlined" size="small">
                       {logoPreview ? 'Change logo' : 'Upload logo'}
@@ -173,6 +209,7 @@ export const BusinessProfileSettingsPage = () => {
                           if (file) {
                             setLogoFile(file);
                             setRemoveLogo(false);
+                            checkLogo(file);
                           }
                         }}
                       />
@@ -233,6 +270,35 @@ export const BusinessProfileSettingsPage = () => {
                 <TextField label="Timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} fullWidth />
                 <TextField label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value)} fullWidth />
               </Stack>
+
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Invoice details</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5, textTransform: 'none' }}>
+                  Printed on event invoices, quotations and receipts: where guests pay, and who signs.
+                </Typography>
+                <Grid container spacing={2}>
+                  {([
+                    ['bankName', 'Bank name'],
+                    ['accountName', 'Account name'],
+                    ['accountNumber', 'Account number'],
+                    ['contactEmail', 'Email on documents'],
+                    ['website', 'Website'],
+                    ['tagline', 'Tagline (optional)'],
+                    ['signatoryName', 'Signed by (name)'],
+                    ['signatoryTitle', 'Their title, e.g. General Manager']
+                  ] as Array<[keyof typeof invoice, string]>).map(([key, label]) => (
+                    <Grid item xs={12} sm={6} key={key}>
+                      <TextField
+                        label={label}
+                        value={invoice[key]}
+                        onChange={(e) => setInvoice({ ...invoice, [key]: e.target.value })}
+                        fullWidth
+                        inputProps={key === 'accountNumber' ? { inputMode: 'numeric' } : undefined}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              </Box>
               <Button type="submit" variant="contained" disabled={saving}>
                 {saving ? 'Saving…' : 'Save Profile'}
               </Button>
@@ -914,76 +980,128 @@ export const TaxSettingsPage = () => {
  */
 
 
+type BackupRow = { key: string; kind: 'NIGHT_AUDIT' | 'DAILY' | 'MANUAL'; size: number; createdAt: string };
+const BACKUP_KIND_LABEL: Record<BackupRow['kind'], string> = {
+  NIGHT_AUDIT: 'After night audit',
+  DAILY: 'Daily automatic',
+  MANUAL: 'Taken by you'
+};
+const fileSize = (bytes: number) =>
+  bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+
+/**
+ * The hotel's real backups: taken after each night audit, every day for all
+ * hotels, and whenever the owner asks. Any of them can be downloaded; a
+ * restore replaces live data, so HotelOpX support carries it out.
+ */
 export const BackupRestoreSettingsPage = () => {
-  const [rows, setRows] = useState(settingsOpsService.listBackups());
-  const [notes, setNotes] = useState('');
+  const { enqueueSnackbar } = useSnackbar();
+  const [rows, setRows] = useState<BackupRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState('');
   const [restoreTarget, setRestoreTarget] = useState<string | null>(null);
 
-  const createBackup = () => {
-    settingsOpsService.createBackup(notes.trim() || undefined);
-    setRows(settingsOpsService.listBackups());
-    setNotes('');
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await apiClient.get('/backups');
+      setRows(Array.isArray(data?.backups) ? data.backups : []);
+      setError('');
+    } catch (err) {
+      setError(userActionError(err, 'Could not load your backups'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const createBackup = async () => {
+    setBusy('create');
+    try {
+      const { data } = await apiClient.post('/backups', {});
+      enqueueSnackbar(data?.message || 'Backup started', { variant: 'success' });
+      // It runs in the background; check back for it shortly.
+      window.setTimeout(() => void load(), 20000);
+    } catch (err) {
+      enqueueSnackbar(userActionError(err, 'Could not start a backup'), { variant: 'error' });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const download = async (row: BackupRow) => {
+    setBusy(row.key);
+    try {
+      const { data } = await apiClient.get('/backups/download', { params: { key: row.key } });
+      // A short-lived link straight to the file; the browser saves it.
+      window.location.assign(data.url);
+    } catch (err) {
+      enqueueSnackbar(userActionError(err, 'Could not download this backup'), { variant: 'error' });
+    } finally {
+      setBusy('');
+    }
   };
 
   return (
     <Layout>
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <SettingsTabs />
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>Backup & Restore</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Create snapshot records and track restore points.
-        </Typography>
-
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            <TextField label="Backup Notes" value={notes} onChange={(event) => setNotes(event.target.value)} fullWidth />
-            <Button variant="contained" onClick={createBackup}>Create Backup</Button>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} spacing={2} sx={{ mb: 3 }}>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>Backup & Restore</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Your data is backed up after every night audit and once a day. Take one now, or download any backup to keep a copy yourself.
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+            <Button onClick={() => void load()} disabled={loading}>Refresh</Button>
+            <Button variant="contained" onClick={() => void createBackup()} disabled={busy === 'create'}>
+              {busy === 'create' ? 'Starting…' : 'Back up now'}
+            </Button>
           </Stack>
-        </Paper>
+        </Stack>
+
+        {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
 
         <DataTable
           rows={rows}
-          rowKey={(row) => row.id}
+          rowKey={(row) => row.key}
           defaultRowsPerPage={10}
-          emptyText="No backups created yet."
+          emptyText={loading ? 'Loading backups…' : 'No backups yet. One is taken after your next night audit, or take one now.'}
           columns={[
-            { key: 'id', label: 'Backup ID', minWidth: 220 },
-            {
-              key: 'createdAt',
-              label: 'Created At',
-              minWidth: 190,
-              render: (row) => new Date(row.createdAt).toLocaleString()
-            },
-            { key: 'createdBy', label: 'Created By', minWidth: 190 },
-            {
-              key: 'notes',
-              label: 'Notes',
-              minWidth: 240,
-              render: (row) => row.notes || '—'
-            },
+            { key: 'createdAt', label: 'Taken', minWidth: 190, render: (row) => new Date(row.createdAt).toLocaleString() },
+            { key: 'kind', label: 'Type', minWidth: 170, render: (row) => <Chip size="small" label={BACKUP_KIND_LABEL[row.kind]} color={row.kind === 'MANUAL' ? 'secondary' : 'default'} /> },
+            { key: 'size', label: 'Size', minWidth: 90, render: (row) => fileSize(row.size) },
             {
               key: 'action',
-              label: 'Action',
-              minWidth: 120,
+              label: '',
+              minWidth: 150,
               render: (row) => (
-                <Button size="small" onClick={() => setRestoreTarget(row.id)}>Restore</Button>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <Button size="small" variant="outlined" onClick={() => void download(row)} disabled={busy === row.key}>
+                    {busy === row.key ? 'Preparing…' : 'Download'}
+                  </Button>
+                  <RowActionsMenu subject="backup" actions={[{ key: 'restore', label: 'Restore…', onClick: () => setRestoreTarget(row.key) }]} />
+                </Stack>
               )
             }
           ]}
         />
 
         {/*
-          This replaced alert("Restore flow … is queued"), which claimed a
-          restore had been queued when nothing was. A restore overwrites a
-          property's live data, so it is carried out by HotelOpX support rather
-          than by a button, and the dialog now says so.
+          A restore overwrites a property's live data, so it is carried out by
+          HotelOpX support rather than by a button, and the dialog says so.
         */}
         <Dialog open={Boolean(restoreTarget)} onClose={() => setRestoreTarget(null)} fullWidth maxWidth="sm">
           <DialogTitle>Restore this backup?</DialogTitle>
           <DialogContent>
             <Typography sx={{ mb: 2 }}>
-              Restoring replaces your property&apos;s current data with this snapshot. Anything recorded since it was
-              taken — bookings, payments, orders — would be lost, so restores are carried out by HotelOpX support
+              Restoring replaces your property&apos;s current data with this backup. Anything recorded since it was
+              taken (bookings, payments, orders) would be lost, so restores are carried out by HotelOpX support
               after confirming with you.
             </Typography>
             <Typography variant="body2" color="text.secondary">

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import DocumentSheet from '../../../components/documents/DocumentSheet';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
@@ -11,17 +12,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   Grid,
   MenuItem,
   Paper,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   TextField,
+  Tooltip,
   Typography
 } from '@mui/material';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -31,8 +27,6 @@ import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded';
 import Layout from '../../../components/Layout';
 import { usePermissionStore } from '../../../store/permissionStore';
 import {
-  EVENT_STATUS_LABEL,
-  PAYMENT_STATUS_LABEL,
   eventsApi,
   type EventDetail,
   type EventStatus
@@ -188,7 +182,7 @@ const EventDetailPage: React.FC = () => {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Button variant="outlined" startIcon={<PrintRoundedIcon />} onClick={() => printElement('event-invoice', `${event.reference} — ${event.eventName}`)}>Print invoice</Button>
+            <Button variant="outlined" startIcon={<PrintRoundedIcon />} onClick={() => printElement('event-invoice', `${event.reference} — ${event.eventName}`, { keepColors: true })}>Print invoice</Button>
             {canManage && !closed && (
               <>
                 {paid ? (
@@ -212,12 +206,21 @@ const EventDetailPage: React.FC = () => {
           <Paper variant="outlined" sx={{ p: 1.5, mb: 2, borderRadius: 2 }}>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
               <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>Status:</Typography>
-              {NEXT[event.status].map((s) => (
-                <Button key={s} size="small" variant={s === 'CONFIRMED' ? 'contained' : 'outlined'} color={s === 'CANCELLED' ? 'error' : 'primary'} disabled={busy}
-                  onClick={() => (s === 'CANCELLED' ? (setReason(''), setCancelOpen(true)) : void move(s))}>
-                  {ACTION_LABEL[s]}
-                </Button>
-              ))}
+              {NEXT[event.status].map((s) => {
+                // An event is completed only once it is paid in full.
+                const unpaid = s === 'COMPLETED' && event.balance > 0;
+                const button = (
+                  <Button key={s} size="small" variant={s === 'CONFIRMED' ? 'contained' : 'outlined'} color={s === 'CANCELLED' ? 'error' : 'primary'} disabled={busy || unpaid}
+                    onClick={() => (s === 'CANCELLED' ? (setReason(''), setCancelOpen(true)) : void move(s))}>
+                    {ACTION_LABEL[s]}
+                  </Button>
+                );
+                return unpaid ? (
+                  <Tooltip key={s} title={`Record the outstanding ${formatCurrency(event.balance)} before completing this event`}>
+                    <span>{button}</span>
+                  </Tooltip>
+                ) : button;
+              })}
             </Stack>
           </Paper>
         )}
@@ -281,100 +284,87 @@ const EventDetailPage: React.FC = () => {
           </Grid>
 
           <Grid item xs={12} md={7}>
-            <Paper id="event-invoice" variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 2 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
-                <Box>
-                  {hotel?.logoUrl && <Box component="img" src={hotel.logoUrl} alt="" sx={{ height: 44, mb: 1 }} />}
-                  <Typography fontWeight={800}>{hotel?.displayName}</Typography>
-                  <Typography variant="caption" color="text.secondary" display="block">{hotel?.address}</Typography>
-                  <Typography variant="caption" color="text.secondary" display="block">{[hotel?.phone, hotel?.email].filter(Boolean).join(' · ')}</Typography>
-                </Box>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="h6" fontWeight={800}>{event.status === 'DRAFT' || event.status === 'PENDING' || event.status === 'QUOTATION_SENT' ? 'Quotation' : 'Invoice'}</Typography>
-                  <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{event.reference}</Typography>
-                  <Typography variant="caption" color="text.secondary">{fmtDate(event.createdAt)}</Typography>
-                </Box>
-              </Stack>
-
-              <Divider sx={{ my: 2 }} />
-
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">Bill to</Typography>
-                  <Typography variant="body2" fontWeight={700}>{event.organization || event.contactName}</Typography>
-                  {event.organization && <Typography variant="body2">Attn: {event.contactName}</Typography>}
-                  {event.billingAddress && <Typography variant="body2">{event.billingAddress}</Typography>}
-                  <Typography variant="body2">{[event.contactPhone, event.contactEmail].filter(Boolean).join(' · ')}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">Event</Typography>
-                  <Typography variant="body2" fontWeight={700}>{event.eventName}</Typography>
-                  <Typography variant="body2">{event.eventTypeName} · {event.location}</Typography>
-                  <Typography variant="body2">{fmt(event.startAt)} → {fmt(event.endAt)} ({event.days} day{event.days === 1 ? '' : 's'})</Typography>
-                  <Typography variant="body2">{event.expectedGuests} expected guests</Typography>
-                </Grid>
-              </Grid>
-
-              <Table size="small" sx={{ mt: 2 }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Description</TableCell>
-                    <TableCell align="right">Qty</TableCell>
-                    <TableCell align="right">Rate</TableCell>
-                    <TableCell align="right">Amount</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {[...booked, ...(addOns.length ? [null] : []), ...addOns].map((line, i) => line === null ? (
-                    <TableRow key="addon-heading">
-                      <TableCell colSpan={4} sx={{ pt: 2, fontWeight: 800, textTransform: 'uppercase', fontSize: 12, letterSpacing: '0.06em' }}>Add-ons after payment</TableCell>
-                    </TableRow>
-                  ) : (
-                    <TableRow key={line.id ?? i}>
-                      <TableCell>
-                        {line.description}
-                        {line.serviceDate && line.type === 'CATERING' && (
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            {new Date(line.serviceDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}{line.serviceTime ? ` · ${line.serviceTime}` : ''}{line.notes ? ` · ${line.notes}` : ''}
-                          </Typography>
-                        )}
-                        {line.type === 'CORKAGE' && line.notes && <Typography variant="caption" color="text.secondary" display="block">{line.notes}</Typography>}
-                      </TableCell>
-                      <TableCell align="right">{line.type === 'CATERING' ? `${line.quantity} guests` : line.quantity}</TableCell>
-                      <TableCell align="right">{formatCurrency(line.unitPrice)}</TableCell>
-                      <TableCell align="right">{formatCurrency(line.amount)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              <Stack spacing={0.5} sx={{ mt: 2, ml: 'auto', maxWidth: 340 }}>
-                {event.originalTotal != null && (
-                  <>
-                    <Total label="Booked total" value={event.originalTotal} />
-                    <Total label="Add-ons (with service charge and VAT)" value={event.total - event.originalTotal} />
-                    <Divider />
-                  </>
-                )}
-                <Total label="Subtotal" value={event.subtotal} />
-                {event.discount > 0 && <Total label={event.promotion ? `Discount (${event.promotion.name})` : 'Discount'} value={-event.discount} />}
-                {event.serviceCharge > 0 && <Total label={`Service charge (${event.eventType.serviceChargeRate}%)`} value={event.serviceCharge} />}
-                {event.tax > 0 && <Total label={`VAT (${hotel?.vatRate ?? 0}%)`} value={event.tax} />}
-                <Divider />
-                <Total label="Grand total" value={event.total} strong />
-                <Total label="Amount paid" value={event.paidAmount} />
-                <Total label="Outstanding balance" value={event.balance} strong />
-                <Typography variant="caption" color="text.secondary" textAlign="right">Payment status: {PAYMENT_STATUS_LABEL[event.paymentStatus]} · {EVENT_STATUS_LABEL[event.status]}</Typography>
-              </Stack>
-
-              {event.terms && (
-                <>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="caption" color="text.secondary">Terms and conditions</Typography>
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{event.terms}</Typography>
-                </>
-              )}
-            </Paper>
+            {(() => {
+              const quoting = event.status === 'DRAFT' || event.status === 'PENDING' || event.status === 'QUOTATION_SENT';
+              const paid = event.balance <= 0 && event.total > 0;
+              const inv = hotel?.invoice ?? {};
+              const lines = [...booked, ...(addOns.length ? [null] : []), ...addOns];
+              return (
+                <DocumentSheet
+                  id="event-invoice"
+                  title={quoting ? 'QUOTATION' : paid ? 'INVOICE' : 'PROFORMA'}
+                  subtitle={!quoting && !paid ? 'INVOICE' : undefined}
+                  stamp={event.status === 'CANCELLED' ? 'VOID' : paid && !quoting ? 'PAID' : null}
+                  brand={{
+                    name: hotel?.displayName ?? '',
+                    logoUrl: hotel?.logoUrl,
+                    tagline: inv.tagline,
+                    address: hotel?.address,
+                    phone: hotel?.phone,
+                    email: inv.contactEmail || hotel?.email,
+                    website: inv.website
+                  }}
+                  meta={[
+                    ['Date', fmtDate(event.createdAt)],
+                    [quoting ? 'Quotation No' : 'Invoice No', event.reference],
+                    ['Event date', new Date(event.startAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })]
+                  ]}
+                  billTo={{
+                    heading: quoting ? 'Quotation to' : 'Invoice to',
+                    name: event.organization || event.contactName,
+                    lines: [
+                      event.organization ? `Attn: ${event.contactName}` : null,
+                      event.contactPhone ? `Phone: ${event.contactPhone}` : null,
+                      event.contactEmail ? `Email: ${event.contactEmail}` : null,
+                      event.billingAddress ? `Address: ${event.billingAddress}` : null
+                    ]
+                  }}
+                  extra={{
+                    heading: 'Event',
+                    lines: [
+                      event.eventName,
+                      `${event.eventTypeName} · ${event.location}`,
+                      `${fmt(event.startAt)} → ${fmt(event.endAt)} (${event.days} day${event.days === 1 ? '' : 's'})`,
+                      `${event.expectedGuests} expected guests`
+                    ]
+                  }}
+                  payment={
+                    inv.accountNumber
+                      ? ([['Account No', inv.accountNumber], ['Account Name', inv.accountName ?? ''], ['Bank Name', inv.bankName ?? '']] as Array<[string, string]>).filter(([, v]) => v)
+                      : null
+                  }
+                  rows={lines.map((line) =>
+                    line === null
+                      ? { section: 'Add-ons after payment', description: '', price: null, qty: '', amount: 0 }
+                      : {
+                          description: line.description,
+                          details:
+                            line.type === 'CATERING' && line.serviceDate
+                              ? `${new Date(line.serviceDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}${line.serviceTime ? ` · ${line.serviceTime}` : ''}${line.notes ? ` · ${line.notes}` : ''}`
+                              : line.type === 'CORKAGE' ? line.notes : null,
+                          price: line.unitPrice,
+                          qty: line.type === 'CATERING' ? `${line.quantity} guests` : line.quantity,
+                          amount: line.amount
+                        }
+                  )}
+                  totals={[
+                    ...(event.originalTotal != null
+                      ? [{ label: 'Booked total', value: event.originalTotal }, { label: 'Add-ons', value: event.total - event.originalTotal }]
+                      : []),
+                    { label: 'Sub-total', value: event.subtotal },
+                    ...(event.discount > 0 ? [{ label: event.promotion ? `Discount (${event.promotion.name})` : 'Discount', value: -event.discount }] : []),
+                    ...(event.serviceCharge > 0 ? [{ label: `Service charge (${event.eventType.serviceChargeRate}%)`, value: event.serviceCharge }] : []),
+                    ...(event.tax > 0 ? [{ label: `VAT (${hotel?.vatRate ?? 0}%)`, value: event.tax }] : []),
+                    { label: 'Total', value: event.total },
+                    { label: 'Amt Paid', value: event.paidAmount }
+                  ]}
+                  due={{ label: 'Balance', value: event.balance }}
+                  notes={quoting ? 'Please note our prices are subject to change until this quotation is confirmed.' : null}
+                  terms={event.terms}
+                  signature={inv.signatoryName ? { name: inv.signatoryName, title: inv.signatoryTitle } : null}
+                />
+              );
+            })()}
           </Grid>
         </Grid>
 
@@ -437,13 +427,6 @@ const Info: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <Stack direction="row" spacing={2} sx={{ py: 0.4 }}>
     <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>{label}</Typography>
     <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>{value}</Typography>
-  </Stack>
-);
-
-const Total: React.FC<{ label: string; value: number; strong?: boolean }> = ({ label, value, strong }) => (
-  <Stack direction="row" justifyContent="space-between">
-    <Typography variant="body2" fontWeight={strong ? 800 : 400}>{label}</Typography>
-    <Typography variant="body2" fontWeight={strong ? 800 : 600}>{value < 0 ? `− ${formatCurrency(-value)}` : formatCurrency(value)}</Typography>
   </Stack>
 );
 
