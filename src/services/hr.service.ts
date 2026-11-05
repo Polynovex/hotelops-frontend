@@ -563,6 +563,8 @@ export interface PerformanceMetrics {
 }
 
 export interface PerformanceResponse {
+  /** Occupied rooms out of the rooms the hotel has created, right now. */
+  today?: { occupiedRooms: number; totalRooms: number; occupancyRate: number };
   period: { from: string; to: string; nights: number };
   current: PerformanceMetrics;
   previous: PerformanceMetrics;
@@ -614,6 +616,7 @@ const DEMO_PERFORMANCE = (): PerformanceResponse => {
   const delta = (a: number, b: number) => (b === 0 ? null : ((a - b) / b) * 100);
 
   return {
+    today: { occupiedRooms: 38, totalRooms: rooms, occupancyRate: 76 },
     period: { from: from.toISOString(), to: now.toISOString(), nights },
     current,
     previous,

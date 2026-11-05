@@ -1,4 +1,6 @@
 import HrTabs from './HrTabs';
+import OpenShiftsPanel from '../../../components/hr/OpenShiftsPanel';
+import LockedStaffPanel from '../../../components/hr/LockedStaffPanel';
 import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import Layout from '../../../components/Layout';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -234,6 +236,8 @@ const AttendancePage = () => {
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <HrTabs />
+      <LockedStaffPanel />
+      <OpenShiftsPanel />
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={2} sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h4" fontWeight={700}>
