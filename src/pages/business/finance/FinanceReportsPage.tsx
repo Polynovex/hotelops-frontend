@@ -1,3 +1,4 @@
+import { useRoomTypeNames } from '../../../hooks/useRoomTypeNames';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -75,6 +76,7 @@ const BELOW: Record<string, string> = {
 };
 
 export default function FinanceReportsPage() {
+  const roomTypeName = useRoomTypeNames();
   // Management reports (HotelOpX terms), the USALI-aligned statement, and the
   // mapping between them — all from the same approved records.
   const [mode, setMode] = useState<'management' | 'usali' | 'mapping'>('management');
@@ -309,7 +311,7 @@ export default function FinanceReportsPage() {
                         <Stack key={String(label)} direction="row" justifyContent="space-between"><Typography variant="body2">{label}</Typography><Typography variant="body2" fontWeight={700}>{value}</Typography></Stack>
                       ))}
                       {bucket.rooms.topRoomTypes.length > 0 && (
-                        <Typography variant="body2" sx={{ mt: 1 }}>Best-selling types: {bucket.rooms.topRoomTypes.map((type) => `${type.roomType} (${type.sold})`).join(', ')}</Typography>
+                        <Typography variant="body2" sx={{ mt: 1 }}>Best-selling types: {bucket.rooms.topRoomTypes.map((type) => `${roomTypeName(type.roomType)} (${type.sold})`).join(', ')}</Typography>
                       )}
                       {bucket.rooms.topRooms.length > 0 && (
                         <Typography variant="body2">Most-sold rooms: {bucket.rooms.topRooms.map((room) => `${room.roomNumber} (${room.nights})`).join(', ')}</Typography>

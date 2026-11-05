@@ -29,7 +29,7 @@ interface PlanState {
   products: { pms: boolean; pos: boolean; finance: boolean; hr: boolean } | null;
   addOns: ActiveAddOn[];
   /** Name and contacts printed on receipts. */
-  business: { name: string; address: string | null; phone: string | null; email: string | null; website: string | null; logoUrl: string | null } | null;
+  business: { name: string; address: string | null; phone: string | null; email: string | null; website: string | null; logoUrl: string | null; receiptWidth?: 58 | 80 } | null;
   loaded: boolean;
   loadedForUserId: string | null;
   /** Loads once per user; `force` reloads, so changes made by HotelOpX show without signing out. */

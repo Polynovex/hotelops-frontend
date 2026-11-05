@@ -1,3 +1,6 @@
+import { formatCurrency } from '../../../utils/formatters';
+import StayReceipts from '../../../components/receipts/StayReceipts';
+import EventRoomsSection from '../../../components/reservations/EventRoomsSection';
 import CheckoutSettlementDialog from '../../../components/reservations/CheckoutSettlementDialog';
 import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import EventRoomBlocks from '../../../components/events/EventRoomBlocks';
@@ -91,6 +94,7 @@ const ReservationTable = ({
   onEdit?: (reservation: ReservationRecord) => void;
   onVoid?: (reservation: ReservationRecord) => void;
 }) => {
+  const roomTypeName = useRoomTypeNames();
   return (
     <DataTable
       rows={rows}
@@ -100,7 +104,9 @@ const ReservationTable = ({
       columns={[
         { key: 'bookingNumber', label: 'Booking #', minWidth: 140 },
         { key: 'guestName', label: 'Guest', minWidth: 170 },
-        { key: 'roomNumber', label: 'Room', minWidth: 120 },
+        { key: 'roomNumber', label: 'Room', minWidth: 100 },
+        // The name staff know the type by; the code stays the data.
+        { key: 'requestedRoomType', label: 'Room type', minWidth: 150, render: (reservation) => roomTypeName(reservation.requestedRoomType) || '—' },
         {
           key: 'checkIn',
           label: 'Check In',
@@ -848,6 +854,8 @@ const StayPromotions = ({ reservation }: { reservation: ReservationRecord }) => 
 };
 
 export const ReservationDetailPage = () => {
+  const navigate = useNavigate();
+  const roomTypeName = useRoomTypeNames();
   const { id } = useParams();
   const { on } = useWebSocket();
   const [loading, setLoading] = useState(true);
@@ -927,7 +935,7 @@ export const ReservationDetailPage = () => {
       </div></div>
       <div class="row"><span class="label">Check In</span><span>${new Date(reservation.checkIn).toLocaleDateString()}</span></div>
       <div class="row"><span class="label">Check Out</span><span>${new Date(reservation.checkOut).toLocaleDateString()}</span></div>
-      <div class="row"><span class="label">Room Type</span><span>${reservation.requestedRoomType ? esc(reservation.requestedRoomType) : '&#8212;'}</span></div>
+      <div class="row"><span class="label">Room Type</span><span>${reservation.requestedRoomType ? esc(roomTypeName(reservation.requestedRoomType)) : '&#8212;'}</span></div>
       <div class="row"><span class="label">Adults</span><span>${esc(reservation.adults)}</span></div>
       <div class="row"><span class="label">Children</span><span>${esc(reservation.children)}</span></div>
       <div class="row"><span class="label">Total</span><span>&#8358;${reservation.totalAmount.toLocaleString()}</span></div>
@@ -977,6 +985,7 @@ export const ReservationDetailPage = () => {
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
         {reservation && (
+          <Stack spacing={2}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>{reservation.bookingNumber}</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -986,7 +995,22 @@ export const ReservationDetailPage = () => {
             <Stack spacing={1.5}>
               <Typography><strong>Guest:</strong> {reservation.guestName}</Typography>
               <Typography><strong>Room:</strong> {reservation.roomNumber}</Typography>
-              <Typography><strong>Requested Type:</strong> {reservation.requestedRoomType || '—'}</Typography>
+              <Typography><strong>Room type:</strong> {roomTypeName(reservation.requestedRoomType) || '—'}</Typography>
+              {reservation.event && (
+                <Alert severity="info" sx={{ mt: 1 }} action={<Button color="inherit" size="small" onClick={() => navigate(`/business/events/${reservation.event!.id}`)}>Open event</Button>}>
+                  Part of {reservation.event.name} ({reservation.event.reference}). The room is billed and paid on the event; only this room&apos;s own extras are paid here.
+                </Alert>
+              )}
+              {reservation.paymentOverride && (
+                <Alert severity="warning" sx={{ mt: 1 }}>
+                  Checked in before the required payment by manager override on {new Date(reservation.paymentOverride.at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}: {reservation.paymentOverride.reason}
+                </Alert>
+              )}
+              {reservation.checkInPayment && !reservation.checkInPayment.met && (
+                <Alert severity="error" sx={{ mt: 1 }}>
+                  {formatCurrency(reservation.checkInPayment.required)} must be paid before check-in{reservation.checkInPayment.event ? ' on the event' : ''}; {formatCurrency(reservation.checkInPayment.paid)} paid so far.
+                </Alert>
+              )}
               <Typography><strong>Status:</strong> {reservation.status}</Typography>
               <Typography><strong>Dates:</strong> {new Date(reservation.checkIn).toLocaleDateString()} - {new Date(reservation.checkOut).toLocaleDateString()}</Typography>
               <Typography><strong>Total:</strong> ₦{reservation.totalAmount.toLocaleString()}</Typography>
@@ -1032,6 +1056,8 @@ export const ReservationDetailPage = () => {
               <Button variant="outlined" color="secondary" onClick={handlePrint}>Print</Button>
             </Stack>
           </Paper>
+          <StayReceipts bookingId={reservation.id} />
+          </Stack>
         )}
 
         <EditReservationDialog
@@ -1083,18 +1109,35 @@ export const ReservationDetailPage = () => {
 };
 
 export const CheckInPage = () => {
+  const roomTypeName = useRoomTypeNames();
   const { on } = useWebSocket();
   const [targetDate, setTargetDate] = useState(todayDate());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [rows, setRows] = useState<ReservationRecord[]>([]);
   const [selectedReservation, setSelectedReservation] = useState<ReservationRecord | null>(null);
+  const [overriding, setOverriding] = useState<ReservationRecord | null>(null);
+  const [overrideReason, setOverrideReason] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const navigate = useNavigate();
+  const role = useAuthStore((state) => state.user?.role);
+  const canOverride = role === 'MANAGER' || role === 'BUSINESS_ADMIN';
+  // Unassigned event rooms are listed in their own section above.
+  const standardRows = rows.filter((row) => !(row.eventBookingId && !row.roomId));
+  const checkIn = (reservation: ReservationRecord) =>
+    reservationOpsService
+      .checkIn(reservation.id)
+      .then(() => load())
+      .catch((err: unknown) => setError(getApiErrorMessage(err, 'Check-in failed')));
+  const takePayment = (reservation: ReservationRecord) =>
+    navigate(reservation.event ? `/business/events/${reservation.event.id}` : `/business/reservations/${reservation.id}`);
 
   const load = async () => {
     setLoading(true);
     setError('');
     try {
       setRows(await reservationOpsService.listArrivals(targetDate));
+      setRefreshKey((k) => k + 1);
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, 'Failed to load arrivals'));
     } finally {
@@ -1149,19 +1192,32 @@ export const CheckInPage = () => {
         {loading && <LogoLoader inline minHeight={160} />}
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
+        <EventRoomsSection refreshKey={refreshKey} onChanged={() => void load()} />
+
+        <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>Arrivals</Typography>
         <DataTable
-          rows={rows}
+          rows={standardRows}
           rowKey={(reservation) => reservation.id}
           defaultRowsPerPage={10}
           emptyText="No arrivals found for the selected date."
           columns={[
             { key: 'bookingNumber', label: 'Booking #', minWidth: 140 },
-            { key: 'guestName', label: 'Guest', minWidth: 180 },
+            {
+              key: 'guestName',
+              label: 'Guest',
+              minWidth: 180,
+              render: (reservation) => (
+                <Box>
+                  {reservation.guestName}
+                  {reservation.event && <Chip size="small" color="secondary" label={`Event: ${reservation.event.name}`} sx={{ ml: 1 }} />}
+                </Box>
+              )
+            },
             {
               key: 'roomNumber',
               label: 'Room / Type',
               minWidth: 180,
-              render: (reservation) => reservation.roomId ? reservation.roomNumber : reservation.requestedRoomType || 'Unassigned'
+              render: (reservation) => reservation.roomId ? reservation.roomNumber : roomTypeName(reservation.requestedRoomType) || 'Unassigned'
             },
             {
               key: 'status',
@@ -1172,10 +1228,21 @@ export const CheckInPage = () => {
               )
             },
             {
-              key: 'balance',
-              label: 'Balance',
-              minWidth: 120,
-              render: (reservation) => `₦${reservation.balance.toLocaleString()}`
+              key: 'checkInPayment',
+              label: 'Paid to check in',
+              minWidth: 190,
+              render: (reservation) => {
+                const pay = reservation.checkInPayment;
+                if (!pay) return '—';
+                if (pay.override) return <Chip size="small" color="warning" label="Manager override" />;
+                return pay.met ? (
+                  <Chip size="small" color="success" label={pay.event ? 'Paid on event' : 'Paid'} />
+                ) : (
+                  <Tooltip title={pay.event ? `${pay.event.eventName} has paid ${formatCurrency(pay.paid)} of the ${formatCurrency(pay.required)} its rooms need` : `${formatCurrency(pay.paid)} of ${formatCurrency(pay.required)} paid`}>
+                    <Chip size="small" color="error" label={`${formatCurrency(Math.max(pay.required - pay.paid, 0))} due${pay.event ? ' on event' : ''}`} />
+                  </Tooltip>
+                );
+              }
             },
             {
               key: 'actions',
@@ -1184,9 +1251,15 @@ export const CheckInPage = () => {
               render: (reservation) => (
                 <Stack direction="row" spacing={0.5} alignItems="center">
                   {reservation.roomId ? (
-                    <Button size="small" color="success" onClick={() => void reservationOpsService.checkIn(reservation.id).then(() => load())}>
-                      Check In
-                    </Button>
+                    reservation.checkInPayment && !reservation.checkInPayment.met ? (
+                      <Button size="small" variant="contained" color="warning" onClick={() => takePayment(reservation)}>
+                        {reservation.event ? 'Pay on event' : 'Take payment'}
+                      </Button>
+                    ) : (
+                      <Button size="small" color="success" onClick={() => void checkIn(reservation)}>
+                        Check In
+                      </Button>
+                    )
                   ) : (
                     <Button size="small" onClick={() => setSelectedReservation(reservation)}>Assign Room</Button>
                   )}
@@ -1194,6 +1267,12 @@ export const CheckInPage = () => {
                     subject={reservation.guestName ?? reservation.id}
                     actions={[
                       { key: 'change', label: 'Change room', hidden: !reservation.roomId, onClick: () => setSelectedReservation(reservation) },
+                      {
+                        key: 'override',
+                        label: 'Let in without payment',
+                        hidden: !canOverride || !reservation.checkInPayment || reservation.checkInPayment.met,
+                        onClick: () => { setOverrideReason(''); setOverriding(reservation); }
+                      },
                       {
                         key: 'qroom',
                         label: 'Move to Q-Room',
@@ -1226,6 +1305,37 @@ export const CheckInPage = () => {
             await load();
           }}
         />
+        <Dialog open={Boolean(overriding)} onClose={() => setOverriding(null)} fullWidth maxWidth="xs">
+          <DialogTitle>Check in without the required payment</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <Alert severity="warning">
+                {overriding?.guestName}: {formatCurrency(overriding?.checkInPayment?.paid ?? 0)} of {formatCurrency(overriding?.checkInPayment?.required ?? 0)} paid. This is recorded in the audit trail and shown on the folio.
+              </Alert>
+              <TextField autoFocus fullWidth multiline minRows={2} label="Reason *" placeholder="e.g. Corporate guest; company transfer confirmed but not yet cleared" value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOverriding(null)}>Cancel</Button>
+            <Button
+              variant="contained"
+              color="warning"
+              disabled={overrideReason.trim().length < 5}
+              onClick={async () => {
+                if (!overriding) return;
+                try {
+                  await reservationOpsService.overrideCheckInPayment(overriding.id, overrideReason.trim());
+                  setOverriding(null);
+                  await load();
+                } catch (err) {
+                  setError(getApiErrorMessage(err, 'Could not record the override'));
+                }
+              }}
+            >
+              Allow check-in
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </Layout>
   );
@@ -1316,7 +1426,20 @@ export const CheckOutPage = () => {
           columns={[
             { key: 'bookingNumber', label: 'Booking #', minWidth: 140 },
             { key: 'guestName', label: 'Guest', minWidth: 180 },
-            { key: 'roomNumber', label: 'Room', minWidth: 120 },
+            {
+              key: 'roomNumber',
+              label: 'Room',
+              minWidth: 220,
+              render: (reservation) => (
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <span>{reservation.roomNumber}</span>
+                  {/* Event rooms are reconciled on their event, so the tag names it. */}
+                  {reservation.event && (
+                    <Chip size="small" color="secondary" label={`Event: ${reservation.event.name}`} onClick={() => navigate(`/business/events/${reservation.event!.id}`)} />
+                  )}
+                </Stack>
+              )
+            },
             {
               key: 'balance',
               label: 'Balance',
@@ -1337,6 +1460,11 @@ export const CheckOutPage = () => {
               minWidth: 180,
               render: (reservation) => (
                 <Stack direction="row" spacing={1}>
+                  {reservation.event && (
+                    <Button size="small" variant="outlined" color="secondary" onClick={() => navigate(`/business/events/${reservation.event!.id}`)}>
+                      Collect payment
+                    </Button>
+                  )}
                   <Button
                     size="small"
                     variant="outlined"
@@ -1375,6 +1503,7 @@ export const CheckOutPage = () => {
 };
 
 export const QRoomPage = () => {
+  const roomTypeName = useRoomTypeNames();
   const { on } = useWebSocket();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -1390,8 +1519,9 @@ export const QRoomPage = () => {
         reservationOpsService.listQRoomQueue(),
         reservationOpsService.listArrivals(todayDate())
       ]);
-      setQueue(queueRows);
-      setEligible(arrivalRows.filter((reservation) => !reservation.isQRoom && reservation.status !== 'CHECKED_IN'));
+      // Event rooms have their own section; these lists are ordinary reservations.
+      setQueue(queueRows.filter((reservation) => !reservation.eventBookingId));
+      setEligible(arrivalRows.filter((reservation) => !reservation.eventBookingId && !reservation.isQRoom && reservation.status !== 'CHECKED_IN'));
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, 'Failed to load Q-room data'));
     } finally {
@@ -1447,6 +1577,8 @@ export const QRoomPage = () => {
           </Grid>
         </Grid>
 
+        <EventRoomsSection onChanged={() => void load()} />
+
         <Paper sx={{ p: 2, mb: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
             Queue Candidates
@@ -1468,7 +1600,7 @@ export const QRoomPage = () => {
                 key: 'requestedRoomType',
                 label: 'Requested Type',
                 minWidth: 150,
-                render: (reservation) => reservation.requestedRoomType || '—'
+                render: (reservation) => roomTypeName(reservation.requestedRoomType) || '—'
               },
               {
                 key: 'action',
@@ -1517,7 +1649,7 @@ export const QRoomPage = () => {
                 key: 'requestedRoomType',
                 label: 'Requested Type',
                 minWidth: 150,
-                render: (reservation) => reservation.requestedRoomType || '—'
+                render: (reservation) => roomTypeName(reservation.requestedRoomType) || '—'
               },
               {
                 key: 'priority',
@@ -1735,7 +1867,7 @@ export const StayViewPage = () => {
                       >
                         <Typography sx={{ fontWeight: 700 }}>{reservation.guestName}</Typography>
                         <Typography variant="body2" color="text.secondary">
-                          {reservation.requestedRoomType || 'Open type'} · {new Date(reservation.checkIn).toLocaleDateString()}
+                          {roomTypeName(reservation.requestedRoomType) || 'Open type'} · {new Date(reservation.checkIn).toLocaleDateString()}
                         </Typography>
                       </Paper>
                     ))}

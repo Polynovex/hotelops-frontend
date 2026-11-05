@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { printReceipt } from '../../../utils/receipt';
+import { billFromOrder, printReceipt, receiptApi } from '../../../utils/receipt';
 import { usePlanStore } from '../../../store/planStore';
 import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import {
@@ -68,6 +68,18 @@ const where = (order: PosOrderRow) =>
 
 const PosOrdersPage = () => {
   const { enqueueSnackbar } = useSnackbar();
+
+  /** Paid orders print the server's numbered receipt; unpaid ones a bill. */
+  const printForOrder = async (order: PosOrderRow) => {
+    try {
+      const receipt = order.paymentStatus === 'COMPLETED'
+        ? await receiptApi.forPosOrder(order.id)
+        : billFromOrder(order, usePlanStore.getState().business);
+      await printReceipt(receipt);
+    } catch (err) {
+      enqueueSnackbar(getApiErrorMessage(err, 'Could not print the receipt'), { variant: 'error' });
+    }
+  };
   const { on } = useWebSocket();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -315,7 +327,7 @@ const PosOrdersPage = () => {
                         { key: 'pay', label: 'Take payment', hidden: primary === 'pay' || !(live && unpaid), onClick: () => setPaying(order) },
                         { key: 'close', label: 'Serve & close', hidden: primary === 'close' || !(order.orderStatus === 'READY' && !unpaid), onClick: () => void run(() => posFlow.complete(order.id), `${order.orderNumber} served and closed`) },
                         { key: 'discount', label: 'Discount', icon: <LocalOfferRounded fontSize="small" />, hidden: !live, onClick: () => setDiscountOrder(order) },
-                        { key: 'receipt', label: order.paymentStatus === 'COMPLETED' ? 'Print receipt' : 'Print bill', onClick: () => void printReceipt(order, usePlanStore.getState().business) }
+                        { key: 'receipt', label: order.paymentStatus === 'COMPLETED' ? 'Print receipt' : 'Print bill', onClick: () => void printForOrder(order) }
                       ]}
                     />
                   </Stack>
@@ -348,7 +360,7 @@ const PosOrdersPage = () => {
               autoHideDuration: 8000,
               action: paidOrder
                 ? () => (
-                    <Button color="inherit" size="small" onClick={() => void printReceipt({ ...paidOrder, paymentStatus: 'COMPLETED' }, usePlanStore.getState().business, { amount: paidOrder.total })}>
+                    <Button color="inherit" size="small" onClick={() => void printForOrder({ ...paidOrder, paymentStatus: 'COMPLETED' })}>
                       Print receipt
                     </Button>
                   )

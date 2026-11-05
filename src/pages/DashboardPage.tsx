@@ -21,7 +21,7 @@ import {
   Typography,
   useTheme
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
+import { alpha, darken } from '@mui/material/styles';
 import {
   ArrowForwardRounded,
   BedRounded,
@@ -50,6 +50,7 @@ import {
 } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import PerformanceMetrics from '../components/PerformanceMetrics';
+import MeetingRoomRounded from '@mui/icons-material/MeetingRoomRounded';
 
 const defaultOverview: DashboardOverview = {
   generatedAt: new Date(0).toISOString(),
@@ -232,7 +233,7 @@ const DashboardPage: React.FC = () => {
       title: 'Arrivals Today',
       value: overview.widgets.arrivalsToday,
       helper: 'Guests expected today',
-      accent: '#B66A2B',
+      accent: theme.palette.secondary.main,
       icon: EventAvailableRounded,
       path: '/business/reservations/arrivals'
     },
@@ -240,7 +241,7 @@ const DashboardPage: React.FC = () => {
       title: 'In-House Guests',
       value: overview.widgets.inHouseGuests,
       helper: 'Currently staying',
-      accent: '#245C4E',
+      accent: theme.palette.success.main,
       icon: HotelRounded,
       path: '/business/reservations/in-house'
     },
@@ -248,15 +249,33 @@ const DashboardPage: React.FC = () => {
       title: 'Occupancy',
       value: `${occupancyPercent.toFixed(1)}%`,
       helper: `${overview.widgets.occupiedRooms}/${overview.widgets.totalRooms} rooms`,
-      accent: '#2D648B',
+      accent: theme.palette.primary.main,
       icon: BedRounded,
       path: '/business/rooms/status-board'
+    },
+    {
+      // Rooms in the system against the plan's allowance; occupancy above
+      // stays occupied ÷ rooms in the system.
+      title: 'Package usage',
+      value: overview.packageUsage?.limit != null
+        ? `${overview.packageUsage.used} of ${overview.packageUsage.limit}`
+        : `${overview.packageUsage?.used ?? overview.widgets.totalRooms} rooms`,
+      helper: overview.packageUsage?.limit != null
+        ? overview.packageUsage.used >= overview.packageUsage.limit
+          ? `Limit reached on ${overview.packageUsage.planName ?? 'your plan'}. Upgrade to add rooms`
+          : `${overview.packageUsage.limit - overview.packageUsage.used} more rooms allowed on ${overview.packageUsage.planName ?? 'your plan'}`
+        : `Unlimited rooms on ${overview.packageUsage?.planName ?? 'your plan'}`,
+      accent: overview.packageUsage?.limit != null && overview.packageUsage.used >= overview.packageUsage.limit
+        ? theme.palette.error.main
+        : theme.palette.info.main,
+      icon: MeetingRoomRounded,
+      path: '/business/subscription'
     },
     {
       title: 'Due Out',
       value: overview.roomStatus.dueOut,
       helper: 'Departures requiring attention',
-      accent: '#9A6A19',
+      accent: theme.palette.warning.main,
       icon: LogoutRounded,
       path: '/business/rooms/status-board'
     }
@@ -266,54 +285,49 @@ const DashboardPage: React.FC = () => {
     {
       label: 'Available clean',
       count: overview.roomStatus.clean,
-      color: '#2E8B57',
+      color: theme.palette.success.main,
       icon: CleaningServicesRounded
     },
     {
       label: 'Dirty',
       count: overview.roomStatus.dirty,
-      color: '#C04A3A',
+      color: theme.palette.error.main,
       icon: CleaningServicesRounded
     },
     {
       label: 'Occupied',
       count: overview.roomStatus.occupied,
-      color: '#2B6CB0',
+      color: theme.palette.info.main,
       icon: HotelRounded
     },
     {
       label: 'Reserved',
       count: overview.roomStatus.reserved,
-      color: '#D9A11E',
+      color: theme.palette.warning.main,
       icon: EventAvailableRounded
     },
     {
       label: 'Out of order',
       count: overview.roomStatus.outOfOrder,
-      color: '#5C4B51',
+      color: theme.palette.text.secondary,
       icon: WarningAmberRounded
     },
     {
       label: 'Due out',
       count: overview.roomStatus.dueOut,
-      color: '#7A5FB2',
+      color: theme.palette.secondary.dark,
       icon: LogoutRounded
     }
   ];
 
+  // Cards take every colour from the theme's card tokens (theme.ts), the
+  // same source the sidebar uses, so both repaint together.
   const dashboardSurface = {
-    bgcolor: isDark
-      ? '#101A24'
-      : '#FFFFFF',
-    border: `1px solid ${
-      isDark
-        ? alpha('#FFFFFF', 0.07)
-        : '#E2E8F0'
-    }`,
+    bgcolor: theme.palette.card.bg,
+    border: `1px solid ${theme.palette.card.border}`,
     borderRadius: '16px',
-    boxShadow: isDark
-      ? '0 10px 30px rgba(0,0,0,0.16)'
-      : '0 8px 30px rgba(15, 34, 57, 0.055)'
+    boxShadow: theme.palette.card.shadow,
+    color: theme.palette.card.header
   };
 
   return (
@@ -321,9 +335,7 @@ const DashboardPage: React.FC = () => {
       <Box
         sx={{
           minHeight: '100%',
-          bgcolor: isDark
-            ? '#08131F'
-            : '#F5F7FA',
+          bgcolor: theme.palette.background.default,
           py: { xs: 2, md: 3 }
         }}
       >
@@ -378,12 +390,10 @@ const DashboardPage: React.FC = () => {
               overflow: 'hidden',
               borderRadius: '18px',
               border: 'none',
-              color: '#F8FAFC',
-              background: isDark
-                ? 'linear-gradient(135deg, #102335 0%, #153652 58%, #1B3E5B 100%)'
-                : 'linear-gradient(135deg, #102A43 0%, #163B5A 58%, #1E4B6B 100%)',
+              color: theme.palette.sidebar.text,
+              background: theme.palette.sidebar.hero,
               boxShadow:
-                '0 16px 38px rgba(15, 34, 57, 0.15)',
+                `0 16px 38px ${alpha(theme.palette.sidebar.bg, 0.25)}`,
               position: 'relative'
             }}
           >
@@ -397,7 +407,7 @@ const DashboardPage: React.FC = () => {
                 top: -180,
                 borderRadius: '50%',
                 background:
-                  'radial-gradient(circle, rgba(217,164,65,0.22), transparent 68%)',
+                  `radial-gradient(circle, ${alpha(theme.palette.secondary.main, 0.22)}, transparent 68%)`,
                 pointerEvents: 'none'
               }}
             />
@@ -440,9 +450,9 @@ const DashboardPage: React.FC = () => {
                             width: 8,
                             height: 8,
                             borderRadius: '50%',
-                            bgcolor: '#D9A441',
+                            bgcolor: theme.palette.secondary.main,
                             boxShadow:
-                              '0 0 0 5px rgba(217,164,65,0.12)'
+                              `0 0 0 5px ${alpha(theme.palette.secondary.main, 0.12)}`
                           }}
                         />
 
@@ -451,7 +461,7 @@ const DashboardPage: React.FC = () => {
                           sx={{
                             letterSpacing: '0.16em',
                             fontWeight: 800,
-                            color: 'rgba(255,255,255,0.68)'
+                            color: theme.palette.sidebar.textMuted
                           }}
                         >
                           FRONT DESK · TODAY
@@ -482,7 +492,7 @@ const DashboardPage: React.FC = () => {
                           mt: 1.5,
                           maxWidth: 650,
                           lineHeight: 1.75,
-                          color: 'rgba(255,255,255,0.68)'
+                          color: theme.palette.sidebar.textMuted
                         }}
                       >
                         Monitor arrivals, departures, room availability,
@@ -510,10 +520,10 @@ const DashboardPage: React.FC = () => {
                         label={`${overview.widgets.arrivalsToday} arrivals`}
                         sx={{
                           bgcolor:
-                            'rgba(255,255,255,0.09)',
-                          color: '#FFFFFF',
+                            theme.palette.sidebar.overlay,
+                          color: theme.palette.sidebar.text,
                           border:
-                            '1px solid rgba(255,255,255,0.08)',
+                            `1px solid ${theme.palette.sidebar.overlayBorder}`,
                           fontWeight: 600
                         }}
                       />
@@ -529,10 +539,10 @@ const DashboardPage: React.FC = () => {
                         label={`${overview.roomStatus.dueOut} due out`}
                         sx={{
                           bgcolor:
-                            'rgba(255,255,255,0.09)',
-                          color: '#FFFFFF',
+                            theme.palette.sidebar.overlay,
+                          color: theme.palette.sidebar.text,
                           border:
-                            '1px solid rgba(255,255,255,0.08)',
+                            `1px solid ${theme.palette.sidebar.overlayBorder}`,
                           fontWeight: 600
                         }}
                       />
@@ -548,10 +558,10 @@ const DashboardPage: React.FC = () => {
                         label={`${occupancyPercent.toFixed(1)}% occupancy`}
                         sx={{
                           bgcolor:
-                            'rgba(217,164,65,0.16)',
-                          color: '#F3D58E',
+                            alpha(theme.palette.secondary.main, 0.16),
+                          color: theme.palette.secondary.light,
                           border:
-                            '1px solid rgba(217,164,65,0.2)',
+                            `1px solid ${alpha(theme.palette.secondary.main, 0.2)}`,
                           fontWeight: 700
                         }}
                       />
@@ -562,7 +572,7 @@ const DashboardPage: React.FC = () => {
                           alignSelf: 'center',
                           ml: 0.5,
                           color:
-                            'rgba(255,255,255,0.48)'
+                            theme.palette.sidebar.textMuted
                         }}
                       >
                         Updated{' '}
@@ -593,9 +603,9 @@ const DashboardPage: React.FC = () => {
                       },
                       borderRadius: '14px',
                       bgcolor:
-                        'rgba(255,255,255,0.075)',
+                        theme.palette.sidebar.overlay,
                       border:
-                        '1px solid rgba(255,255,255,0.10)',
+                        `1px solid ${theme.palette.sidebar.overlayBorder}`,
                       backdropFilter: 'blur(10px)'
                     }}
                   >
@@ -623,7 +633,7 @@ const DashboardPage: React.FC = () => {
                             mt: 0.5,
                             lineHeight: 1.5,
                             color:
-                              'rgba(255,255,255,0.60)'
+                              theme.palette.sidebar.textMuted
                           }}
                         >
                           Find guests, reservations,
@@ -647,10 +657,10 @@ const DashboardPage: React.FC = () => {
                           borderRadius: '9px',
                           textTransform: 'none',
                           fontWeight: 700,
-                          bgcolor: '#D9A441',
-                          color: '#17212B',
+                          bgcolor: theme.palette.secondary.main,
+                          color: theme.palette.secondary.contrastText,
                           '&:hover': {
-                            bgcolor: '#E6B95B'
+                            bgcolor: theme.palette.secondary.light
                           }
                         }}
                       >
@@ -672,24 +682,24 @@ const DashboardPage: React.FC = () => {
                         mt: 2,
                         '& .MuiOutlinedInput-root': {
                           borderRadius: '10px',
-                          color: '#FFFFFF',
+                          color: theme.palette.sidebar.text,
                           bgcolor:
-                            'rgba(255,255,255,0.08)',
+                            theme.palette.sidebar.overlay,
                           '& fieldset': {
                             borderColor:
-                              'rgba(255,255,255,0.10)'
+                              theme.palette.sidebar.overlay
                           },
                           '&:hover fieldset': {
                             borderColor:
-                              'rgba(255,255,255,0.20)'
+                              theme.palette.sidebar.textMuted
                           },
                           '&.Mui-focused fieldset': {
-                            borderColor: '#D9A441'
+                            borderColor: theme.palette.secondary.main
                           }
                         },
                         '& input::placeholder': {
                           color:
-                            'rgba(255,255,255,0.42)',
+                            theme.palette.sidebar.textMuted,
                           opacity: 1
                         }
                       }}
@@ -699,7 +709,7 @@ const DashboardPage: React.FC = () => {
                             <SearchRounded
                               sx={{
                                 color:
-                                  'rgba(255,255,255,0.55)'
+                                  theme.palette.sidebar.textMuted
                               }}
                             />
                           </InputAdornment>
@@ -719,7 +729,7 @@ const DashboardPage: React.FC = () => {
                           variant="caption"
                           sx={{
                             color:
-                              'rgba(255,255,255,0.62)'
+                              theme.palette.sidebar.textMuted
                           }}
                         >
                           Searching reservations...
@@ -733,7 +743,7 @@ const DashboardPage: React.FC = () => {
                             variant="caption"
                             sx={{
                               color:
-                                'rgba(255,255,255,0.58)'
+                                theme.palette.sidebar.textMuted
                             }}
                           >
                             No reservation matched
@@ -767,7 +777,7 @@ const DashboardPage: React.FC = () => {
                                       <Divider
                                         sx={{
                                           borderColor:
-                                            'rgba(255,255,255,0.08)'
+                                            theme.palette.sidebar.overlay
                                         }}
                                       />
                                     )}
@@ -795,8 +805,7 @@ const DashboardPage: React.FC = () => {
                                             <Typography
                                               variant="caption"
                                               sx={{
-                                                color:
-                                                  '#FFFFFF',
+                                                color: theme.palette.sidebar.text,
                                                 fontWeight: 700
                                               }}
                                             >
@@ -813,9 +822,8 @@ const DashboardPage: React.FC = () => {
                                               sx={{
                                                 height: 20,
                                                 bgcolor:
-                                                  'rgba(255,255,255,0.10)',
-                                                color:
-                                                  '#FFFFFF'
+                                                  theme.palette.sidebar.overlay,
+                                                color: theme.palette.sidebar.text
                                               }}
                                             />
                                           </Stack>
@@ -825,7 +833,7 @@ const DashboardPage: React.FC = () => {
                                             variant="caption"
                                             sx={{
                                               color:
-                                                'rgba(255,255,255,0.52)'
+                                                theme.palette.sidebar.textMuted
                                             }}
                                           >
                                             {result.roomNumber
@@ -866,7 +874,8 @@ const DashboardPage: React.FC = () => {
                   item
                   xs={12}
                   sm={6}
-                  xl={3}
+                  md={4}
+                  xl={12 / summaryCards.length}
                   key={card.title}
                 >
                   <Card
@@ -893,8 +902,7 @@ const DashboardPage: React.FC = () => {
                         transform:
                           'translateY(-2px)',
                         boxShadow: isDark
-                          ? '0 14px 32px rgba(0,0,0,.22)'
-                          : '0 12px 32px rgba(15,34,57,.09)'
+                          ? theme.palette.card.shadow : theme.palette.card.shadow
                       }
                     }}
                   >
@@ -1333,12 +1341,7 @@ const DashboardPage: React.FC = () => {
                         display: 'grid',
                         placeItems:
                           'center',
-                        bgcolor: isDark
-                          ? alpha(
-                              '#FFFFFF',
-                              0.05
-                            )
-                          : '#F1F5F9',
+                        bgcolor: theme.palette.card.muted,
                         mb: 1.25
                       }}
                     >
@@ -1425,12 +1428,7 @@ const DashboardPage: React.FC = () => {
                                 '&:hover':
                                   {
                                     bgcolor:
-                                      isDark
-                                        ? alpha(
-                                            '#FFFFFF',
-                                            0.04
-                                          )
-                                        : '#F8FAFC'
+                                      theme.palette.card.hover
                                   }
                               }}
                             >
@@ -1446,14 +1444,8 @@ const DashboardPage: React.FC = () => {
                                     'center',
                                   mr: 1.5,
                                   bgcolor:
-                                    isDark
-                                      ? alpha(
-                                          '#2D648B',
-                                          0.18
-                                        )
-                                      : '#EFF6FA',
-                                  color:
-                                    '#2D648B',
+                                    alpha(theme.palette.primary.main, isDark ? 0.18 : 0.08),
+                                  color: theme.palette.primary.main,
                                   flexShrink: 0
                                 }}
                               >
@@ -1543,19 +1535,9 @@ const DashboardPage: React.FC = () => {
                 px: 2,
                 py: 1.5,
                 borderRadius: '12px',
-                bgcolor: isDark
-                  ? alpha(
-                      '#D9A441',
-                      0.08
-                    )
-                  : '#FFF9EC',
+                bgcolor: alpha(theme.palette.secondary.main, isDark ? 0.08 : 0.1),
                 border: `1px solid ${
-                  isDark
-                    ? alpha(
-                        '#D9A441',
-                        0.18
-                      )
-                    : '#F1DEB0'
+                  alpha(theme.palette.secondary.main, isDark ? 0.18 : 0.35)
                 }`,
               }}
             >
@@ -1604,9 +1586,9 @@ const DashboardPage: React.FC = () => {
                     textTransform:
                       'none',
                     fontWeight: 700,
-                    bgcolor: '#B66A2B',
+                    bgcolor: theme.palette.secondary.dark,
                     '&:hover': {
-                      bgcolor: '#9C5921'
+                      bgcolor: darken(theme.palette.secondary.dark, 0.12)
                     }
                   }}
                 >

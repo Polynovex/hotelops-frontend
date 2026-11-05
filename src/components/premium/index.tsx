@@ -1,7 +1,6 @@
 import { Box, Chip, LinearProgress, Paper, Skeleton, Stack, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { alpha } from '@mui/material/styles';
-import { gradients } from '../../theme/theme';
 
 /**
  * Shared premium surfaces (Part 5).
@@ -33,9 +32,9 @@ export const PremiumCard = ({ children, variant = 'plain', interactive, sx }: Pr
       overflow: 'hidden',
       transition: 'transform 200ms ease, box-shadow 200ms ease',
       ...(variant === 'navy'
-        ? { background: gradients.premiumBlue, color: '#FFFFFF', borderColor: 'transparent' }
+        ? { background: (t: Theme) => t.palette.sidebar.hero, color: (t: Theme) => t.palette.sidebar.text, borderColor: 'transparent' }
         : variant === 'tinted'
-          ? { background: (t: Theme) => (t.palette.mode === 'dark' ? undefined : gradients.cardCool) }
+          ? { background: (t: Theme) => `linear-gradient(135deg, ${t.palette.card.bg} 0%, ${t.palette.card.muted} 100%)` }
           : {}),
       ...(interactive
         ? {
@@ -103,8 +102,8 @@ export const MetricCard = ({
                 borderRadius: 1.5,
                 display: 'grid',
                 placeItems: 'center',
-                bgcolor: onNavy ? alpha('#FFFFFF', 0.14) : (t: Theme) => alpha(t.palette.primary.main, 0.08),
-                color: onNavy ? '#FFFFFF' : 'primary.main'
+                bgcolor: onNavy ? (t: Theme) => t.palette.sidebar.overlay : (t: Theme) => alpha(t.palette.primary.main, 0.08),
+                color: onNavy ? 'sidebar.text' : 'primary.main'
               }}
             >
               {icon}
@@ -113,7 +112,7 @@ export const MetricCard = ({
           <Typography
             variant="body2"
             fontWeight={600}
-            sx={{ color: onNavy ? alpha('#FFFFFF', 0.78) : 'text.secondary' }}
+            sx={{ color: onNavy ? 'sidebar.textMuted' : 'text.secondary' }}
           >
             {label}
           </Typography>
@@ -124,7 +123,7 @@ export const MetricCard = ({
           fontWeight={700}
           sx={{
             mb: 0.5,
-            color: onNavy ? '#FFFFFF' : 'text.primary',
+            color: onNavy ? 'sidebar.text' : 'text.primary',
             // These refresh live; proportional digits make the figure jitter
             // as values change, and misalign amounts read down a column.
             fontVariantNumeric: 'tabular-nums'
@@ -153,7 +152,7 @@ export const MetricCard = ({
           {detail && (
             <Typography
               variant="caption"
-              sx={{ color: onNavy ? alpha('#FFFFFF', 0.68) : 'text.secondary' }}
+              sx={{ color: onNavy ? 'sidebar.textMuted' : 'text.secondary' }}
             >
               {detail}
             </Typography>

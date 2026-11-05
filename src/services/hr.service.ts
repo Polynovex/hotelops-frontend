@@ -55,6 +55,8 @@ export interface ShiftAccess {
   endsAt?: string;
   opensAt?: string;
   overrideUntil?: string;
+  /** When access closes, for the countdown. */
+  accessEndsAt?: string;
   shift?: { id: string; startsAt: string; endsAt: string; position: string | null; overtimeStatus: string } | null;
   attendance?: { id: string; clockIn: string | null; clockOut: string | null } | null;
 }
@@ -151,6 +153,11 @@ export interface LeaveRequestRecord {
   totalDays: number;
   reason: string | null;
   status: LeaveStatus;
+  /** What the staff member asked for; startDate/endDate are what was approved. */
+  requestedStartDate?: string | null;
+  requestedEndDate?: string | null;
+  requestedDays?: number | null;
+  balanceOverrideReason?: string | null;
   staff?: { id: string; firstName: string; lastName: string; staffNumber: string | null };
 }
 
@@ -302,6 +309,12 @@ export const hrService = {
    * attendance, payslips and shift history all still resolve — so this is a
    * status change, not an erasure.
    */
+  /** Removes a person from HR and the staff accounts; their history is kept. Needs your own password. */
+  async removeStaff(id: string, password: string) {
+    const { data } = await api.delete(`/hr/staff/${id}`, { data: { password } });
+    return data as { message: string; id: string; kept: boolean };
+  },
+
   async terminateStaff(id: string) {
     const { data } = await api.put(`/hr/staff/${id}/terminate`);
     return data;
@@ -393,8 +406,9 @@ export const hrService = {
     return data as LeaveRequestRecord;
   },
 
-  async approveLeave(id: string) {
-    const { data } = await api.put(`/hr/leave/${id}/approve`);
+  /** Approves, optionally with changed dates; over the balance needs the owner's reason. */
+  async approveLeave(id: string, payload: { startDate?: string; endDate?: string; notes?: string; balanceOverrideReason?: string } = {}) {
+    const { data } = await api.put(`/hr/leave/${id}/approve`, payload);
     return data as LeaveRequestRecord;
   },
 

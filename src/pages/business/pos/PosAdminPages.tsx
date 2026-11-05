@@ -461,7 +461,7 @@ const SetupChips = ({
   emptyText,
   onDelete
 }: {
-  entries: Array<SetupRecord & { locked?: boolean }>;
+  entries: Array<SetupRecord & { locked?: boolean; lockedReason?: string }>;
   emptyText: string;
   onDelete: (entry: SetupRecord) => void;
 }) => (
@@ -476,7 +476,7 @@ const SetupChips = ({
           size="small"
           variant="outlined"
           {...(entry.locked
-            ? { title: 'Linked to events — cannot be deleted' }
+            ? { title: entry.lockedReason ?? 'Linked to events — cannot be deleted', color: 'primary' as const }
             : { onDelete: () => onDelete(entry), deleteIcon: <CloseRoundedIcon titleAccess={`Delete ${entry.name}`} /> })}
         />
       ))
@@ -520,7 +520,7 @@ export const PosMenuManagementPage = () => {
 
   /** Records carry the ids the delete calls need; the name lists feed the form. */
   const [categoryRecords, setCategoryRecords] = useState<SetupRecord[]>([]);
-  const [stationRecords, setStationRecords] = useState<SetupRecord[]>([]);
+  const [stationRecords, setStationRecords] = useState<Array<SetupRecord & { locked?: boolean; lockedReason?: string }>>([]);
   /** Which setup entry the confirm dialog is asking about. */
   const [pendingSetupDelete, setPendingSetupDelete] = useState<PendingSetupDelete | null>(null);
   const [deletingSetup, setDeletingSetup] = useState(false);
@@ -546,9 +546,12 @@ export const PosMenuManagementPage = () => {
     const stationRows = valueOf(settled[3], [] as string[]);
     setCategoryRecords(valueOf(settled[4], [] as SetupRecord[]));
     setStationRecords(
-      valueOf(settled[5], [] as Array<{ id: string; name: string }>).map((row) => ({
+      valueOf(settled[5], [] as Array<{ id: string; name: string; isDefault?: boolean }>).map((row) => ({
         id: row.id,
-        name: row.name
+        name: row.name,
+        // Kitchen, Pastry and Grill are the standard stations; only added ones can be removed.
+        locked: Boolean(row.isDefault),
+        lockedReason: 'A standard station — always available, cannot be removed'
       }))
     );
     if (settled[0].status === 'rejected' || settled[1].status === 'rejected') {

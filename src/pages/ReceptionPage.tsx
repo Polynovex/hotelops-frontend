@@ -175,7 +175,7 @@ const ReceptionPage: React.FC = () => {
                 <Typography color="textSecondary" gutterBottom>
                   Available Rooms
                 </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#4caf50' }}>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'success.main' }}>
                   {availableRooms.length}
                 </Typography>
               </CardContent>
@@ -187,7 +187,7 @@ const ReceptionPage: React.FC = () => {
                 <Typography color="textSecondary" gutterBottom>
                   Pending Check-ins
                 </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#ff9800' }}>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'warning.main' }}>
                   {bookings.filter((b) => b.status === 'PENDING').length}
                 </Typography>
               </CardContent>
@@ -199,7 +199,7 @@ const ReceptionPage: React.FC = () => {
                 <Typography color="textSecondary" gutterBottom>
                   Checked In
                 </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1976d2' }}>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'info.main' }}>
                   {bookings.filter((b) => b.status === 'CHECKED_IN').length}
                 </Typography>
               </CardContent>
@@ -211,7 +211,7 @@ const ReceptionPage: React.FC = () => {
                 <Typography color="textSecondary" gutterBottom>
                   Total Bookings
                 </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#9c27b0' }}>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'secondary.main' }}>
                   {bookings.length}
                 </Typography>
               </CardContent>
@@ -259,7 +259,7 @@ const ReceptionPage: React.FC = () => {
 
         {/* Service Requests */}
         <Paper sx={{ mb: 4 }}>
-          <Box sx={{ p: 3, borderBottom: '1px solid #e0e0e0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ p: 3, borderBottom: 1, borderColor: 'card.border', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
               Service Requests
             </Typography>
@@ -298,7 +298,7 @@ const ReceptionPage: React.FC = () => {
 
         {/* Bookings Table */}
         <Paper sx={{ mb: 4 }}>
-          <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e0e0e0' }}>
+          <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: 'card.border' }}>
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
               Guest Bookings
             </Typography>
@@ -308,7 +308,7 @@ const ReceptionPage: React.FC = () => {
           </Box>
 
           {/* Search */}
-          <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
+          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'card.border' }}>
             <TextField
               placeholder="Search guest name..."
               size="small"
@@ -330,7 +330,7 @@ const ReceptionPage: React.FC = () => {
           <TableContainer>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                <TableRow sx={{ backgroundColor: 'card.muted' }}>
                   <TableCell sx={{ fontWeight: 'bold' }}>Guest Name</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Email</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Room ID</TableCell>
@@ -396,7 +396,7 @@ const ReceptionPage: React.FC = () => {
 
         {/* Available Rooms */}
         <Paper>
-          <Box sx={{ p: 3, borderBottom: '1px solid #e0e0e0' }}>
+          <Box sx={{ p: 3, borderBottom: 1, borderColor: 'card.border' }}>
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
               Available Rooms
             </Typography>

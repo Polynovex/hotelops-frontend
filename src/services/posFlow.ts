@@ -173,6 +173,28 @@ export interface KitchenProduction {
     variance: number | null;
   }>;
   unplanned: Array<{ id: string; dishName: string; producedQuantity: number; wastedQuantity: number; unit: string; notes: string | null }>;
+  /** Every station (Kitchen, Pastry, Grill and any added), with its dishes and what is left. */
+  stations?: Array<{
+    code: string;
+    name: string;
+    isDefault: boolean;
+    rows: Array<{
+      timetableEntryId: string | null;
+      menuItemId: string | null;
+      dishName: string;
+      mealPeriod: TimetableEntry['mealPeriod'] | null;
+      unit: string;
+      planned: number | null;
+      produced: number;
+      wasted: number;
+      variance: number | null;
+      sold: number;
+      left: number | null;
+      onMenu: boolean | null;
+      soldOut: boolean;
+      logId?: string;
+    }>;
+  }>;
 }
 
 export interface KitchenOverview {

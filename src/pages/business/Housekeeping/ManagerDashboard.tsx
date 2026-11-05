@@ -20,6 +20,7 @@
 //   TextField,
 //   Typography
 // } from '@mui/material';
+import { alpha, useTheme, type Theme } from '@mui/material/styles';
 // import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 // import CancelIcon from '@mui/icons-material/Cancel';
 // import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
@@ -567,7 +568,41 @@ const COLORS = {
   blueBg: '#EAF2FB',
 
   purple: '#7258A8',
-  purpleBg: '#F1EDFA'
+  purpleBg: '#F1EDFA',
+  surfaceAlt: '#F8FAFC'
+};
+
+/**
+ * Brings COLORS in line with the active theme: the business's colours and
+ * light/dark mode, the same source as the sidebar. Called by the page before
+ * its children render, so every card below reads the current values.
+ */
+const syncColors = (theme: Theme) => {
+  const p = theme.palette;
+  const dark = p.mode === 'dark';
+  Object.assign(COLORS, {
+    navy: p.primary.main,
+    navyDark: p.primary.dark,
+    navySoft: p.primary.light,
+    gold: p.secondary.main,
+    goldLight: alpha(p.secondary.main, dark ? 0.18 : 0.16),
+    background: p.background.default,
+    surface: p.card.bg,
+    surfaceAlt: p.card.muted,
+    border: p.card.border,
+    text: p.card.header,
+    textMuted: p.card.body,
+    green: p.success.main,
+    greenBg: alpha(p.success.main, dark ? 0.18 : 0.1),
+    amber: p.warning.main,
+    amberBg: alpha(p.warning.main, dark ? 0.18 : 0.1),
+    red: p.error.main,
+    redBg: alpha(p.error.main, dark ? 0.18 : 0.1),
+    blue: p.info.main,
+    blueBg: alpha(p.info.main, dark ? 0.2 : 0.1),
+    purple: dark ? '#B7A3E6' : '#7258A8',
+    purpleBg: alpha('#7258A8', dark ? 0.22 : 0.1)
+  });
 };
 
 /* -------------------------------------------------------------------------- */
@@ -590,7 +625,7 @@ const StatCard = ({
   const toneMap = {
     navy: {
       color: COLORS.navy,
-      background: '#EDF3F8'
+      background: COLORS.surfaceAlt
     },
     gold: {
       color: COLORS.gold,
@@ -761,7 +796,7 @@ const SectionHeader = ({
           borderRadius: 1.5,
           display: 'grid',
           placeItems: 'center',
-          background: '#F0F3F6',
+          background: COLORS.surfaceAlt,
           color: COLORS.text,
           fontSize: 12,
           fontWeight: 800
@@ -798,8 +833,8 @@ const EmptyState = ({
         borderRadius: '50%',
         display: 'grid',
         placeItems: 'center',
-        background: '#F3F6F8',
-        color: '#8A99A8'
+        background: COLORS.surfaceAlt,
+        color: COLORS.textMuted
       }}
     >
       {icon}
@@ -847,7 +882,7 @@ const RoomIdentity = ({
         borderRadius: 2,
         display: 'grid',
         placeItems: 'center',
-        background: '#EEF3F7',
+        background: COLORS.surfaceAlt,
         color: COLORS.navy
       }}
     >
@@ -922,7 +957,7 @@ const StaffAvatars = ({
           border: '2px solid white',
           display: 'grid',
           placeItems: 'center',
-          background: '#E8EDF2',
+          background: COLORS.surfaceAlt,
           color: COLORS.textMuted,
           fontSize: 10,
           fontWeight: 800
@@ -939,6 +974,7 @@ const StaffAvatars = ({
 /* -------------------------------------------------------------------------- */
 
 const HousekeepingManagerDashboard = () => {
+  syncColors(useTheme());
   const roomTypeName = useRoomTypeNames();
   const { on } = useWebSocket();
 
@@ -1268,12 +1304,12 @@ const HousekeepingManagerDashboard = () => {
                 borderRadius: 2,
                 textTransform: 'none',
                 fontWeight: 700,
-                borderColor: '#D5DEE7',
+                borderColor: COLORS.border,
                 color: COLORS.navy,
                 background: '#fff',
                 '&:hover': {
                   borderColor: COLORS.navy,
-                  background: '#F8FAFC'
+                  background: COLORS.surfaceAlt
                 }
               }}
             >
@@ -1287,7 +1323,7 @@ const HousekeepingManagerDashboard = () => {
               sx={{
                 mb: 3,
                 borderRadius: 2,
-                border: '1px solid #F1C6C2'
+                border: `1px solid ${alpha(COLORS.red, 0.3)}`
               }}
               onClose={() => setError('')}
             >
@@ -1393,7 +1429,7 @@ const HousekeepingManagerDashboard = () => {
                           p: 2,
                           transition: 'background .18s ease',
                           '&:hover': {
-                            background: '#FAFBFC'
+                            background: COLORS.surfaceAlt
                           }
                         }}
                       >
@@ -1420,7 +1456,7 @@ const HousekeepingManagerDashboard = () => {
                               fontWeight: 800,
                               color: COLORS.amber,
                               background: COLORS.amberBg,
-                              border: `1px solid #F0D6A9`
+                              border: `1px solid ${alpha(COLORS.amber, 0.35)}`
                             }}
                           />
 
@@ -1503,7 +1539,7 @@ const HousekeepingManagerDashboard = () => {
                             p: 2,
                             transition: 'background .18s ease',
                             '&:hover': {
-                              background: '#FAFBFC'
+                              background: COLORS.surfaceAlt
                             }
                           }}
                         >
@@ -1661,7 +1697,7 @@ const HousekeepingManagerDashboard = () => {
                             p: 2,
                             transition: 'background .18s ease',
                             '&:hover': {
-                              background: '#FAFBFC'
+                              background: COLORS.surfaceAlt
                             }
                           }}
                         >
@@ -1785,7 +1821,7 @@ const HousekeepingManagerDashboard = () => {
               p: 2,
               borderRadius: 3,
               border: `1px solid ${COLORS.border}`,
-              background: '#FBFCFD'
+              background: COLORS.surfaceAlt
             }}
           >
             <Stack
@@ -1840,7 +1876,7 @@ const HousekeepingManagerDashboard = () => {
                   letterSpacing: '.05em',
                   color: COLORS.green,
                   background: COLORS.greenBg,
-                  border: `1px solid #C9E9DC`
+                  border: `1px solid ${alpha(COLORS.green, 0.3)}`
                 }}
               />
             </Stack>
@@ -2062,7 +2098,7 @@ const HousekeepingManagerDashboard = () => {
             px: 3,
             py: 2,
             borderTop: `1px solid ${COLORS.border}`,
-            background: '#FAFBFC'
+            background: COLORS.surfaceAlt
           }}
         >
           <Button
@@ -2116,7 +2152,7 @@ const HousekeepingManagerDashboard = () => {
             px: 3,
             py: 2.5,
             background: COLORS.redBg,
-            borderBottom: `1px solid #F2D0CD`
+            borderBottom: `1px solid ${alpha(COLORS.red, 0.3)}`
           }}
         >
           <Stack direction="row" spacing={1.5} alignItems="center">
@@ -2185,7 +2221,7 @@ const HousekeepingManagerDashboard = () => {
             px: 3,
             py: 2,
             borderTop: `1px solid ${COLORS.border}`,
-            background: '#FAFBFC'
+            background: COLORS.surfaceAlt
           }}
         >
           <Button

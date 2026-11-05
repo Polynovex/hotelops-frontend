@@ -36,6 +36,7 @@ export interface BillingDoc {
   balance: number;
   overdue: boolean;
   payments: Array<{ amount: number; method: string; reference?: string | null; paidAt: string }> | null;
+  updatedAt?: string;
   notes: string | null;
   terms: string | null;
   convertedFromId: string | null;

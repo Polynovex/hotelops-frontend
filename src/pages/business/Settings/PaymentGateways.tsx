@@ -1,3 +1,4 @@
+import CheckInPaymentCard from '../../../components/settings/CheckInPaymentCard';
 import Layout from '../../../components/Layout';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -180,6 +181,8 @@ const PaymentGatewaysSettingsPage = () => {
             {error}
           </Alert>
         ) : null}
+
+        <CheckInPaymentCard />
 
         <AcceptedMethodsCard />
 

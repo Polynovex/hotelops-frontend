@@ -1,3 +1,4 @@
+import { useChartColors } from '../../../hooks/useChartColors';
 import { useEffect, useState } from 'react';
 import { downloadFile } from '../../../services/desktopBridge';
 import {
@@ -57,6 +58,7 @@ const fmt = (v: number) =>
   new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(v);
 
 const FinancialForecastingPage = () => {
+  const chart = useChartColors();
   const token = useAuthStore((s) => s.token);
   const baseUrl = (import.meta as any).env?.VITE_API_URL ?? '';
 
@@ -230,8 +232,8 @@ const FinancialForecastingPage = () => {
                   <YAxis tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
                   <Tooltip formatter={(v: any) => fmt(v)} />
                   <Legend />
-                  <Bar dataKey="currentYear" name={String(yoyData.currentYear)} fill="#1A3A4A" />
-                  <Bar dataKey="priorYear" name={String(yoyData.priorYear)} fill="#D7A34D" />
+                  <Bar dataKey="currentYear" name={String(yoyData.currentYear)} fill={chart.primary} />
+                  <Bar dataKey="priorYear" name={String(yoyData.priorYear)} fill={chart.accent} />
                 </BarChart>
               </ResponsiveContainer>
             </Paper>
@@ -252,13 +254,13 @@ const FinancialForecastingPage = () => {
                   <tbody>
                     {yoyData.months.map((m) => (
                       <tr key={m.month}>
-                        <td style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0' }}>{m.month}</td>
-                        <td style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0' }}>{fmt(m.currentYear)}</td>
-                        <td style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0' }}>{fmt(m.priorYear)}</td>
-                        <td style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0', color: m.change >= 0 ? '#2e7d32' : '#c62828' }}>
+                        <td style={{ padding: '8px 12px', borderBottom: `1px solid ${chart.grid}` }}>{m.month}</td>
+                        <td style={{ padding: '8px 12px', borderBottom: `1px solid ${chart.grid}` }}>{fmt(m.currentYear)}</td>
+                        <td style={{ padding: '8px 12px', borderBottom: `1px solid ${chart.grid}` }}>{fmt(m.priorYear)}</td>
+                        <td style={{ padding: '8px 12px', borderBottom: `1px solid ${chart.grid}`, color: m.change >= 0 ? chart.success : chart.error }}>
                           {m.change >= 0 ? '+' : ''}{fmt(m.change)}
                         </td>
-                        <td style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0' }}>
+                        <td style={{ padding: '8px 12px', borderBottom: `1px solid ${chart.grid}` }}>
                           {m.changePercent !== null ? `${m.changePercent > 0 ? '+' : ''}${m.changePercent}%` : '—'}
                         </td>
                       </tr>
@@ -306,8 +308,8 @@ const FinancialForecastingPage = () => {
                   <YAxis tickFormatter={(v) => `₦${(v / 1_000_000).toFixed(1)}M`} />
                   <Tooltip formatter={(v: any) => fmt(v)} />
                   <Legend />
-                  <Line type="monotone" dataKey="actual" name="Actual Revenue" stroke="#1A3A4A" strokeWidth={2} dot={{ r: 4 }} connectNulls={false} />
-                  <Line type="monotone" dataKey="forecast" name="Predicted Revenue" stroke="#D7A34D" strokeWidth={2} strokeDasharray="6 3" dot={{ r: 4 }} connectNulls={false} />
+                  <Line type="monotone" dataKey="actual" name="Actual Revenue" stroke={chart.primary} strokeWidth={2} dot={{ r: 4 }} connectNulls={false} />
+                  <Line type="monotone" dataKey="forecast" name="Predicted Revenue" stroke={chart.accent} strokeWidth={2} strokeDasharray="6 3" dot={{ r: 4 }} connectNulls={false} />
                 </LineChart>
               </ResponsiveContainer>
             </Paper>

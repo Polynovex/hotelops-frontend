@@ -1,3 +1,4 @@
+import { useRoomTypeNames } from '../../hooks/useRoomTypeNames';
 import { Box, Button, Divider, Grid, IconButton, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
@@ -43,6 +44,7 @@ export function DailyRecordForm({
   meta: Meta | null;
   readOnly?: boolean;
 }) {
+  const roomTypeName = useRoomTypeNames();
   const set = (patch: Partial<DailyRecordData>) => onChange({ ...value, ...patch });
   const sources = meta?.revenueSources ?? [];
   const categories = meta?.expenseCategories ?? [];
@@ -219,7 +221,7 @@ export function DailyRecordForm({
           <Box><Typography variant="caption" color="text.secondary">Room revenue</Typography><Typography fontWeight={700}>{naira(roomRevenue)}</Typography></Box>
           {value.rooms.topRoomTypes.length > 0 && (
             <Box><Typography variant="caption" color="text.secondary">Top room types</Typography>
-              <Typography variant="body2">{value.rooms.topRoomTypes.slice(0, 3).map((type) => `${type.roomType} (${type.sold})`).join(', ')}</Typography>
+              <Typography variant="body2">{value.rooms.topRoomTypes.slice(0, 3).map((type) => `${roomTypeName(type.roomType)} (${type.sold})`).join(', ')}</Typography>
             </Box>
           )}
         </Stack>

@@ -574,6 +574,36 @@ export interface ReservationRecord {
   qRoomPriority?: number;
   preStayCharging?: boolean;
   queuedAt?: string | null;
+  /** Set for event rooms: the room is billed and paid on this event. */
+  eventBookingId?: string | null;
+  event?: { id: string; reference: string; name: string } | null;
+  /** What must be paid before check-in (arrivals only). */
+  checkInPayment?: CheckInPayment | null;
+  /** A manager let the guest in before paying. */
+  paymentOverride?: { reason: string | null; at: string; by: string | null } | null;
+}
+
+export interface CheckInPayment {
+  rule: 'FIRST_NIGHT' | 'TWO_NIGHTS' | 'FULL_STAY';
+  required: number;
+  paid: number;
+  met: boolean;
+  event: { id: string; reference: string; eventName: string } | null;
+  override: { by: string | null; reason: string | null; at: string | null } | null;
+}
+
+export interface AwaitingEventRoom {
+  id: string;
+  bookingNumber: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  roomTypeCode: string | null;
+  roomTypeName: string | null;
+  isQRoom: boolean;
+  guestName: string;
+  guestPhone: string | null;
+  event: { id: string; reference: string; eventName: string; organization: string | null; contactName: string } | null;
 }
 
 export interface QRoomRecord extends ReservationRecord {
@@ -677,7 +707,11 @@ const mapBookingToReservation = (booking: Record<string, unknown>): ReservationR
         ? booking.queuedAt
         : typeof booking.qRoomQueuedAt === 'string'
           ? booking.qRoomQueuedAt
-          : null
+          : null,
+    eventBookingId: typeof booking.eventBookingId === 'string' ? booking.eventBookingId : null,
+    event: (booking.event as ReservationRecord['event']) ?? null,
+    checkInPayment: (booking.checkInPayment as CheckInPayment | null | undefined) ?? null,
+    paymentOverride: (booking.paymentOverride as ReservationRecord['paymentOverride']) ?? null
   };
 };
 
@@ -1074,6 +1108,25 @@ export const reservationOpsService = {
       const response = await api.post(`/reservations/${reservationId}/q-room`, payload);
       return mapBookingToReservation(response.data as Record<string, unknown>);
     }
+  },
+
+  /** Event rooms waiting for a room number, for their own front-desk section. */
+  async listAwaitingEventRooms(): Promise<AwaitingEventRoom[]> {
+    if (isDemoMode()) return [];
+    return toArray<AwaitingEventRoom>((await api.get('/events/rooms/awaiting')).data);
+  },
+
+  /** Names the real guest in an event room (they are booked under the organiser). */
+  async setEventRoomGuest(bookingId: string, payload: { guestName: string; phone?: string; email?: string }) {
+    return (await api.post(`/events/rooms/${bookingId}/guest`, payload)).data as { id: string; guestId: string };
+  },
+
+  async checkInPayment(reservationId: string): Promise<CheckInPayment> {
+    return (await api.get(`/reservations/${reservationId}/check-in-payment`)).data as CheckInPayment;
+  },
+
+  async overrideCheckInPayment(reservationId: string, reason: string): Promise<CheckInPayment> {
+    return (await api.post(`/reservations/${reservationId}/check-in-override`, { reason })).data as CheckInPayment;
   },
 
   async listArrivals(targetDate: string): Promise<ReservationRecord[]> {

@@ -214,8 +214,8 @@ export const RoomStatusBoardPage = () => {
       default:
         return {
           label: status,
-          color: '#64748b',
-          background: '#f1f5f9',
+          color: 'card.body',
+          background: 'card.muted',
           border: '#dce3ea',
           icon: <ErrorOutline sx={{ fontSize: 18 }} />
         };
@@ -266,7 +266,7 @@ export const RoomStatusBoardPage = () => {
       <Box
         sx={{
           minHeight: '100%',
-          background: '#f4f7fb',
+          bgcolor: 'background.default',
           py: { xs: 2.5, md: 4 }
         }}
       >
@@ -279,9 +279,9 @@ export const RoomStatusBoardPage = () => {
             elevation={0}
             sx={{
               borderRadius: 3,
-              border: '1px solid #e2e8f0',
+              border: '1px solid', borderColor: 'card.border',
               background:
-                'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                (t: { palette: { card: { bg: string; muted: string } } }) => `linear-gradient(135deg, ${t.palette.card.bg} 0%, ${t.palette.card.bg} 100%)`,
               p: { xs: 2.5, md: 3.5 },
               mb: 2.5
             }}
@@ -327,7 +327,7 @@ export const RoomStatusBoardPage = () => {
                     fontSize: { xs: 26, md: 32 },
                     fontWeight: 800,
                     letterSpacing: '-0.025em',
-                    color: '#172330'
+                    color: 'card.header'
                   }}
                 >
                   Room Status Board
@@ -336,7 +336,7 @@ export const RoomStatusBoardPage = () => {
                 <Typography
                   sx={{
                     mt: 0.6,
-                    color: '#64748b',
+                    color: 'card.body',
                     fontSize: 14
                   }}
                 >
@@ -356,12 +356,12 @@ export const RoomStatusBoardPage = () => {
                   borderRadius: 2,
                   textTransform: 'none',
                   fontWeight: 700,
-                  borderColor: '#d7dee7',
-                  color: '#12304d',
+                  borderColor: 'card.border',
+                  color: 'primary.main',
                   backgroundColor: '#fff',
                   '&:hover': {
-                    borderColor: '#12304d',
-                    backgroundColor: '#f8fafc'
+                    borderColor: 'primary.main',
+                    backgroundColor: 'card.muted'
                   }
                 }}
               >
@@ -394,13 +394,13 @@ export const RoomStatusBoardPage = () => {
                   overflow: 'hidden',
                   p: 2.2,
                   borderRadius: 2.5,
-                  border: '1px solid #e2e8f0',
-                  background: '#ffffff',
+                  border: '1px solid', borderColor: 'card.border',
+                  bgcolor: 'card.bg',
                   transition: 'all 180ms ease',
                   '&:hover': {
                     transform: 'translateY(-2px)',
                     boxShadow: '0 12px 28px rgba(15, 34, 52, 0.08)',
-                    borderColor: '#d4dce5'
+                    borderColor: 'card.border'
                   }
                 }}
               >
@@ -424,7 +424,7 @@ export const RoomStatusBoardPage = () => {
                     <Typography
                       sx={{
                         fontSize: 12,
-                        color: '#64748b',
+                        color: 'card.body',
                         fontWeight: 700,
                         mb: 0.8
                       }}
@@ -437,7 +437,7 @@ export const RoomStatusBoardPage = () => {
                         fontSize: 28,
                         lineHeight: 1,
                         fontWeight: 800,
-                        color: '#172330'
+                        color: 'card.header'
                       }}
                     >
                       {stat.value}
@@ -469,8 +469,8 @@ export const RoomStatusBoardPage = () => {
             elevation={0}
             sx={{
               borderRadius: 3,
-              border: '1px solid #e2e8f0',
-              background: '#ffffff',
+              border: '1px solid', borderColor: 'card.border',
+              bgcolor: 'card.bg',
               overflow: 'hidden'
             }}
           >
@@ -479,7 +479,7 @@ export const RoomStatusBoardPage = () => {
             <Box
               sx={{
                 p: { xs: 2, md: 2.5 },
-                borderBottom: '1px solid #edf1f5'
+                borderBottom: '1px solid', borderBottomColor: 'card.border'
               }}
             >
               <Stack
@@ -491,7 +491,7 @@ export const RoomStatusBoardPage = () => {
                   <Typography
                     sx={{
                       fontWeight: 800,
-                      color: '#172330',
+                      color: 'card.header',
                       fontSize: 17
                     }}
                   >
@@ -500,7 +500,7 @@ export const RoomStatusBoardPage = () => {
 
                   <Typography
                     sx={{
-                      color: '#718096',
+                      color: 'card.body',
                       fontSize: 13,
                       mt: 0.4
                     }}
@@ -518,7 +518,7 @@ export const RoomStatusBoardPage = () => {
                     width: { xs: '100%', lg: 300 },
                     '& .MuiOutlinedInput-root': {
                       borderRadius: 2,
-                      backgroundColor: '#f8fafc'
+                      backgroundColor: 'card.muted'
                     }
                   }}
                   InputProps={{
@@ -526,7 +526,7 @@ export const RoomStatusBoardPage = () => {
                       <Search
                         sx={{
                           mr: 1,
-                          color: '#94a3b8',
+                          color: 'card.body',
                           fontSize: 20
                         }}
                       />
@@ -553,11 +553,11 @@ export const RoomStatusBoardPage = () => {
                     fontWeight: 700,
                     px: 1.5,
                     backgroundColor:
-                      filter === 'ALL' ? '#12304d' : '#f1f5f9',
-                    color: filter === 'ALL' ? '#fff' : '#526273',
+                      filter === 'ALL' ? 'primary.main' : 'card.muted',
+                    color: filter === 'ALL' ? 'primary.contrastText' : 'card.body',
                     '&:hover': {
                       backgroundColor:
-                        filter === 'ALL' ? '#0d263d' : '#e8edf3'
+                        filter === 'ALL' ? 'primary.dark' : 'card.muted'
                     }
                   }}
                 >
@@ -572,9 +572,9 @@ export const RoomStatusBoardPage = () => {
                     textTransform: 'none',
                     fontWeight: 700,
                     backgroundColor:
-                      filter === 'AVAILABLE' ? '#e8f7f1' : '#f8fafc',
+                      filter === 'AVAILABLE' ? '#e8f7f1' : 'card.muted',
                     color:
-                      filter === 'AVAILABLE' ? '#16805c' : '#526273'
+                      filter === 'AVAILABLE' ? '#16805c' : 'card.body'
                   }}
                 >
                   Available ({counts.available})
@@ -588,9 +588,9 @@ export const RoomStatusBoardPage = () => {
                     textTransform: 'none',
                     fontWeight: 700,
                     backgroundColor:
-                      filter === 'OCCUPIED' ? '#edf4ff' : '#f8fafc',
+                      filter === 'OCCUPIED' ? '#edf4ff' : 'card.muted',
                     color:
-                      filter === 'OCCUPIED' ? '#2457a6' : '#526273'
+                      filter === 'OCCUPIED' ? '#2457a6' : 'card.body'
                   }}
                 >
                   Occupied ({counts.occupied})
@@ -603,8 +603,8 @@ export const RoomStatusBoardPage = () => {
                     borderRadius: 1.8,
                     textTransform: 'none',
                     fontWeight: 700,
-                    backgroundColor: filter === 'DIRTY' ? '#fff1ec' : '#f8fafc',
-                    color: filter === 'DIRTY' ? '#b4472a' : '#526273'
+                    backgroundColor: filter === 'DIRTY' ? '#fff1ec' : 'card.muted',
+                    color: filter === 'DIRTY' ? '#b4472a' : 'card.body'
                   }}
                 >
                   Dirty ({counts.dirty})
@@ -618,9 +618,9 @@ export const RoomStatusBoardPage = () => {
                     textTransform: 'none',
                     fontWeight: 700,
                     backgroundColor:
-                      filter === 'CLEANING' ? '#fff7e6' : '#f8fafc',
+                      filter === 'CLEANING' ? '#fff7e6' : 'card.muted',
                     color:
-                      filter === 'CLEANING' ? '#a86600' : '#526273'
+                      filter === 'CLEANING' ? '#a86600' : 'card.body'
                   }}
                 >
                   Cleaning ({counts.cleaning})
@@ -634,9 +634,9 @@ export const RoomStatusBoardPage = () => {
                     textTransform: 'none',
                     fontWeight: 700,
                     backgroundColor:
-                      filter === 'MAINTENANCE' ? '#fff0ef' : '#f8fafc',
+                      filter === 'MAINTENANCE' ? '#fff0ef' : 'card.muted',
                     color:
-                      filter === 'MAINTENANCE' ? '#c0392b' : '#526273'
+                      filter === 'MAINTENANCE' ? '#c0392b' : 'card.body'
                   }}
                 >
                   Maintenance ({counts.maintenance})
@@ -651,7 +651,7 @@ export const RoomStatusBoardPage = () => {
                   sx={{
                     py: 8,
                     textAlign: 'center',
-                    color: '#64748b'
+                    color: 'card.body'
                   }}
                 >
                   <Typography fontWeight={700}>
@@ -674,8 +674,8 @@ export const RoomStatusBoardPage = () => {
                       borderRadius: '50%',
                       display: 'grid',
                       placeItems: 'center',
-                      backgroundColor: '#f1f5f9',
-                      color: '#64748b'
+                      backgroundColor: 'card.muted',
+                      color: 'card.body'
                     }}
                   >
                     <HotelOutlined />
@@ -684,7 +684,7 @@ export const RoomStatusBoardPage = () => {
                   <Typography
                     sx={{
                       fontWeight: 800,
-                      color: '#172330'
+                      color: 'card.header'
                     }}
                   >
                     No rooms found
@@ -693,7 +693,7 @@ export const RoomStatusBoardPage = () => {
                   <Typography
                     sx={{
                       mt: 0.5,
-                      color: '#718096',
+                      color: 'card.body',
                       fontSize: 13
                     }}
                   >
@@ -725,13 +725,13 @@ export const RoomStatusBoardPage = () => {
                           position: 'relative',
                           overflow: 'hidden',
                           borderRadius: 2.5,
-                          border: '1px solid #e1e7ee',
+                          border: '1px solid', borderColor: 'card.border',
                           background: '#fff',
                           transition:
                             'transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
                           '&:hover': {
                             transform: 'translateY(-3px)',
-                            borderColor: '#cdd7e2',
+                            borderColor: 'primary.light',
                             boxShadow:
                               '0 14px 32px rgba(15, 34, 52, 0.09)'
                           }
@@ -758,7 +758,7 @@ export const RoomStatusBoardPage = () => {
                                   fontSize: 25,
                                   lineHeight: 1,
                                   fontWeight: 850,
-                                  color: '#172330',
+                                  color: 'card.header',
                                   letterSpacing: '-0.02em'
                                 }}
                               >
@@ -770,7 +770,7 @@ export const RoomStatusBoardPage = () => {
                                   mt: 0.7,
                                   fontSize: 13,
                                   fontWeight: 600,
-                                  color: '#64748b'
+                                  color: 'card.body'
                                 }}
                               >
                                 {roomTypeName(room.roomType)}
@@ -806,8 +806,8 @@ export const RoomStatusBoardPage = () => {
                                 borderRadius: 1.3,
                                 fontSize: 11,
                                 fontWeight: 700,
-                                color: '#526273',
-                                backgroundColor: '#f1f5f9'
+                                color: 'card.body',
+                                backgroundColor: 'card.muted'
                               }}
                             />
 
@@ -834,7 +834,7 @@ export const RoomStatusBoardPage = () => {
                           <Box
                             sx={{
                               height: 1,
-                              backgroundColor: '#edf1f5',
+                              backgroundColor: 'card.muted',
                               my: 1.8
                             }}
                           />
@@ -849,7 +849,7 @@ export const RoomStatusBoardPage = () => {
                             <Typography
                               sx={{
                                 fontSize: 12,
-                                color: '#718096'
+                                color: 'card.body'
                               }}
                             >
                               Room rate
@@ -859,7 +859,7 @@ export const RoomStatusBoardPage = () => {
                               sx={{
                                 fontWeight: 800,
                                 fontSize: 14,
-                                color: '#172330'
+                                color: 'card.header'
                               }}
                             >
                               ₦{room.rate.toLocaleString()}
@@ -882,10 +882,10 @@ export const RoomStatusBoardPage = () => {
                                 borderRadius: 1.7,
                                 textTransform: 'none',
                                 fontWeight: 750,
-                                backgroundColor: '#12304d',
+                                backgroundColor: 'primary.main',
                                 boxShadow: 'none',
                                 '&:hover': {
-                                  backgroundColor: '#0c263e',
+                                  backgroundColor: 'primary.dark',
                                   boxShadow: 'none'
                                 }
                               }}
@@ -1022,7 +1022,7 @@ export const RoomStatusBoardPage = () => {
                 <Typography
                   sx={{
                     fontSize: 12,
-                    color: '#718096'
+                    color: 'card.body'
                   }}
                 >
                   Showing{' '}

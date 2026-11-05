@@ -131,6 +131,7 @@ const StaffManagement = () => {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [pendingTerminate, setPendingTerminate] = useState<StaffMember | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<StaffMember | null>(null);
   const [pendingAccess, setPendingAccess] = useState<StaffMember | null>(null);
   const [pendingRevoke, setPendingRevoke] = useState<StaffMember | null>(null);
   const [accessLevel, setAccessLevel] = useState<StaffAccessLevel>('SELF_SERVICE');
@@ -479,6 +480,13 @@ const StaffManagement = () => {
                           onClick: () => setPendingRevoke(member)
                         },
                         {
+                          key: 'remove',
+                          label: 'Remove',
+                          icon: <PersonOffIcon fontSize="small" />,
+                          destructive: true,
+                          onClick: () => setPendingRemove(member)
+                        },
+                        {
                           key: 'terminate',
                           label: 'Terminate',
                           icon: <PersonOffIcon fontSize="small" />,
@@ -767,6 +775,25 @@ const StaffManagement = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <PasswordConfirmDialog
+        open={Boolean(pendingRemove)}
+        title={`Remove ${pendingRemove?.firstName ?? ''} ${pendingRemove?.lastName ?? ''}?`}
+        confirmLabel="Remove"
+        confirmColor="error"
+        onClose={() => setPendingRemove(null)}
+        onConfirm={async (password) => {
+          if (!pendingRemove) return;
+          await hrService.removeStaff(pendingRemove.id, password);
+          setToast(`${pendingRemove.firstName} ${pendingRemove.lastName} has been removed`);
+          setPendingRemove(null);
+          await load();
+        }}
+      >
+        <Typography variant="body2">
+          They disappear from HR and from the staff accounts, and can no longer sign in. Their payroll, attendance, shifts and audit history are kept. Enter your own password to confirm.
+        </Typography>
+      </PasswordConfirmDialog>
 
       <Snackbar
         open={Boolean(toast)}

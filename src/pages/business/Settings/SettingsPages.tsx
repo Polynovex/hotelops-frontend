@@ -89,7 +89,7 @@ export const BusinessProfileSettingsPage = () => {
   const [accentColor, setAccentColor] = useState(currentUser?.brandColors?.accent ?? '');
   const logoPreview = useMemo(() => (logoFile ? URL.createObjectURL(logoFile) : removeLogo ? null : logoUrl), [logoFile, removeLogo, logoUrl]);
   /** Printed on invoices, receipts and quotations. */
-  const [invoice, setInvoice] = useState({ website: '', tagline: '', contactEmail: '', bankName: '', accountName: '', accountNumber: '', signatoryName: '', signatoryTitle: '' });
+  const [invoice, setInvoice] = useState({ website: '', tagline: '', contactEmail: '', bankName: '', accountName: '', accountNumber: '', signatoryName: '', signatoryTitle: '', receiptWidth: '80' });
   const [logoNote, setLogoNote] = useState('');
 
   useEffect(() => {
@@ -286,7 +286,7 @@ export const BusinessProfileSettingsPage = () => {
                     ['tagline', 'Tagline (optional)'],
                     ['signatoryName', 'Signed by (name)'],
                     ['signatoryTitle', 'Their title, e.g. General Manager']
-                  ] as Array<[keyof typeof invoice, string]>).map(([key, label]) => (
+                  ] as Array<[Exclude<keyof typeof invoice, 'receiptWidth'>, string]>).map(([key, label]) => (
                     <Grid item xs={12} sm={6} key={key}>
                       <TextField
                         label={label}
@@ -297,6 +297,20 @@ export const BusinessProfileSettingsPage = () => {
                       />
                     </Grid>
                   ))}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      select
+                      label="Receipt printer paper"
+                      value={invoice.receiptWidth || '80'}
+                      onChange={(e) => setInvoice({ ...invoice, receiptWidth: e.target.value })}
+                      helperText="The width of the thermal rolls in your receipt printers"
+                      fullWidth
+                      SelectProps={{ native: true }}
+                    >
+                      <option value="80">80 mm (standard)</option>
+                      <option value="58">58 mm (narrow)</option>
+                    </TextField>
+                  </Grid>
                 </Grid>
               </Box>
               <Button type="submit" variant="contained" disabled={saving}>
