@@ -145,7 +145,8 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Blocked Emails', icon: BlockIcon, path: '/super-admin/email-suppressions' },
     { label: 'Support Desk', icon: SupportIcon, path: '/support' },
     { label: 'Live Logs', icon: LogsIcon, path: '/super-admin/logs' },
-    { label: 'Audit Log', icon: AuditIcon, path: '/super-admin/audit' }
+    { label: 'Audit Log', icon: AuditIcon, path: '/super-admin/audit' },
+    { label: 'Settings', icon: Settings, path: '/super-admin/settings' }
   ],
   /**
    * The owner's menu, in six modules: Dashboard; Property & Guest; Food &

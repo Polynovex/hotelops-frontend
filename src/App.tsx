@@ -141,6 +141,7 @@ import ShiftGatedRoute from './components/ShiftGatedRoute';
 import DemoRequestsPage from './pages/super-admin/DemoRequests';
 import TestimonialsPage from './pages/super-admin/Testimonials';
 import AddOnsPage from './pages/super-admin/AddOnsPage';
+import PlatformSettingsPage from './pages/super-admin/PlatformSettingsPage';
 import { BillingDocumentPage, BillingListPage } from './pages/super-admin/BillingPages';
 import AddOnOutletPage from './pages/business/addons/AddOnOutletPage';
 import ReceptionDashboard from './pages/roles/ReceptionDashboard';
@@ -453,6 +454,7 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/super-admin/settings" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><PlatformSettingsPage /></ProtectedRoute>} />
               <Route path="/super-admin/billing" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><BillingListPage /></ProtectedRoute>} />
               <Route path="/super-admin/billing/:id" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><BillingDocumentPage /></ProtectedRoute>} />
               <Route
