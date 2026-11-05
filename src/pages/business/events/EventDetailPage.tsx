@@ -1,5 +1,9 @@
+import { useRoomTypeNames } from '../../../hooks/useRoomTypeNames';
 import React, { useCallback, useEffect, useState } from 'react';
-import DocumentSheet from '../../../components/documents/DocumentSheet';
+import ServerPdfPreview from '../../../components/documents/ServerPdfPreview';
+import MailOutlineRoundedIcon from '@mui/icons-material/MailOutlineRounded';
+import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
+import { printReceipt, receiptApi } from '../../../utils/receipt';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
@@ -13,6 +17,7 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
@@ -22,7 +27,6 @@ import {
 } from '@mui/material';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
-import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
 import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded';
 import Layout from '../../../components/Layout';
 import { usePermissionStore } from '../../../store/permissionStore';
@@ -35,7 +39,6 @@ import { formatCurrency } from '../../../utils/formatters';
 import { getApiErrorMessage } from '../../../utils/apiError';
 import { StatusChip, eventDates } from './EventsPage';
 import AddOnsDialog from '../../../components/events/AddOnsDialog';
-import { printElement } from '../../../utils/printElement';
 
 /**
  * One event: its details, the itemised invoice (printable), payments, linked
@@ -65,6 +68,7 @@ const ACTION_LABEL: Partial<Record<EventStatus, string>> = {
 };
 
 const EventDetailPage: React.FC = () => {
+  const roomTypeName = useRoomTypeNames();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const can = usePermissionStore((state) => state.can);
@@ -73,6 +77,10 @@ const EventDetailPage: React.FC = () => {
 
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [error, setError] = useState('');
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendTo, setSendTo] = useState('');
+  const [sendNote, setSendNote] = useState('');
+  const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState('');
@@ -138,8 +146,6 @@ const EventDetailPage: React.FC = () => {
   const closed = event.status === 'COMPLETED' || event.status === 'CANCELLED';
   // Once paid, the booking is fixed: details can be corrected and add-ons added.
   const paid = event.paidAmount > 0;
-  const booked = event.lines.filter((line) => !line.addOn);
-  const addOns = event.lines.filter((line) => line.addOn);
   const openDetails = () => {
     setDetails({
       contactName: event.contactName,
@@ -166,7 +172,6 @@ const EventDetailPage: React.FC = () => {
     }
   };
   const dates = eventDates(event);
-  const hotel = event.hotel;
 
   return (
     <Layout>
@@ -182,7 +187,7 @@ const EventDetailPage: React.FC = () => {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Button variant="outlined" startIcon={<PrintRoundedIcon />} onClick={() => printElement('event-invoice', `${event.reference} — ${event.eventName}`, { keepColors: true })}>Print invoice</Button>
+            <Button variant="outlined" startIcon={<MailOutlineRoundedIcon />} onClick={() => { setSendTo(event.contactEmail ?? ''); setSendOpen(true); }}>Email to contact</Button>
             {canManage && !closed && (
               <>
                 {paid ? (
@@ -200,6 +205,14 @@ const EventDetailPage: React.FC = () => {
         </Stack>
 
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+        {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
+        {event.roomsReleasedAt && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            {event.roomsReleased
+              ? `${event.roomsReleased} unoccupied room${event.roomsReleased === 1 ? ' was' : 's were'} released automatically on ${fmtDate(event.roomsReleasedAt)}.`
+              : `The event ended; no unoccupied rooms needed releasing (${fmtDate(event.roomsReleasedAt)}).`}
+          </Alert>
+        )}
         {event.status === 'CANCELLED' && event.cancelReason && <Alert severity="warning" sx={{ mb: 2 }}>Cancelled: {event.cancelReason}</Alert>}
 
         {canManage && NEXT[event.status].length > 0 && (
@@ -257,7 +270,7 @@ const EventDetailPage: React.FC = () => {
                   <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>Reservations linked to this event. Room charges are on this invoice.</Typography>
                   {event.rooms.map((r) => (
                     <Stack key={r.id} direction="row" justifyContent="space-between" sx={{ py: 0.5, cursor: 'pointer' }} onClick={() => navigate(`/business/reservations/${r.id}`)}>
-                      <Typography variant="body2">{r.bookingNumber} · {r.room?.roomNumber ? `Room ${r.room.roomNumber}` : r.requestedRoomType}</Typography>
+                      <Typography variant="body2">{r.bookingNumber} · {r.room?.roomNumber ? `Room ${r.room.roomNumber}` : roomTypeName(r.requestedRoomType)}</Typography>
                       <Typography variant="caption" color="text.secondary">{r.status.replace('_', ' ').toLowerCase()}</Typography>
                     </Stack>
                   ))}
@@ -275,7 +288,14 @@ const EventDetailPage: React.FC = () => {
                         <Typography variant="body2">{p.method.toLowerCase()}{p.reference ? ` · ${p.reference}` : ''}</Typography>
                         <Typography variant="caption" color="text.secondary">{fmtDate(p.createdAt)}{p.receivedByName ? ` · ${p.receivedByName}` : ''}</Typography>
                       </Box>
-                      <Typography variant="body2" fontWeight={700}>{formatCurrency(p.amount)}</Typography>
+                      <Stack direction="row" alignItems="center" spacing={0.5}>
+                        <Typography variant="body2" fontWeight={700}>{formatCurrency(p.amount)}</Typography>
+                        <Tooltip title="Print receipt">
+                          <IconButton size="small" aria-label="Print receipt" onClick={() => void receiptApi.forEventPayment(p.id).then((r) => printReceipt(r)).catch((err) => setError(getApiErrorMessage(err, 'Could not print the receipt')))}>
+                            <ReceiptLongRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
                     </Stack>
                   ))
                 )}
@@ -284,89 +304,43 @@ const EventDetailPage: React.FC = () => {
           </Grid>
 
           <Grid item xs={12} md={7}>
-            {(() => {
-              const quoting = event.status === 'DRAFT' || event.status === 'PENDING' || event.status === 'QUOTATION_SENT';
-              const paid = event.balance <= 0 && event.total > 0;
-              const inv = hotel?.invoice ?? {};
-              const lines = [...booked, ...(addOns.length ? [null] : []), ...addOns];
-              return (
-                <DocumentSheet
-                  id="event-invoice"
-                  title={quoting ? 'QUOTATION' : paid ? 'INVOICE' : 'PROFORMA'}
-                  subtitle={!quoting && !paid ? 'INVOICE' : undefined}
-                  stamp={event.status === 'CANCELLED' ? 'VOID' : paid && !quoting ? 'PAID' : null}
-                  brand={{
-                    name: hotel?.displayName ?? '',
-                    logoUrl: hotel?.logoUrl,
-                    tagline: inv.tagline,
-                    address: hotel?.address,
-                    phone: hotel?.phone,
-                    email: inv.contactEmail || hotel?.email,
-                    website: inv.website
-                  }}
-                  meta={[
-                    ['Date', fmtDate(event.createdAt)],
-                    [quoting ? 'Quotation No' : 'Invoice No', event.reference],
-                    ['Event date', new Date(event.startAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })]
-                  ]}
-                  billTo={{
-                    heading: quoting ? 'Quotation to' : 'Invoice to',
-                    name: event.organization || event.contactName,
-                    lines: [
-                      event.organization ? `Attn: ${event.contactName}` : null,
-                      event.contactPhone ? `Phone: ${event.contactPhone}` : null,
-                      event.contactEmail ? `Email: ${event.contactEmail}` : null,
-                      event.billingAddress ? `Address: ${event.billingAddress}` : null
-                    ]
-                  }}
-                  extra={{
-                    heading: 'Event',
-                    lines: [
-                      event.eventName,
-                      `${event.eventTypeName} · ${event.location}`,
-                      `${fmt(event.startAt)} → ${fmt(event.endAt)} (${event.days} day${event.days === 1 ? '' : 's'})`,
-                      `${event.expectedGuests} expected guests`
-                    ]
-                  }}
-                  payment={
-                    inv.accountNumber
-                      ? ([['Account No', inv.accountNumber], ['Account Name', inv.accountName ?? ''], ['Bank Name', inv.bankName ?? '']] as Array<[string, string]>).filter(([, v]) => v)
-                      : null
-                  }
-                  rows={lines.map((line) =>
-                    line === null
-                      ? { section: 'Add-ons after payment', description: '', price: null, qty: '', amount: 0 }
-                      : {
-                          description: line.description,
-                          details:
-                            line.type === 'CATERING' && line.serviceDate
-                              ? `${new Date(line.serviceDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}${line.serviceTime ? ` · ${line.serviceTime}` : ''}${line.notes ? ` · ${line.notes}` : ''}`
-                              : line.type === 'CORKAGE' ? line.notes : null,
-                          price: line.unitPrice,
-                          qty: line.type === 'CATERING' ? `${line.quantity} guests` : line.quantity,
-                          amount: line.amount
-                        }
-                  )}
-                  totals={[
-                    ...(event.originalTotal != null
-                      ? [{ label: 'Booked total', value: event.originalTotal }, { label: 'Add-ons', value: event.total - event.originalTotal }]
-                      : []),
-                    { label: 'Sub-total', value: event.subtotal },
-                    ...(event.discount > 0 ? [{ label: event.promotion ? `Discount (${event.promotion.name})` : 'Discount', value: -event.discount }] : []),
-                    ...(event.serviceCharge > 0 ? [{ label: `Service charge (${event.eventType.serviceChargeRate}%)`, value: event.serviceCharge }] : []),
-                    ...(event.tax > 0 ? [{ label: `VAT (${hotel?.vatRate ?? 0}%)`, value: event.tax }] : []),
-                    { label: 'Total', value: event.total },
-                    { label: 'Amt Paid', value: event.paidAmount }
-                  ]}
-                  due={{ label: 'Balance', value: event.balance }}
-                  notes={quoting ? 'Please note our prices are subject to change until this quotation is confirmed.' : null}
-                  terms={event.terms}
-                  signature={inv.signatoryName ? { name: inv.signatoryName, title: inv.signatoryTitle } : null}
-                />
-              );
-            })()}
+            {/* The server's PDF: exactly what the contact receives by email. */}
+            <ServerPdfPreview path={`/events/${event.id}/pdf`} version={`${event.status}-${event.total}-${event.paidAmount}-${event.updatedAt ?? ''}`} />
           </Grid>
         </Grid>
+
+        <Dialog open={sendOpen} onClose={() => !busy && setSendOpen(false)} fullWidth maxWidth="xs">
+          <DialogTitle>Email the {['DRAFT', 'PENDING', 'QUOTATION_SENT'].includes(event.status) ? 'quote' : 'invoice'}</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField autoFocus fullWidth type="email" label="Send to" value={sendTo} onChange={(e) => setSendTo(e.target.value)} />
+              <TextField fullWidth multiline minRows={2} label="Message (optional)" value={sendNote} onChange={(e) => setSendNote(e.target.value)} />
+              <Alert severity="info">The PDF shown on this page is attached.</Alert>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setSendOpen(false)} disabled={busy}>Cancel</Button>
+            <Button
+              variant="contained"
+              disabled={busy || !/^\S+@\S+\.\S+$/.test(sendTo.trim())}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await eventsApi.send(event.id, { to: sendTo.trim(), message: sendNote.trim() || undefined });
+                  setSendOpen(false);
+                  setSendNote('');
+                  setNotice(`Sent to ${sendTo.trim()}`);
+                } catch (err) {
+                  setError(getApiErrorMessage(err, 'Could not send the email'));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Send
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <Dialog open={cancelOpen} onClose={() => !busy && setCancelOpen(false)} fullWidth maxWidth="xs">
           <DialogTitle>Cancel {event.reference}</DialogTitle>

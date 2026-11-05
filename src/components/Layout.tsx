@@ -1,3 +1,4 @@
+import ShiftCountdown from './auth/ShiftCountdown';
 import { forgetOfflineUnlock } from '../services/offlineUnlock';
 import React, { useEffect, useState } from 'react';
 import {
@@ -1448,6 +1449,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <Box sx={{ mt: 2, position: 'relative', zIndex: 1 }}>{children}</Box>
         <PoweredBy sx={{ mt: 4 }} />
       </Box>
+      <ShiftCountdown />
     </Box>
   );
 };

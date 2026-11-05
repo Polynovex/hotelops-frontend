@@ -189,7 +189,44 @@ export const createAppTheme = (mode: PaletteMode, colors: BrandColors = {}) => {
           secondary: brand.smoke,
           disabled: brand.smokeSoft
         },
-    divider: isDark ? brand.dividerDark : brand.divider
+    divider: isDark ? brand.dividerDark : brand.divider,
+    /*
+     * Card and sidebar tokens. Every card on every page reads these, and the
+     * sidebar reads `sidebar`, so a change of business colour or of light/dark
+     * mode repaints both together; no card keeps a colour of its own.
+     */
+    card: isDark
+      ? {
+          bg: brand.cardDark,
+          border: alpha('#FFFFFF', 0.07),
+          shadow: '0 10px 30px rgba(0,0,0,0.16)',
+          header: '#F6F2EA',
+          body: '#C7CFD4',
+          accent: gold,
+          hover: alpha('#FFFFFF', 0.04),
+          muted: alpha('#FFFFFF', 0.05)
+        }
+      : {
+          bg: brand.cardLight,
+          border: alpha(navy, 0.1),
+          shadow: `0 8px 30px ${alpha(navy, 0.06)}`,
+          header: brand.ink,
+          body: brand.smoke,
+          accent: gold,
+          hover: alpha(navy, 0.035),
+          muted: alpha(navy, 0.05)
+        },
+    sidebar: {
+      bg: isDark ? '#111A22' : navy,
+      /** The hero banner shares the sidebar's colour, so the two always match. */
+      hero: isDark
+        ? `linear-gradient(135deg, ${darken(navy, 0.25)} 0%, ${darken(navyTint, 0.2)} 100%)`
+        : `linear-gradient(135deg, ${navy} 0%, ${navyTint} 100%)`,
+      text: '#F8F4EC',
+      textMuted: alpha('#F8F4EC', 0.62),
+      overlay: alpha('#FFFFFF', 0.09),
+      overlayBorder: alpha('#FFFFFF', 0.1)
+    }
   } as ThemeOptions['palette'];
 
   return createTheme({
@@ -336,14 +373,10 @@ export const createAppTheme = (mode: PaletteMode, colors: BrandColors = {}) => {
         styleOverrides: {
           root: {
             borderRadius: 14,
-            border: `1px solid ${isDark ? brand.dividerDark : brand.divider}`,
-            background: isDark
-              ? `linear-gradient(180deg, ${alpha('#1A242B', 0.96)} 0%, ${alpha('#131A20', 0.92)} 100%)`
-              : '#FFFFFF',
+            border: `1px solid ${(palette as { card: { border: string } }).card.border}`,
+            background: (palette as { card: { bg: string } }).card.bg,
             color: palette?.text?.primary,
-            boxShadow: isDark
-              ? '0 24px 60px rgba(0, 0, 0, 0.32)'
-              : '0 12px 32px rgba(15, 27, 35, 0.04)'
+            boxShadow: (palette as { card: { shadow: string } }).card.shadow
           }
         }
       },
@@ -491,9 +524,7 @@ export const createAppTheme = (mode: PaletteMode, colors: BrandColors = {}) => {
       MuiDrawer: {
         styleOverrides: {
           paper: {
-            background: isDark
-              ? '#111A22'
-              : navy,
+            background: isDark ? '#111A22' : navy,
             color: '#F8F4EC',
             borderRight: 'none'
           }
@@ -680,3 +711,10 @@ export const createAppTheme = (mode: PaletteMode, colors: BrandColors = {}) => {
     }
   });
 };
+
+declare module '@mui/material/styles' {
+  interface CardTokens { bg: string; border: string; shadow: string; header: string; body: string; accent: string; hover: string; muted: string }
+  interface SidebarTokens { bg: string; hero: string; text: string; textMuted: string; overlay: string; overlayBorder: string }
+  interface Palette { card: CardTokens; sidebar: SidebarTokens }
+  interface PaletteOptions { card?: CardTokens; sidebar?: SidebarTokens }
+}

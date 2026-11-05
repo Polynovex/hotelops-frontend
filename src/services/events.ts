@@ -196,6 +196,9 @@ export interface EventPayment {
 }
 
 export interface EventDetail extends EventBooking {
+  roomsReleasedAt?: string | null;
+  roomsReleased?: number | null;
+  updatedAt?: string;
   days: number;
   lines: EventLine[];
   payments: EventPayment[];
@@ -255,5 +258,9 @@ export const eventsApi = {
   },
   async pay(id: string, payload: { amount: number; method: string; reference?: string; notes?: string }) {
     return (await api.post(`/events/${id}/payments`, payload)).data as EventPayment & { balance: number; paymentStatus: PaymentStatus };
+  },
+  /** Emails the quote / invoice PDF to the contact (or another address). */
+  async send(id: string, payload: { to?: string; message?: string }) {
+    return (await api.post(`/events/${id}/send`, payload)).data as { sent: boolean; to: string };
   }
 };

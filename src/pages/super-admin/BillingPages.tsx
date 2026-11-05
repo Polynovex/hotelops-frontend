@@ -6,7 +6,6 @@ import {
 } from '@mui/material';
 import AddRounded from '@mui/icons-material/AddRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
-import PrintRounded from '@mui/icons-material/PrintRounded';
 import SendRounded from '@mui/icons-material/SendRounded';
 import { useSnackbar } from 'notistack';
 import Layout from '../../components/Layout';
@@ -17,7 +16,7 @@ import { api, superAdminService, type BusinessSummary } from '../../services/api
 import { billingApi, STATUS_LABEL, totalsOf, type BillingDoc, type BillingLine, type DocKind, type DocStatus } from '../../services/billing';
 import { formatCurrency } from '../../utils/formatters';
 import { getApiErrorMessage } from '../../utils/apiError';
-import { printElement } from '../../utils/printElement';
+import ServerPdfPreview from '../../components/documents/ServerPdfPreview';
 
 const STATUS_COLOR: Record<DocStatus, 'default' | 'info' | 'success' | 'warning' | 'error' | 'secondary'> = {
   DRAFT: 'default', SENT: 'info', ACCEPTED: 'success', DECLINED: 'error', CONVERTED: 'secondary', PARTIALLY_PAID: 'warning', PAID: 'success', VOID: 'error'
@@ -388,9 +387,6 @@ export const BillingDocumentPage = () => {
               <Button variant="contained" onClick={async () => { const inv = (await run(() => billingApi.convert(doc.id), 'Invoice created')) as BillingDoc | null; if (inv) navigate(`/super-admin/billing/${inv.id}`); }} disabled={busy}>Convert to invoice</Button>
             )}
             {doc && (
-              <Button startIcon={<PrintRounded />} onClick={() => printElement('billing-document', doc.number, { keepColors: true })}>PDF / Print</Button>
-            )}
-            {doc && (
               <RowActionsMenu
                 subject={doc.number}
                 actions={[
@@ -473,7 +469,17 @@ export const BillingDocumentPage = () => {
             </Grid>
           )}
           <Grid item xs={12} lg={editable ? 7 : 9} sx={{ mx: editable ? 0 : 'auto' }}>
-            {(isNew || doc) && <BillingSheet doc={preview} settings={settings} />}
+            {doc ? (
+              // The server's PDF: the same file the customer receives.
+              <ServerPdfPreview path={`/admin/billing/${doc.id}/pdf`} version={`${doc.updatedAt ?? ''}${doc.status}${doc.amountPaid}`} note={editable ? 'Save to see your latest changes in the PDF.' : null} />
+            ) : (
+              isNew && (
+                <Stack spacing={1}>
+                  <Alert severity="info">Draft preview. Save to generate the PDF that is sent.</Alert>
+                  <BillingSheet doc={preview} settings={settings} />
+                </Stack>
+              )
+            )}
             {doc?.payments?.length ? (
               <Paper variant="outlined" sx={{ p: 2, mt: 2, borderRadius: 2 }}>
                 <Typography fontWeight={800} sx={{ mb: 1 }}>Payments</Typography>

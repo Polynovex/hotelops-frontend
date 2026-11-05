@@ -8,6 +8,10 @@ import {
   Chip,
   CircularProgress,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   MenuItem,
   Paper,
   Snackbar,
@@ -22,6 +26,8 @@ import {
   Typography
 } from '@mui/material';
 import BeachAccessIcon from '@mui/icons-material/BeachAccess';
+import { useAuthStore } from '../../../store/authStore';
+import { getApiErrorMessage } from '../../../utils/apiError';
 import {
   hrService,
   LEAVE_STATUS_COLOR,
@@ -35,6 +41,41 @@ const LeavePage = () => {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [statusFilter, setStatusFilter] = useState<LeaveStatus | ''>('');
+  const isOwner = useAuthStore((state) => state.user?.role) === 'BUSINESS_ADMIN';
+  const [approving, setApproving] = useState<LeaveRequestRecord | null>(null);
+  const [form, setForm] = useState({ startDate: '', endDate: '', notes: '', overrideReason: '' });
+  const [overBalance, setOverBalance] = useState<string | null>(null);
+  const [dialogError, setDialogError] = useState('');
+  const ymd = (iso: string) => iso.slice(0, 10);
+  const daysBetween = (a: string, b: string) => (a && b ? Math.floor((Date.parse(b) - Date.parse(a)) / 86_400_000) + 1 : 0);
+  const openApprove = (request: LeaveRequestRecord) => {
+    setForm({ startDate: ymd(request.startDate), endDate: ymd(request.endDate), notes: '', overrideReason: '' });
+    setOverBalance(null);
+    setDialogError('');
+    setApproving(request);
+  };
+  const confirmApprove = async () => {
+    if (!approving) return;
+    setBusyId(approving.id);
+    setDialogError('');
+    try {
+      await hrService.approveLeave(approving.id, {
+        startDate: form.startDate,
+        endDate: form.endDate,
+        notes: form.notes.trim() || undefined,
+        ...(overBalance && form.overrideReason.trim() ? { balanceOverrideReason: form.overrideReason.trim() } : {})
+      });
+      setApproving(null);
+      setToast('Leave approved; the staff member has been told');
+      await load();
+    } catch (err: unknown) {
+      const data = (err as { response?: { data?: { error?: string; message?: string } } }).response?.data;
+      if (data?.error === 'OVER_BALANCE') setOverBalance(data.message ?? 'Over the leave balance');
+      else setDialogError(getApiErrorMessage(err, 'Could not approve the leave'));
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -172,6 +213,11 @@ const LeavePage = () => {
                       {new Date(request.startDate).toLocaleDateString()} –{' '}
                       {new Date(request.endDate).toLocaleDateString()}
                     </Typography>
+                    {request.requestedStartDate && (ymd(request.requestedStartDate) !== ymd(request.startDate) || ymd(request.requestedEndDate ?? '') !== ymd(request.endDate)) && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Asked for {new Date(request.requestedStartDate).toLocaleDateString()} – {new Date(request.requestedEndDate ?? request.requestedStartDate).toLocaleDateString()}
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell align="right">{request.totalDays}</TableCell>
                   <TableCell>
@@ -190,7 +236,7 @@ const LeavePage = () => {
                           variant="contained"
                           color="success"
                           disabled={busyId === request.id}
-                          onClick={() => void review(request, true)}
+                          onClick={() => openApprove(request)}
                         >
                           Approve
                         </Button>
@@ -212,6 +258,46 @@ const LeavePage = () => {
         </Table>
       </TableContainer>
 
+
+      <Dialog open={Boolean(approving)} onClose={() => setApproving(null)} fullWidth maxWidth="xs">
+        <DialogTitle>Approve leave</DialogTitle>
+        <DialogContent>
+          {approving && (
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                {approving.staff ? `${approving.staff.firstName} ${approving.staff.lastName}` : 'Staff member'} asked for{' '}
+                {new Date(approving.requestedStartDate ?? approving.startDate).toLocaleDateString()} – {new Date(approving.requestedEndDate ?? approving.endDate).toLocaleDateString()}. Change the dates if you are approving part of it or moving it.
+              </Typography>
+              {dialogError && <Alert severity="error">{dialogError}</Alert>}
+              <Stack direction="row" spacing={1.5}>
+                <TextField type="date" label="Start" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} fullWidth InputLabelProps={{ shrink: true }} />
+                <TextField type="date" label="End" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} fullWidth InputLabelProps={{ shrink: true }} />
+              </Stack>
+              <Typography variant="body2">{daysBetween(form.startDate, form.endDate)} day{daysBetween(form.startDate, form.endDate) === 1 ? '' : 's'}</Typography>
+              <TextField label="Note to the staff member (optional)" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} fullWidth multiline minRows={2} />
+              {overBalance && (
+                <Alert severity="warning">
+                  {overBalance}
+                  {isOwner && (
+                    <TextField sx={{ mt: 1.5, bgcolor: 'background.paper' }} size="small" fullWidth label="Reason for approving over the balance *" value={form.overrideReason} onChange={(e) => setForm({ ...form, overrideReason: e.target.value })} />
+                  )}
+                </Alert>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setApproving(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="success"
+            disabled={Boolean(busyId) || !form.startDate || !form.endDate || form.endDate < form.startDate || (Boolean(overBalance) && (!isOwner || form.overrideReason.trim().length < 5))}
+            onClick={() => void confirmApprove()}
+          >
+            Approve
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={Boolean(toast)}

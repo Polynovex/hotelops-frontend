@@ -1,3 +1,4 @@
+import { useChartColors } from '../../../hooks/useChartColors';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
@@ -57,6 +58,7 @@ const ReportFilters = ({
 );
 
 export const OccupancyReportPage = () => {
+  const chart = useChartColors();
   const [startDate, setStartDate] = useState(todayDate());
   const [endDate, setEndDate] = useState(todayDate());
   const [loading, setLoading] = useState(true);
@@ -127,8 +129,8 @@ export const OccupancyReportPage = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={data} dataKey="value" nameKey="name" outerRadius={95} label>
-                    <Cell fill="#16876A" />
-                    <Cell fill="#C49355" />
+                    <Cell fill={chart.success} />
+                    <Cell fill={chart.accent} />
                   </Pie>
                   <Tooltip />
                 </PieChart>
@@ -142,6 +144,7 @@ export const OccupancyReportPage = () => {
 };
 
 export const RevenueReportPage = () => {
+  const chart = useChartColors();
   const [startDate, setStartDate] = useState(todayDate());
   const [endDate, setEndDate] = useState(todayDate());
   const [loading, setLoading] = useState(true);
@@ -214,7 +217,7 @@ export const RevenueReportPage = () => {
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="value" fill="#0F2A44" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="value" fill={chart.primary} radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </Paper>
@@ -256,6 +259,7 @@ export const RevenueReportPage = () => {
 };
 
 export const HousekeepingReportPage = () => {
+  const chart = useChartColors();
   const [loading, setLoading] = useState(true);
   const [roomStatuses, setRoomStatuses] = useState<Record<string, number>>({});
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
@@ -321,7 +325,7 @@ export const HousekeepingReportPage = () => {
                   <PieChart>
                     <Pie data={roomChart} dataKey="value" nameKey="name" outerRadius={90} label>
                       {roomChart.map((entry, idx) => (
-                        <Cell key={entry.name} fill={['#16876A', '#C49355', '#B14040', '#0F2A44', '#94A3B8'][idx % 5]} />
+                        <Cell key={entry.name} fill={[chart.success, chart.accent, chart.error, chart.primary, chart.muted][idx % 5]} />
                       ))}
                     </Pie>
                     <Tooltip />

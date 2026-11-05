@@ -351,6 +351,8 @@ export interface DashboardActivity {
 }
 
 export interface DashboardOverview {
+  /** Rooms in the system against the plan's allowance (null limit = unlimited). */
+  packageUsage?: { used: number; limit: number | null; planName: string | null; remaining: number | null };
   generatedAt: string;
   widgets: {
     arrivalsToday: number;
