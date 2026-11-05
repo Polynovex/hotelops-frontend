@@ -355,7 +355,7 @@ const StaffProfilePage: React.FC = () => {
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
               <TextField select label="For" value={unlock.minutes} onChange={(e) => setUnlock({ ...unlock, minutes: e.target.value })}>
-                {[['30', '30 minutes'], ['60', '1 hour'], ['120', '2 hours'], ['240', '4 hours'], ['480', '8 hours']].map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)}
+                {[['30', '30 minutes'], ['60', '1 hour'], ['120', '2 hours'], ['240', '4 hours'], ['480', '8 hours'], ['720', '12 hours']].map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)}
               </TextField>
               <TextField label="Reason" value={unlock.reason} onChange={(e) => setUnlock({ ...unlock, reason: e.target.value })} />
               <Typography variant="caption" color="text.secondary">Lets them in outside their shift. Recorded in the audit trail; not counted as paid time.</Typography>

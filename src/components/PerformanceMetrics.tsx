@@ -45,16 +45,27 @@ const PerformanceMetrics = () => {
   const c = data?.current;
   const ch = data?.change;
 
+  const today = data?.today;
   const cards = [
-    {
-      label: 'Occupancy',
-      value: loading ? '' : `${c?.occupancyRate ?? 0}%`,
-      detail: loading ? '' : `${c?.roomNightsSold ?? 0} of ${c?.roomNightsAvailable ?? 0} room nights`,
-      change: ch?.occupancyRate ?? null,
-      icon: <HotelIcon />,
-      variant: 'tinted' as const,
-      help: 'Room nights sold divided by room nights available. Rooms out of order are excluded from availability.'
-    },
+    today
+      ? {
+          label: 'Occupancy',
+          value: loading ? '' : `${today.occupancyRate}%`,
+          detail: loading ? '' : `${today.occupiedRooms} of ${today.totalRooms} rooms occupied now`,
+          change: null,
+          icon: <HotelIcon />,
+          variant: 'tinted' as const,
+          help: `Rooms occupied right now out of every room you have created. This month so far: ${c?.roomNightsSold ?? 0} of ${c?.roomNightsAvailable ?? 0} room nights sold (${c?.occupancyRate ?? 0}%).`
+        }
+      : {
+          label: 'Occupancy',
+          value: loading ? '' : `${c?.occupancyRate ?? 0}%`,
+          detail: loading ? '' : `${c?.roomNightsSold ?? 0} of ${c?.roomNightsAvailable ?? 0} room nights`,
+          change: ch?.occupancyRate ?? null,
+          icon: <HotelIcon />,
+          variant: 'tinted' as const,
+          help: 'Room nights sold divided by room nights available. Rooms out of order are excluded from availability.'
+        },
     {
       label: 'ADR',
       value: loading ? '' : formatNaira(c?.adr ?? 0),

@@ -490,7 +490,7 @@ const SchedulePage = () => {
             <TextField type="number" label="Access continues after a shift (minutes)" value={access.afterMinutes} onChange={(e) => setAccess({ ...access, afterMinutes: Number(e.target.value) })} />
             <Typography variant="caption" color="text.secondary">
               Applies only to staff on the rota. After the shift and this allowance, someone who has not ended their shift can only end it; overtime asked for in time
-              pauses their access until approved. Only the owner or GM can unlock an account early (Staff → profile). The owner is never restricted.
+              pauses their access until approved. HR, the owner or the GM can let someone back in from Attendance → Signed out by the rota. The owner is never restricted.
             </Typography>
           </Stack>
         </DialogContent>
