@@ -140,6 +140,8 @@ export interface MinibarItem {
   id: string;
   name: string;
   price: number;
+  /** What one unit costs the hotel (for refill costs). */
+  cost?: number | null;
   isActive: boolean;
 }
 
@@ -250,14 +252,18 @@ export const checkoutApi = {
   decideDamage: async (id: string, action: 'approve' | 'dispute' | 'waive' | 'close', reason?: string) =>
     (await api.post(`/damages/${id}/${action}`, { reason })).data as DamageIncident,
   minibarItems: async () => (await api.get('/minibar/items')).data as MinibarItem[],
-  createMinibarItem: async (payload: { name: string; price: number }) => (await api.post('/minibar/items', payload)).data as MinibarItem,
+  createMinibarItem: async (payload: { name: string; price: number; cost?: number | null }) => (await api.post('/minibar/items', payload)).data as MinibarItem,
   updateMinibarItem: async (id: string, payload: Partial<MinibarItem>) => (await api.put(`/minibar/items/${id}`, payload)).data as MinibarItem,
   roomMinibar: async (roomId: string) =>
     (await api.get(`/rooms/${roomId}/minibar`)).data as {
       room: { id: string; roomNumber: string };
-      items: Array<{ itemId: string; name: string; price: number; isActive: boolean; parQuantity: number }>;
+      items: Array<{ itemId: string; name: string; price: number; cost?: number | null; isActive: boolean; parQuantity: number; stocked?: number; toRefill?: number }>;
       lastCount: MinibarCount | null;
+      lastRefill?: { createdAt: string; totalCost: number } | null;
     },
+  /** Restocks the minibar to full (or the given quantities) and records the cost. */
+  refillMinibar: async (roomId: string, payload: { lines?: Array<{ itemId: string; quantity: number; unitCost?: number }>; notes?: string } = {}) =>
+    (await api.post(`/rooms/${roomId}/minibar/refill`, payload)).data as { id: string; totalCost: number; roomNumber: string },
   setRoomMinibar: async (roomId: string, items: Array<{ itemId: string; parQuantity: number }>) => (await api.put(`/rooms/${roomId}/minibar`, { items })).data,
   applyToRoomType: async (roomTypeCode: string, items: Array<{ itemId: string; parQuantity: number }>) =>
     (await api.post('/minibar/apply-room-type', { roomTypeCode, items })).data as { rooms: number },

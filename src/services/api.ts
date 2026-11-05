@@ -3121,7 +3121,7 @@ export const accountingService = {
  * matched what the KDS actually routed to.
  */
 export const kitchenStationService = {
-  async list(): Promise<Array<{ id: string; code: string; name: string; sortOrder: number }>> {
+  async list(): Promise<Array<{ id: string; code: string; name: string; sortOrder: number; isDefault?: boolean }>> {
     const response = await api.get('/kds/stations');
     return asArray(unwrapData<unknown>(response.data));
   },

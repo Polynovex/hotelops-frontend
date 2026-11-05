@@ -45,7 +45,7 @@ const RoomInspectionPage: React.FC = () => {
   const [stay, setStay] = useState<Stay | null>(null);
   const hasMinibar = usePlanStore((state) => state.has)('MINIBAR');
   usePlanStore((state) => state.features);
-  const [minibar, setMinibar] = useState<Array<{ itemId: string; name: string; price: number; parQuantity: number }>>([]);
+  const [minibar, setMinibar] = useState<Array<{ itemId: string; name: string; price: number; cost?: number | null; parQuantity: number; stocked?: number; toRefill?: number }>>([]);
   const [remaining, setRemaining] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -68,7 +68,7 @@ const RoomInspectionPage: React.FC = () => {
     setError('');
     try {
       const [mb, detail] = await Promise.all([
-        checkoutApi.roomMinibar(roomId).catch(() => ({ items: [] as Array<{ itemId: string; name: string; price: number; parQuantity: number }>, lastCount: null })),
+        checkoutApi.roomMinibar(roomId).catch(() => ({ items: [] as Array<{ itemId: string; name: string; price: number; cost?: number | null; parQuantity: number; stocked?: number; toRefill?: number }>, lastCount: null })),
         api.get(`/rooms/${roomId}`).then((r) => r.data as { reservations?: Array<Record<string, unknown>> })
       ]);
       setMinibar(mb.items);
@@ -95,9 +95,11 @@ const RoomInspectionPage: React.FC = () => {
   const preview = useMemo(
     () =>
       minibar.map((i) => {
-        const left = Math.min(Math.max(Number(remaining[i.itemId] ?? i.parQuantity) || 0, 0), i.parQuantity);
-        const taken = i.parQuantity - left;
-        return { ...i, left, taken, amount: taken * i.price };
+        // Counted against what is in it now (since the last refill), not against full.
+        const inIt = i.stocked ?? i.parQuantity;
+        const left = Math.min(Math.max(Number(remaining[i.itemId] ?? inIt) || 0, 0), inIt);
+        const taken = inIt - left;
+        return { ...i, inIt, left, taken, amount: taken * i.price };
       }),
     [minibar, remaining]
   );
@@ -164,7 +166,7 @@ const RoomInspectionPage: React.FC = () => {
                       <TableHead>
                         <TableRow>
                           <TableCell>Item</TableCell>
-                          <TableCell align="right">Full</TableCell>
+                          <TableCell align="right">In it</TableCell>
                           <TableCell align="right">Left</TableCell>
                           <TableCell align="right">Taken</TableCell>
                           <TableCell align="right">Amount</TableCell>
@@ -174,9 +176,9 @@ const RoomInspectionPage: React.FC = () => {
                         {preview.map((line) => (
                           <TableRow key={line.itemId}>
                             <TableCell>{line.name} <Typography component="span" variant="caption" color="text.secondary">· {formatCurrency(line.price)}</Typography></TableCell>
-                            <TableCell align="right">{line.parQuantity}</TableCell>
+                            <TableCell align="right">{line.inIt}{line.inIt < line.parQuantity && <Typography component="span" variant="caption" color="text.secondary"> / {line.parQuantity}</Typography>}</TableCell>
                             <TableCell align="right" sx={{ width: 90 }}>
-                              <TextField size="small" type="number" value={remaining[line.itemId] ?? ''} inputProps={{ min: 0, max: line.parQuantity, 'aria-label': `${line.name} left` }}
+                              <TextField size="small" type="number" value={remaining[line.itemId] ?? ''} inputProps={{ min: 0, max: line.inIt, 'aria-label': `${line.name} left` }}
                                 onChange={(e) => setRemaining({ ...remaining, [line.itemId]: e.target.value })} />
                             </TableCell>
                             <TableCell align="right">{line.taken}</TableCell>
@@ -193,6 +195,23 @@ const RoomInspectionPage: React.FC = () => {
                       onClick={() => void act(() => checkoutApi.countMinibar(room.id, preview.map((l) => ({ itemId: l.itemId, remaining: l.left }))), minibarTotal > 0 ? 'Minibar count sent to the front desk to charge.' : 'Minibar count saved — nothing taken.')}>
                       Save minibar count
                     </Button>
+                    {/* Restocking brings it back to full and restarts billing from there. */}
+                    {(() => {
+                      const short = minibar.filter((i) => (i.toRefill ?? 0) > 0);
+                      if (!short.length) return <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>The minibar is full.</Typography>;
+                      const cost = short.reduce((sum, i) => sum + (i.toRefill ?? 0) * (i.cost ?? 0), 0);
+                      return (
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} sx={{ mt: 1.5 }}>
+                          <Button variant="outlined" disabled={busy}
+                            onClick={() => void act(() => checkoutApi.refillMinibar(room.id).then((r) => { setRemaining({}); return r; }), `Minibar refilled; cost ${formatCurrency(cost)} recorded.`)}>
+                            Refill to full
+                          </Button>
+                          <Typography variant="caption" color="text.secondary">
+                            {short.map((i) => `${i.toRefill} × ${i.name}`).join(', ')}{cost ? ` · cost ${formatCurrency(cost)}` : ''}
+                          </Typography>
+                        </Stack>
+                      );
+                    })()}
                   </>
                 )}
               </Paper>

@@ -193,49 +193,64 @@ const OutletKitchenPanel: React.FC<{ date: string; canPlan: boolean }> = ({ date
       {error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
       {outletId && !menu.length && <Alert severity="info" sx={{ mb: 1.5 }}>{outletName} has no active menu items yet. Add them in Menu Configuration.</Alert>}
 
-      <Typography fontWeight={700} sx={{ mt: 1, mb: 0.5 }}>Planned vs made — {new Date(`${date}T12:00:00`).toLocaleDateString()}</Typography>
-      {!production?.rows.length ? (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Nothing planned for {outletName || 'this outlet'} today.</Typography>
-      ) : (
-        <Box sx={{ overflowX: 'auto', mb: 2 }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Meal</TableCell>
-                <TableCell>Food</TableCell>
-                <TableCell align="right">Planned</TableCell>
-                <TableCell align="right">Made</TableCell>
-                <TableCell align="right">Wasted</TableCell>
-                <TableCell align="right">Variance</TableCell>
-                <TableCell />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {production.rows.map((row) => (
-                <TableRow key={row.timetableEntryId}>
-                  <TableCell>{title(row.mealPeriod)}</TableCell>
-                  <TableCell>{row.dishName}</TableCell>
-                  <TableCell align="right">{row.planned ?? '—'}</TableCell>
-                  <TableCell align="right">{row.produced}</TableCell>
-                  <TableCell align="right">{row.wasted || '—'}</TableCell>
-                  <TableCell align="right">
-                    {row.variance == null ? '—' : <Chip size="small" color={row.variance < 0 ? 'warning' : row.variance > 0 ? 'info' : 'success'} label={row.variance > 0 ? `+${row.variance}` : row.variance} />}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Button
-                      size="small"
-                      disabled={!(row as { menuItemId?: string | null }).menuItemId}
-                      onClick={() => openRecord({ timetableEntryId: row.timetableEntryId, menuItemId: (row as { menuItemId?: string }).menuItemId ?? '', dishName: row.dishName, mealPeriod: row.mealPeriod })}
-                    >
-                      Record
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+      <Typography fontWeight={700} sx={{ mt: 1, mb: 0.5 }}>Production by station — {new Date(`${date}T12:00:00`).toLocaleDateString()}</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        What is left decides what customers can order: a dish with nothing left is taken off the POS and the QR menu until more is made.
+      </Typography>
+      {(production?.stations ?? []).map((station) => (
+        <Box key={station.code} sx={{ mb: 2 }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+            <Typography fontWeight={800}>{station.name}</Typography>
+            <Chip size="small" label={station.rows.length} />
+          </Stack>
+          {!station.rows.length ? (
+            <Typography variant="body2" color="text.secondary">Nothing planned or made at {station.name} today.</Typography>
+          ) : (
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Meal</TableCell>
+                    <TableCell>Food</TableCell>
+                    <TableCell align="right">Planned</TableCell>
+                    <TableCell align="right">Made</TableCell>
+                    <TableCell align="right">Wasted</TableCell>
+                    <TableCell align="right">Sold</TableCell>
+                    <TableCell align="right">Left</TableCell>
+                    <TableCell>On the menu</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {station.rows.map((row, index) => (
+                    <TableRow key={row.timetableEntryId ?? row.logId ?? `${row.menuItemId}-${index}`}>
+                      <TableCell>{row.mealPeriod ? title(row.mealPeriod) : '—'}</TableCell>
+                      <TableCell>{row.dishName}</TableCell>
+                      <TableCell align="right">{row.planned ?? '—'}</TableCell>
+                      <TableCell align="right">{row.produced}</TableCell>
+                      <TableCell align="right">{row.wasted || '—'}</TableCell>
+                      <TableCell align="right">{row.sold}</TableCell>
+                      <TableCell align="right">{row.left ?? '—'}</TableCell>
+                      <TableCell>
+                        {row.onMenu == null ? '—' : row.onMenu ? <Chip size="small" color="success" label="Showing" /> : <Chip size="small" color={row.soldOut ? 'warning' : 'default'} label={row.soldOut ? 'Sold out' : 'Switched off'} />}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button
+                          size="small"
+                          disabled={!row.menuItemId}
+                          onClick={() => openRecord({ timetableEntryId: row.timetableEntryId ?? undefined, menuItemId: row.menuItemId ?? '', dishName: row.dishName, mealPeriod: row.mealPeriod ?? undefined } as never)}
+                        >
+                          Record
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
+          )}
         </Box>
-      )}
+      ))}
 
       <Typography fontWeight={700} sx={{ mb: 0.5 }}>Today’s production log — {outletName}</Typography>
       <Box sx={{ overflowX: 'auto' }}>

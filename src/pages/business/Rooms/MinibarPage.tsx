@@ -44,7 +44,7 @@ const MinibarPage: React.FC = () => {
   const [counts, setCounts] = useState<MinibarCount[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [newItem, setNewItem] = useState({ name: '', price: '' });
+  const [newItem, setNewItem] = useState({ name: '', price: '', cost: '' });
   const [target, setTarget] = useState<{ kind: 'room' | 'type'; id: string }>({ kind: 'type', id: '' });
   const [par, setPar] = useState<Record<string, string>>({});
 
@@ -138,15 +138,16 @@ const MinibarPage: React.FC = () => {
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ p: 2 }}>
                 <TextField size="small" label="Item" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} />
                 <TextField size="small" type="number" label="Price (₦)" value={newItem.price} onChange={(e) => setNewItem({ ...newItem, price: e.target.value })} />
+                <TextField size="small" type="number" label="Cost to the hotel (₦)" value={newItem.cost} onChange={(e) => setNewItem({ ...newItem, cost: e.target.value })} />
                 <Button variant="contained" disabled={newItem.name.trim().length < 2 || newItem.price === ''}
-                  onClick={() => void act(async () => { await checkoutApi.createMinibarItem({ name: newItem.name.trim(), price: Number(newItem.price) }); setNewItem({ name: '', price: '' }); }, 'Item added.')}>Add item</Button>
+                  onClick={() => void act(async () => { await checkoutApi.createMinibarItem({ name: newItem.name.trim(), price: Number(newItem.price), cost: newItem.cost === '' ? null : Number(newItem.cost) }); setNewItem({ name: '', price: '', cost: '' }); }, 'Item added.')}>Add item</Button>
               </Stack>
             )}
             <Table size="small">
-              <TableHead><TableRow><TableCell>Item</TableCell><TableCell align="right">Price</TableCell><TableCell>In use</TableCell></TableRow></TableHead>
+              <TableHead><TableRow><TableCell>Item</TableCell><TableCell align="right">Price</TableCell><TableCell align="right">Cost</TableCell><TableCell>In use</TableCell></TableRow></TableHead>
               <TableBody>
                 {items.length === 0 ? (
-                  <TableRow><TableCell colSpan={3} sx={{ py: 3, textAlign: 'center', color: 'text.secondary' }}>No minibar items yet.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={4} sx={{ py: 3, textAlign: 'center', color: 'text.secondary' }}>No minibar items yet.</TableCell></TableRow>
                 ) : items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>{item.name}</TableCell>
@@ -155,6 +156,12 @@ const MinibarPage: React.FC = () => {
                         <TextField size="small" type="number" defaultValue={item.price} inputProps={{ 'aria-label': `${item.name} price` }}
                           onBlur={(e) => Number(e.target.value) !== item.price && void act(() => checkoutApi.updateMinibarItem(item.id, { price: Number(e.target.value) }), `${item.name} price updated.`)} />
                       ) : formatCurrency(item.price)}
+                    </TableCell>
+                    <TableCell align="right" sx={{ width: 160 }}>
+                      {canManage ? (
+                        <TextField size="small" type="number" defaultValue={item.cost ?? ''} inputProps={{ 'aria-label': `${item.name} cost` }}
+                          onBlur={(e) => (e.target.value === '' ? null : Number(e.target.value)) !== (item.cost ?? null) && void act(() => checkoutApi.updateMinibarItem(item.id, { cost: e.target.value === '' ? null : Number(e.target.value) }), `${item.name} cost updated.`)} />
+                      ) : item.cost != null ? formatCurrency(item.cost) : '—'}
                     </TableCell>
                     <TableCell>
                       <Switch checked={item.isActive} disabled={!canManage} onChange={(e) => void act(() => checkoutApi.updateMinibarItem(item.id, { isActive: e.target.checked }), `${item.name} ${e.target.checked ? 'on' : 'off'}.`)} />
