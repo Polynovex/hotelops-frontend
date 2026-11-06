@@ -52,7 +52,15 @@ const DesktopOfflineIndicator: React.FC = () => {
       <Chip
         icon={<Icon fontSize="small" />}
         label={tone.label}
-        onClick={() => void (failed > 0 ? openFailures() : bridge.syncNow())}
+        onClick={() =>
+          void (failed > 0
+            ? openFailures()
+            : bridge
+                .syncNow()
+                .then(() => bridge.status())
+                .then((s) => setState(s))
+                .catch(() => undefined))
+        }
         sx={{
           bgcolor: tone.bg,
           color: tone.fg,

@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { LocalOfferRounded } from '@mui/icons-material';
+import { desktopBridge } from '../../../services/desktopBridge';
 import Layout from '../../../components/Layout';
 import LogoLoader from '../../../components/LogoLoader';
 import DataTable from '../../../components/common/DataTable';
@@ -106,7 +107,9 @@ const PosOrdersPage = () => {
         posService.getPendingSync().catch(() => ({ pendingCount: 0, items: [] }))
       ]);
       setOutlets(outletRows);
-      setOrders(orderRows);
+      // Newest first; orders taken offline on the desktop come from a local
+      // cache that is not sorted.
+      setOrders([...orderRows].sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()));
       setPendingSyncCount(Number(pending.pendingCount || 0));
       setPendingClientIds(
         (pending.items || []).map((item) => String((item as Record<string, unknown>).clientId || '')).filter(Boolean)
@@ -180,8 +183,14 @@ const PosOrdersPage = () => {
 
   const runSync = () =>
     run(async () => {
+      // On the desktop app, first replay whatever was queued while offline.
+      if (desktopBridge) await desktopBridge.syncNow().catch(() => undefined);
       await posService.bulkSyncOrders([]);
-      if (pendingClientIds.length > 0) await posService.acknowledgeSync(pendingClientIds);
+      // Acknowledge everything the server now holds for this till, including
+      // orders the replay just delivered.
+      const pending = await posService.getPendingSync().catch(() => ({ items: [] as Array<Record<string, unknown>> }));
+      const ids = [...new Set([...pendingClientIds, ...pending.items.map((item) => String(item.clientId ?? '')).filter(Boolean)])];
+      if (ids.length > 0) await posService.acknowledgeSync(ids);
     }, 'Sync completed');
 
   return (

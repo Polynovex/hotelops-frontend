@@ -133,6 +133,17 @@ export const installDesktopOffline = () => {
       const clientId = String(body.clientId || `desktop-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
       const order = { ...body, clientId, clientTimestamp: new Date().toISOString() };
       await bridge.queue({ resource: '/pos/orders/sync', method: 'POST', payload: { orders: [order] }, clientId });
+      // Name and price the lines from the cached menu so the till shows what
+      // was rung up; the server prices the order again when it syncs.
+      const menu = ((await bridge.read('menu', { outletId: body.outletId }).catch(() => [])) ?? []) as Array<{ id: string; name?: string; price?: number; taxRate?: number }>;
+      const lines = (Array.isArray(body.items) ? (body.items as Array<{ menuItemId?: string; quantity?: number }>) : []).map((line) => {
+        const item = menu.find((m) => m.id === line.menuItemId);
+        const quantity = Number(line.quantity) || 1;
+        const price = Number(item?.price) || 0;
+        return { ...line, quantity, name: item?.name ?? 'Item', unitPrice: price, lineTotal: price * quantity, taxRate: Number(item?.taxRate) || 0 };
+      });
+      const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
+      const tax = Math.round(lines.reduce((sum, line) => sum + (line.lineTotal * line.taxRate) / 100, 0) * 100) / 100;
       const placeholder = {
         id: clientId,
         clientId,
@@ -141,11 +152,11 @@ export const installDesktopOffline = () => {
         orderType: body.orderType ?? 'DINE_IN',
         orderStatus: 'OPEN',
         tableNumber: body.tableNumber ?? null,
-        items: body.items ?? [],
-        subtotal: 0,
-        tax: 0,
+        items: lines,
+        subtotal,
+        tax,
         serviceCharge: 0,
-        total: 0,
+        total: subtotal + tax,
         paymentStatus: 'PENDING',
         isQrOrder: false,
         createdAt: new Date().toISOString(),

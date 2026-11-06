@@ -489,7 +489,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isSuperAdmin = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
   // The business's own logo leads; HotelOpX is the "Powered by" credit.
   const businessLogo = !isSuperAdmin && user?.logoUrl ? user.logoUrl : null;
-  const logoSrc = businessLogo ?? '/logo.png';
+  const logoSrc = businessLogo ?? `${import.meta.env.BASE_URL}logo.png`;
   /**
    * The light-text mark, for the dark sidebar.
    *
@@ -500,7 +500,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
    * light-surface variant the container stays transparent and the mark sits
    * directly on the navy.
    */
-  const logoDarkSrc = businessLogo ?? '/logo1.png';
+  const logoDarkSrc = businessLogo ?? `${import.meta.env.BASE_URL}logo1.png`;
   const brandName = isSuperAdmin ? 'HotelOpX' : user?.hotelName || 'HotelOpX';
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {

@@ -131,7 +131,7 @@ const ForceResetPasswordPage = () => {
                 <Box sx={{ position: 'relative', zIndex: 2 }}>
                   <Box
                     component="img"
-                    src="/logo1.png"
+                    src={`${import.meta.env.BASE_URL}logo1.png`}
                     alt="HotelOpX — PMS, POS, Finance, Operations"
                     sx={{ width: 240, maxWidth: '80%', display: 'block', mb: 5 }}
                   />

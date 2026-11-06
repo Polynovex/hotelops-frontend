@@ -347,7 +347,7 @@ const LoginPage: React.FC = () => {
                   */}
                   <Box
                     component="img"
-                    src="/logo1.png"
+                    src={`${import.meta.env.BASE_URL}logo1.png`}
                     alt="HotelOpX — PMS, POS, Finance, Operations"
                     sx={{ width: { md: 260, lg: 300 }, maxWidth: '80%', display: 'block', mb: 5 }}
                   />
@@ -449,7 +449,7 @@ const LoginPage: React.FC = () => {
                 >
                   <Box
                     component="img"
-                    src="/logo1.png"
+                    src={`${import.meta.env.BASE_URL}logo1.png`}
                     alt="HotelOpX"
                     sx={{ width: 200, maxWidth: '70%', display: 'block' }}
                   />
