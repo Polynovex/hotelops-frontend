@@ -29,6 +29,7 @@ import { useAuthStore } from '../../store/authStore';
 import { api } from '../../services/api';
 import { useColorMode } from '../../theme/colorMode';
 import { getApiErrorMessage } from '../../utils/apiError';
+import { assetUrl } from '../../utils/assetUrl';
 
 const ForceResetPasswordPage = () => {
   const navigate = useNavigate();
@@ -131,7 +132,7 @@ const ForceResetPasswordPage = () => {
                 <Box sx={{ position: 'relative', zIndex: 2 }}>
                   <Box
                     component="img"
-                    src={`${import.meta.env.BASE_URL}logo1.png`}
+                    src={assetUrl('logo1.png')}
                     alt="HotelOpX — PMS, POS, Finance, Operations"
                     sx={{ width: 240, maxWidth: '80%', display: 'block', mb: 5 }}
                   />

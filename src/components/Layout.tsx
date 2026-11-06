@@ -78,6 +78,7 @@ import {
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { assetUrl } from '../utils/assetUrl';
 import { useAuthStore } from '../store/authStore';
 import { useColorMode } from '../theme/colorMode';
 import { DemoModeBanner } from './DemoModeBanner';
@@ -489,7 +490,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isSuperAdmin = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
   // The business's own logo leads; HotelOpX is the "Powered by" credit.
   const businessLogo = !isSuperAdmin && user?.logoUrl ? user.logoUrl : null;
-  const logoSrc = businessLogo ?? `${import.meta.env.BASE_URL}logo.png`;
+  const logoSrc = businessLogo ?? assetUrl('logo.png');
   /**
    * The light-text mark, for the dark sidebar.
    *
@@ -500,7 +501,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
    * light-surface variant the container stays transparent and the mark sits
    * directly on the navy.
    */
-  const logoDarkSrc = businessLogo ?? `${import.meta.env.BASE_URL}logo1.png`;
+  const logoDarkSrc = businessLogo ?? assetUrl('logo1.png');
   const brandName = isSuperAdmin ? 'HotelOpX' : user?.hotelName || 'HotelOpX';
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {

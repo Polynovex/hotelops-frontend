@@ -41,6 +41,7 @@ import { getApiErrorMessage } from '../utils/apiError';
 import SignInCodeStep from '../components/auth/SignInCodeStep';
 import OfflineUnlockPanel, { rememberSignIn, useOnline } from '../components/auth/OfflineUnlockPanel';
 import { postLoginPath } from '../utils/roleLanding';
+import { assetUrl } from '../utils/assetUrl';
 
 type LoginMode = 'USERCODE' | 'EMAIL';
 
@@ -347,7 +348,7 @@ const LoginPage: React.FC = () => {
                   */}
                   <Box
                     component="img"
-                    src={`${import.meta.env.BASE_URL}logo1.png`}
+                    src={assetUrl('logo1.png')}
                     alt="HotelOpX — PMS, POS, Finance, Operations"
                     sx={{ width: { md: 260, lg: 300 }, maxWidth: '80%', display: 'block', mb: 5 }}
                   />
@@ -449,7 +450,7 @@ const LoginPage: React.FC = () => {
                 >
                   <Box
                     component="img"
-                    src={`${import.meta.env.BASE_URL}logo1.png`}
+                    src={assetUrl('logo1.png')}
                     alt="HotelOpX"
                     sx={{ width: 200, maxWidth: '70%', display: 'block' }}
                   />

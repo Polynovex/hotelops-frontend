@@ -23,6 +23,7 @@ import { api } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { useColorMode } from '../../theme/colorMode';
 import LogoLoader from '../../components/LogoLoader';
+import { assetUrl } from '../../utils/assetUrl';
 
 const AuthCard = ({
   title,
@@ -144,7 +145,7 @@ export const ForgotPasswordPage = () => {
                 <Box sx={{ position: 'relative', zIndex: 2 }}>
                   <Box
                     component="img"
-                    src={`${import.meta.env.BASE_URL}logo1.png`}
+                    src={assetUrl('logo1.png')}
                     alt="HotelOpX — PMS, POS, Finance, Operations"
                     sx={{ width: 240, maxWidth: '80%', display: 'block', mb: 5 }}
                   />
@@ -373,7 +374,7 @@ export const ResetPasswordPage = () => {
                 <Box sx={{ position: 'relative', zIndex: 2 }}>
                   <Box
                     component="img"
-                    src={`${import.meta.env.BASE_URL}logo1.png`}
+                    src={assetUrl('logo1.png')}
                     alt="HotelOpX — PMS, POS, Finance, Operations"
                     sx={{ width: 240, maxWidth: '80%', display: 'block', mb: 5 }}
                   />
