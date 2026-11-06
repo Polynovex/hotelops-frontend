@@ -599,6 +599,7 @@ export interface NightAuditHistoryRecord {
   auditDate: string;
   closedAt?: string | null;
   closedBy?: string | null;
+  closedByName?: string | null;
   totalRevenue: number;
   totalBookings: number;
   totalPosSales: number;

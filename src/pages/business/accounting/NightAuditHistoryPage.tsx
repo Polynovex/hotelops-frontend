@@ -50,8 +50,16 @@ const NightAuditHistoryPage = () => {
     if (!value) return '—';
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return '—';
-    return parsed.toLocaleString();
+    return parsed.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
   };
+  /** The business day an audit closed: a calendar date, stored at midnight UTC. */
+  const formatDay = (value?: string | null) => {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '—';
+    return parsed.toLocaleDateString('en-GB', { timeZone: 'UTC', weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+  const naira = (value: unknown) => `₦${Number(value || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <Layout>
@@ -126,13 +134,13 @@ const NightAuditHistoryPage = () => {
               )}
               {history.map((audit) => (
                 <TableRow key={audit.id} hover>
-                  <TableCell>{formatDate(audit.auditDate)}</TableCell>
+                  <TableCell>{formatDay(audit.auditDate)}</TableCell>
                   <TableCell>{formatDate(audit.closedAt)}</TableCell>
-                  <TableCell>{audit.closedBy || '—'}</TableCell>
-                  <TableCell>₦{Number(audit.totalRevenue || 0).toLocaleString()}</TableCell>
-                  <TableCell>₦{Number(audit.totalPosSales || audit.posTotal || 0).toLocaleString()}</TableCell>
-                  <TableCell>₦{Number(audit.difference || 0).toLocaleString()}</TableCell>
-                  <TableCell>{audit.revenueJournalId || '—'}</TableCell>
+                  <TableCell>{audit.closedByName || (audit.closedBy ? 'Staff member' : '—')}</TableCell>
+                  <TableCell>{naira(audit.totalRevenue)}</TableCell>
+                  <TableCell>{naira(audit.totalPosSales || audit.posTotal)}</TableCell>
+                  <TableCell>{naira(audit.difference)}</TableCell>
+                  <TableCell sx={{ fontFamily: 'monospace' }}>{audit.revenueJournalId ? `JV-${String(audit.revenueJournalId).slice(0, 8).toUpperCase()}` : '—'}</TableCell>
                 </TableRow>
               ))}
               {history.length === 0 && !loading && (

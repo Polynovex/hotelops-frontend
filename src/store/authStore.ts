@@ -166,3 +166,22 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+/*
+ * Keep the desktop app's sync engine holding the current token: when a saved
+ * session is restored at start-up, on sign-in, on every token refresh and on
+ * sign-out. It used to be sent only at sign-in, so after the app restarted
+ * (or the token was refreshed) changes queued offline could not be replayed.
+ * In a browser there is no desktop bridge and this does nothing.
+ */
+if (typeof window !== 'undefined') {
+  let sent: string | null | undefined;
+  const push = (token: string | null) => {
+    if (token === sent) return;
+    sent = token;
+    void syncAuthTokenToDesktop(token);
+  };
+  useAuthStore.persist?.onFinishHydration?.((state) => push(state.token));
+  if (useAuthStore.persist?.hasHydrated?.()) push(useAuthStore.getState().token);
+  useAuthStore.subscribe((state) => push(state.token));
+}
