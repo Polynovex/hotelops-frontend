@@ -107,8 +107,37 @@ export const installDesktopOffline = () => {
   const bridge = desktopBridge;
   if (!bridge) return;
 
-  api.interceptors.response.use(undefined, async (error: AxiosError) => {
+  /*
+   * The app's own requests tell the sync engine about the connection at once:
+   * a request that never reaches the server makes it recheck (so the till
+   * shows Offline within seconds, not at the next 30 s tick), and the first
+   * request that gets through after an outage replays the offline queue
+   * straight away.
+   */
+  let offlineSeen = false;
+  let kickTimer: ReturnType<typeof setTimeout> | null = null;
+  const kick = () => {
+    if (kickTimer) return;
+    kickTimer = setTimeout(() => {
+      kickTimer = null;
+      void bridge.syncNow().catch(() => undefined);
+    }, 300);
+  };
+
+  api.interceptors.response.use(
+    (response) => {
+      if (offlineSeen) {
+        offlineSeen = false;
+        kick();
+      }
+      return response;
+    },
+    async (error: AxiosError) => {
     const config = error.config;
+    if (config && !reachedServer(error)) {
+      offlineSeen = true;
+      kick();
+    }
     if (!config || reachedServer(error)) throw error;
 
     const method = (config.method || 'get').toLowerCase();
