@@ -2,6 +2,7 @@ import { formatCurrency } from '../../../utils/formatters';
 import StayReceipts from '../../../components/receipts/StayReceipts';
 import EventRoomsSection from '../../../components/reservations/EventRoomsSection';
 import CheckoutSettlementDialog from '../../../components/reservations/CheckoutSettlementDialog';
+import TakeStayPaymentDialog from '../../../components/reservations/TakeStayPaymentDialog';
 import RowActionsMenu from '../../../components/common/RowActionsMenu';
 import EventRoomBlocks from '../../../components/events/EventRoomBlocks';
 import { useRoomTypeNames } from '../../../hooks/useRoomTypeNames';
@@ -865,6 +866,8 @@ export const ReservationDetailPage = () => {
   const [editing, setEditing] = useState<ReservationRecord | null>(null);
   const [voiding, setVoiding] = useState<ReservationRecord | null>(null);
   const [guestPhotoUrl, setGuestPhotoUrl] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [paidNote, setPaidNote] = useState('');
 
   /**
    * `background` skips the full-page spinner. Realtime events refresh this page
@@ -1036,6 +1039,11 @@ export const ReservationDetailPage = () => {
                   Move To Q-Room
                 </Button>
               )}
+              {!reservation.event && reservation.balance > 0 && !['CHECKED_OUT', 'CANCELLED', 'NO_SHOW'].includes(reservation.status) && (
+                <Button variant={reservation.checkInPayment && !reservation.checkInPayment.met ? 'contained' : 'outlined'} color="warning" onClick={() => setPaying(true)}>
+                  Take payment
+                </Button>
+              )}
               {reservation.status !== 'CHECKED_IN' && reservation.status !== 'CHECKED_OUT' && (
                 <Button variant="contained" color="success" onClick={() => void performCheckIn()}>
                   Check In
@@ -1056,7 +1064,19 @@ export const ReservationDetailPage = () => {
               <Button variant="outlined" color="secondary" onClick={handlePrint}>Print</Button>
             </Stack>
           </Paper>
-          <StayReceipts bookingId={reservation.id} />
+          {paidNote && <Alert severity="success" onClose={() => setPaidNote('')}>{paidNote}</Alert>}
+          <StayReceipts key={paidNote} bookingId={reservation.id} />
+          <TakeStayPaymentDialog
+            open={paying}
+            reservation={{ id: reservation.id, guestName: reservation.guestName, roomNumber: reservation.roomNumber }}
+            due={reservation.checkInPayment && !reservation.checkInPayment.met ? Math.max(reservation.checkInPayment.required - reservation.checkInPayment.paid, 0) : undefined}
+            onClose={() => setPaying(false)}
+            onPaid={(amount) => {
+              setPaying(false);
+              setPaidNote(`${formatCurrency(amount)} recorded.`);
+              void load(true);
+            }}
+          />
           </Stack>
         )}
 
@@ -1129,8 +1149,9 @@ export const CheckInPage = () => {
       .checkIn(reservation.id)
       .then(() => load())
       .catch((err: unknown) => setError(getApiErrorMessage(err, 'Check-in failed')));
+  const [paying, setPaying] = useState<ReservationRecord | null>(null);
   const takePayment = (reservation: ReservationRecord) =>
-    navigate(reservation.event ? `/business/events/${reservation.event.id}` : `/business/reservations/${reservation.id}`);
+    reservation.event ? navigate(`/business/events/${reservation.event.id}`) : setPaying(reservation);
 
   const load = async () => {
     setLoading(true);
@@ -1288,6 +1309,17 @@ export const CheckInPage = () => {
               )
             }
           ]}
+        />
+
+        <TakeStayPaymentDialog
+          open={Boolean(paying)}
+          reservation={paying ? { id: paying.id, guestName: paying.guestName, roomNumber: paying.roomNumber } : null}
+          due={paying?.checkInPayment ? Math.max(paying.checkInPayment.required - paying.checkInPayment.paid, 0) : undefined}
+          onClose={() => setPaying(null)}
+          onPaid={() => {
+            setPaying(null);
+            void load();
+          }}
         />
 
         <RoomAssignmentDialog
