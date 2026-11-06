@@ -1,5 +1,6 @@
 import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { api } from './api';
+import { apiClient } from '../api/client';
 import { desktopBridge } from './desktopBridge';
 
 /**
@@ -124,7 +125,8 @@ export const installDesktopOffline = () => {
     }, 300);
   };
 
-  api.interceptors.response.use(
+  // Both HTTP clients in the app need this; screens use one or the other.
+  for (const client of [api, apiClient]) client.interceptors.response.use(
     (response) => {
       if (offlineSeen) {
         offlineSeen = false;
