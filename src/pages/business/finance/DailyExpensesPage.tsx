@@ -54,7 +54,12 @@ const STATUS_COLOR: Record<ExpenseStatus, 'warning' | 'success' | 'error' | 'def
 /** "PR-2026-0014" from an expense created by an approved payment. */
 const paymentRef = (expense: Expense) => expense.description.match(/PR-\d{4}-\d{4}/)?.[0] ?? null;
 
-const today = () => new Date().toISOString().slice(0, 10);
+/** Today's date in the hotel's local time (toISOString is UTC, which showed
+ *  yesterday between midnight and 1am in Lagos). */
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 const errorMessage = (err: unknown, fallback: string) =>
   (err as { response?: { data?: { message?: string } } }).response?.data?.message

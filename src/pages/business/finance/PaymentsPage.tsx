@@ -69,13 +69,15 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 const EXPENSE_CATEGORIES = ['Staff Salaries', 'Staff Welfare', 'Transport & Logistics', 'Professional Fees', 'Repairs & Maintenance', 'Miscellaneous'];
 
 const date = (value: string | null) => (value ? new Date(value).toLocaleDateString('en-GB') : '—');
+// Local dates: toISOString is UTC and shifts a midnight date back a day.
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const firstOfMonth = () => {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  return ymd(new Date(d.getFullYear(), d.getMonth(), 1));
 };
 const endOfMonth = () => {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+  return ymd(new Date(d.getFullYear(), d.getMonth() + 1, 0));
 };
 
 const PaymentsPage = () => {
