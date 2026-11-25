@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
+import OutletAssignmentDialog from '../../../components/hr/OutletAssignmentDialog';
 import Layout from '../../../components/Layout';
 import { usePermissionStore } from '../../../store/permissionStore';
 import { useAuthStore } from '../../../store/authStore';
@@ -85,6 +86,7 @@ const StaffProfilePage: React.FC = () => {
   const [unlockOpen, setUnlockOpen] = useState(false);
   const [unlock, setUnlock] = useState({ minutes: '60', reason: '' });
   const [unlockNote, setUnlockNote] = useState('');
+  const [outletsOpen, setOutletsOpen] = useState(false);
 
   const [profile, setProfile] = useState<StaffProfile | null>(null);
   const [error, setError] = useState('');
@@ -158,6 +160,8 @@ const StaffProfilePage: React.FC = () => {
   }
 
   const { staff, account, history, attendance, leave, payslips, upcomingShifts } = profile;
+  const assignedOutlets = profile.assignedOutlets ?? [];
+  const isPosStaff = account?.role === 'POS_STAFF';
   const terminated = staff.status === 'TERMINATED';
   const titles = JOB_TITLES_BY_DEPARTMENT[form.department] ?? [];
 
@@ -178,6 +182,9 @@ const StaffProfilePage: React.FC = () => {
           <Stack direction="row" spacing={1}>
             {canUnlock && account && !terminated && (
               <Button variant="outlined" onClick={() => { setUnlock({ minutes: '60', reason: '' }); setUnlockOpen(true); }}>Unlock account</Button>
+            )}
+            {canEdit && !terminated && isPosStaff && (
+              <Button variant="outlined" onClick={() => setOutletsOpen(true)}>Assigned outlets</Button>
             )}
             {canEdit && !terminated && (
               <Button variant="contained" startIcon={<TrendingUpRoundedIcon />} onClick={openPromote}>Promote / change position</Button>
@@ -209,6 +216,19 @@ const StaffProfilePage: React.FC = () => {
               )}
             </Card>
           </Grid>
+
+          {/* Shown only when the staff member has at least one outlet. */}
+          {assignedOutlets.length > 0 && (
+            <Grid item xs={12}>
+              <Card title="Assigned Outlets" action={canEdit && !terminated ? <Button size="small" onClick={() => setOutletsOpen(true)}>Change</Button> : undefined}>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  {assignedOutlets.map((outlet) => (
+                    <Chip key={outlet.id} label={outlet.name} color={outlet.isActive ? 'primary' : 'default'} variant="outlined" />
+                  ))}
+                </Stack>
+              </Card>
+            </Grid>
+          )}
 
           <Grid item xs={12} md={6}>
             <Card title="Employment history">
@@ -375,6 +395,15 @@ const StaffProfilePage: React.FC = () => {
             }}>Unlock</Button>
           </DialogActions>
         </Dialog>
+        {id && profile && (
+          <OutletAssignmentDialog
+            staffId={id}
+            staffName={`${profile.staff.firstName} ${profile.staff.lastName}`}
+            open={outletsOpen}
+            onClose={() => setOutletsOpen(false)}
+            onSaved={() => { setUnlockNote('Outlets updated.'); void load(); }}
+          />
+        )}
       </Container>
     </Layout>
   );

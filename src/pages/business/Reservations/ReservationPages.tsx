@@ -1,5 +1,6 @@
 import { formatCurrency } from '../../../utils/formatters';
 import StayReceipts from '../../../components/receipts/StayReceipts';
+import GuestExtrasSection from '../../../components/reservations/GuestExtrasSection';
 import EventRoomsSection from '../../../components/reservations/EventRoomsSection';
 import CheckoutSettlementDialog from '../../../components/reservations/CheckoutSettlementDialog';
 import TakeStayPaymentDialog from '../../../components/reservations/TakeStayPaymentDialog';
@@ -1023,6 +1024,8 @@ export const ReservationDetailPage = () => {
 
             <StayPromotions reservation={reservation} />
 
+            <GuestExtrasSection bookingId={reservation.id} closed={['CHECKED_OUT', 'CANCELLED'].includes(String(reservation.status))} />
+
             <Stack direction="row" spacing={1.5} sx={{ mt: 3 }}>
               <Button variant="outlined" onClick={() => setAssignOpen(true)}>
                 {reservation.roomId ? 'Change Room' : 'Assign Room'}
@@ -1150,6 +1153,8 @@ export const CheckInPage = () => {
       .then(() => load())
       .catch((err: unknown) => setError(getApiErrorMessage(err, 'Check-in failed')));
   const [paying, setPaying] = useState<ReservationRecord | null>(null);
+  // Guest add-ons (breakfast, extra bed...) sold at check-in.
+  const [extrasFor, setExtrasFor] = useState<ReservationRecord | null>(null);
   const takePayment = (reservation: ReservationRecord) =>
     reservation.event ? navigate(`/business/events/${reservation.event.id}`) : setPaying(reservation);
 
@@ -1284,6 +1289,7 @@ export const CheckInPage = () => {
                   ) : (
                     <Button size="small" onClick={() => setSelectedReservation(reservation)}>Assign Room</Button>
                   )}
+                  <Button size="small" onClick={() => setExtrasFor(reservation)}>Extras</Button>
                   <RowActionsMenu
                     subject={reservation.guestName ?? reservation.id}
                     actions={[
@@ -1337,6 +1343,16 @@ export const CheckInPage = () => {
             await load();
           }}
         />
+        <Dialog open={Boolean(extrasFor)} onClose={() => setExtrasFor(null)} fullWidth maxWidth="sm">
+          <DialogTitle>Guest add-ons — {extrasFor?.guestName}</DialogTitle>
+          <DialogContent>
+            {extrasFor && <GuestExtrasSection bookingId={extrasFor.id} />}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setExtrasFor(null)}>Done</Button>
+          </DialogActions>
+        </Dialog>
+
         <Dialog open={Boolean(overriding)} onClose={() => setOverriding(null)} fullWidth maxWidth="xs">
           <DialogTitle>Check in without the required payment</DialogTitle>
           <DialogContent>

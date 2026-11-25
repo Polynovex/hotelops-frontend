@@ -45,6 +45,8 @@ export interface StaffProfile {
   leave: Array<{ id: string; type?: string; leaveType?: string; startDate: string; endDate: string; status: string }>;
   payslips: Array<{ id: string; periodStart: string; periodEnd: string; netPay: number; status: string }>;
   upcomingShifts: Array<{ id: string; date: string; startsAt: string; endsAt: string; position: string | null; status: string }>;
+  /** POS staff only; empty for everyone else. */
+  assignedOutlets?: Array<{ id: string; name: string; type: string; isActive: boolean; assignedAt: string }>;
 }
 
 export interface ShiftAccess {
@@ -166,6 +168,8 @@ export interface PayrollRecord {
   periodStart: string;
   periodEnd: string;
   status: PayrollStatus;
+  /** Set while the line is in a payment awaiting approval (and after). */
+  paymentRecordId?: string | null;
   basePay: number;
   allowances: number;
   bonuses: number;

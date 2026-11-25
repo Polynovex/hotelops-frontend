@@ -1,6 +1,6 @@
 import { api } from './api';
 
-export type ExpenseStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type ExpenseStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'VOIDED';
 
 export interface Expense {
   id: string;
@@ -22,6 +22,10 @@ export interface Expense {
   approvedByName?: string | null;
   notes: string | null;
   createdAt: string;
+  /** MANUAL, or PAYMENT_RECORD when it came from an approved payment. */
+  source?: 'MANUAL' | 'PAYMENT_RECORD' | string;
+  paymentRecordId?: string | null;
+  voidReason?: string | null;
 }
 
 export interface ExpenseTotals {

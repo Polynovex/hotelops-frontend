@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/authStore';
 import { usePermissionStore } from '../../../store/permissionStore';
 import {
@@ -43,11 +44,15 @@ import financeService, {
   type ExpenseTotals
 } from '../../../services/finance.service';
 
-const STATUS_COLOR: Record<ExpenseStatus, 'warning' | 'success' | 'error'> = {
+const STATUS_COLOR: Record<ExpenseStatus, 'warning' | 'success' | 'error' | 'default'> = {
   PENDING: 'warning',
   APPROVED: 'success',
-  REJECTED: 'error'
+  REJECTED: 'error',
+  VOIDED: 'default'
 };
+
+/** "PR-2026-0014" from an expense created by an approved payment. */
+const paymentRef = (expense: Expense) => expense.description.match(/PR-\d{4}-\d{4}/)?.[0] ?? null;
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -87,6 +92,13 @@ const DailyExpensesPage = () => {
    * those who may approve, and never on their own entries.
    */
   const userId = useAuthStore((state) => state.user?.id);
+  const navigate = useNavigate();
+  const viewer = useAuthStore((state) => state.user);
+  // The link to the originating payment, for whoever can open Payments.
+  const canSeePayments = Boolean(
+    viewer && (['BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT'].includes(String(viewer.role))
+      || (viewer.permissions ?? []).some((code) => ['CREATE_PAYMENT', 'APPROVE_PAYMENT', 'VIEW_PAYMENT_BOOK', '*'].includes(code)))
+  );
   const canApprove = usePermissionStore((state) => state.can)('APPROVE_EXPENSE');
   // From an "awaiting approval" notice: open on pending entries of the last month.
   const pendingLink = new URLSearchParams(window.location.search).get('status') === 'PENDING';
@@ -496,6 +508,17 @@ const DailyExpensesPage = () => {
                   <TableCell>{expense.category}</TableCell>
                   <TableCell>
                     <Typography variant="body2">{expense.description}</Typography>
+                    {expense.source === 'PAYMENT_RECORD' && (
+                      <Chip
+                        size="small"
+                        color="secondary"
+                        variant="outlined"
+                        clickable={canSeePayments}
+                        onClick={canSeePayments ? () => navigate('/business/finance/payments') : undefined}
+                        label={`From ${/payroll/i.test(expense.description) ? 'Payroll' : 'Payments'}${paymentRef(expense) ? ` — Ref #${paymentRef(expense)}` : ''}`}
+                        sx={{ mt: 0.5, mr: 0.5 }}
+                      />
+                    )}
                     {expense.vendor && (
                       <Typography variant="caption" color="text.secondary">
                         {expense.vendor}
@@ -520,6 +543,11 @@ const DailyExpensesPage = () => {
                       label={expense.status}
                       color={STATUS_COLOR[expense.status]}
                     />
+                    {expense.voidReason && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Voided: {expense.voidReason}
+                      </Typography>
+                    )}
                     {expense.rejectionReason && (
                       <Typography variant="caption" color="error" display="block">
                         {expense.rejectionReason}
@@ -546,8 +574,8 @@ const DailyExpensesPage = () => {
                           key: 'edit',
                           label: 'Edit',
                           icon: <EditIcon fontSize="small" />,
-                          disabled: expense.status === 'APPROVED',
-                          disabledReason: 'Approved expenses cannot be edited',
+                          disabled: expense.status !== 'PENDING' || expense.source === 'PAYMENT_RECORD',
+                          disabledReason: expense.source === 'PAYMENT_RECORD' ? 'Change it through Finance → Payments' : 'Approved expenses cannot be edited',
                           onClick: () => openEdit(expense)
                         },
                         {
@@ -563,8 +591,8 @@ const DailyExpensesPage = () => {
                           label: 'Delete',
                           icon: <DeleteOutlineIcon fontSize="small" />,
                           destructive: true,
-                          disabled: expense.status === 'APPROVED',
-                          disabledReason: 'Approved expenses cannot be deleted',
+                          disabled: expense.status !== 'PENDING' && expense.status !== 'REJECTED' || expense.source === 'PAYMENT_RECORD',
+                          disabledReason: expense.source === 'PAYMENT_RECORD' ? 'Void it through Finance → Payments' : 'Approved expenses cannot be deleted',
                           onClick: () => setPendingDelete(expense)
                         }
                       ]}

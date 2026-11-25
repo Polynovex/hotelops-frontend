@@ -131,6 +131,127 @@ type NavItem = NavLink | NavGroup;
 const isGroup = (item: NavItem): item is NavGroup => 'children' in item;
 const flatPaths = (items: NavItem[]) => items.flatMap((item) => (isGroup(item) ? item.children : [item])).map((link) => link.path);
 
+/**
+ * Standard sidebar, the same shape for every role except the super admin:
+ *
+ *   1. Dashboard — the role's own dashboard
+ *   2. Staff Hub — shift, my tasks, my profile, notifications
+ *   3. The modules the role may use, under labelled groups (Front Office,
+ *      Rooms, POS, Finance, HR, Settings). There is no "Admin" heading: these
+ *      are the role's work tools, and only some of them are administration.
+ *
+ * The owner (Business Admin) and the General Manager see the same modules;
+ * the owner alone keeps billing and the subscription (ADMIN_ONLY_ACTIONS on
+ * the server). HR managers sit on SUPPORT_STAFF and get their HR group from
+ * their permissions (see hrChildren below).
+ */
+const staffHub = (options: { shift?: boolean; tasks?: string } = {}): NavGroup => ({
+  label: 'Staff Hub',
+  icon: PersonOutlineRounded,
+  children: [
+    ...(options.shift ? [{ label: 'Shift', icon: HistoryIcon, path: '/shift' }] : []),
+    ...(options.tasks ? [{ label: 'My Tasks', icon: AssessmentIcon, path: options.tasks, module: 'pms' as const }] : []),
+    { label: 'My Profile', icon: UserIcon, path: '/my-hr' },
+    { label: 'Notifications', icon: AuditIcon, path: '/notifications' }
+  ]
+});
+
+/** The modules the owner and the GM share. */
+const managementGroups = (owner: boolean): NavItem[] => [
+  {
+    label: 'Front Office',
+    icon: PeopleIcon,
+    children: [
+      { label: 'Reservations', icon: CalendarIcon, path: '/business/reservations', module: 'pms' },
+      { label: 'Arrivals', icon: PeopleIcon, path: '/business/reservations/arrivals', module: 'pms' },
+      { label: 'Departures', icon: PeopleIcon, path: '/business/reservations/departures', module: 'pms' },
+      { label: 'In-House', icon: HotelIcon, path: '/business/reservations/in-house', module: 'pms' },
+      { label: 'Guest Book', icon: PeopleIcon, path: '/business/guests', module: 'pms' },
+      // Company and travel-agent records, plus merge and blacklist.
+      { label: 'Profile Management', icon: PeopleIcon, path: '/business/profiles', module: 'pms' },
+      { label: 'Guest Self-Registration', icon: PosIcon, path: '/business/guests/registration-links', module: 'pms' },
+      { label: 'Guest Feedback', icon: StarRounded, path: '/business/feedback' },
+      { label: 'Loyalty', icon: WorkspacePremium, path: '/business/loyalty' },
+      { label: 'Birthday Wishes', icon: CalendarIcon, path: '/business/settings/birthdays' },
+      { label: 'Room Promotions', icon: WorkspacePremium, path: '/business/promotions', module: 'pms' }
+    ]
+  },
+  {
+    label: 'Rooms',
+    icon: HotelIcon,
+    children: [
+      // Room types are the templates; rooms are the inventory set up against them.
+      { label: 'Room Types', icon: HotelIcon, path: '/business/room-types', module: 'pms' },
+      { label: 'All Rooms', icon: RoomIcon, path: '/business/rooms', module: 'pms' },
+      { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
+      { label: 'Room Inspection', icon: CleaningIcon, path: '/housekeeping/inspection', module: 'pms' },
+      { label: 'Minibar', icon: RestaurantRounded, path: '/business/minibar', module: 'pms' },
+      { label: 'Check-out Approvals', icon: ReceiptIcon, path: '/business/checkout-approvals', module: 'pms' }
+    ]
+  },
+  {
+    label: 'POS',
+    icon: RestaurantRounded,
+    children: [
+      { label: 'Outlets', icon: PosIcon, path: '/business/pos/outlets', module: 'pos' },
+      { label: 'Menu Configuration', icon: MenuBookIcon, path: '/business/menu', module: 'pos' },
+      { label: 'Menu Engineering', icon: AssessmentIcon, path: '/business/pos/menu-engineering', module: 'pos' },
+      { label: 'QR Ordering', icon: PosIcon, path: '/business/pos/qr-codes', module: 'pos' },
+      { label: 'Table Management', icon: RoomIcon, path: '/business/pos/tables', module: 'pos' },
+      { label: 'Kitchen Management', icon: KdsIcon, path: '/business/kitchen', module: 'pos' },
+      { label: 'Sales', icon: TrendingUpRounded, path: '/business/pos/sales', module: 'pos' },
+      { label: 'POS Payments', icon: PosIcon, path: '/business/pos/payments', module: 'pos' },
+      { label: 'F&B Promotions', icon: WorkspacePremium, path: '/business/promotions?tab=FOOD_BEVERAGE', module: 'pos' }
+    ]
+  },
+  {
+    label: 'Finance',
+    icon: AssessmentIcon,
+    children: [
+      // Payments awaiting approval come first: they are the owner's and GM's queue.
+      { label: 'Payments', icon: AccountBalanceWalletRounded, path: '/business/finance/payments' },
+      // Daily records reach reports only once approved.
+      { label: 'Approve Requests', icon: AuditIcon, path: '/business/finance/approvals' },
+      { label: 'Daily Records', icon: CalendarIcon, path: '/business/finance/daily-records' },
+      { label: 'Expenses', icon: AssessmentIcon, path: '/business/finance/expenses' },
+      { label: 'Transaction History', icon: HistoryIcon, path: '/business/finance/transactions' },
+      { label: 'Finance Reports', icon: AssessmentIcon, path: '/business/finance/reports' },
+      { label: 'Revenue Reports', icon: AssessmentIcon, path: '/business/reports/revenue', module: 'finance' },
+      { label: 'Profit & Loss', icon: AssessmentIcon, path: '/business/accounting/reports/profit-loss', module: 'finance' },
+      { label: 'Ledger (Trial Balance)', icon: AssessmentIcon, path: '/business/accounting/reports/trial-balance', module: 'finance' },
+      { label: 'Budgets', icon: AccountBalanceWalletRounded, path: '/business/finance/budgets' },
+      { label: 'Suppliers & Creditors', icon: ReceiptIcon, path: '/business/finance/suppliers' },
+      { label: 'Inventory', icon: ReceiptIcon, path: '/business/accounting/inventory', module: 'finance' },
+      { label: 'Forecasting', icon: TrendingUpRounded, path: '/business/accounting/forecasting', module: 'finance' },
+      { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' }
+    ]
+  },
+  {
+    label: 'HR',
+    icon: BadgeRounded,
+    children: [
+      { label: 'HR Dashboard', icon: UserIcon, path: '/business/hr' },
+      { label: 'Payroll', icon: ReceiptIcon, path: '/business/hr/payroll' },
+      { label: 'Staff Rota', icon: CalendarIcon, path: '/business/hr/rota' },
+      { label: 'Attendance Approvals', icon: CalendarIcon, path: '/business/hr/attendance' }
+    ]
+  },
+  {
+    label: 'Settings',
+    icon: Settings,
+    children: [
+      { label: 'Business Settings', icon: Settings, path: '/business/settings' },
+      // The real path, not /business/users (which redirects into Settings).
+      { label: 'Staff', icon: UserIcon, path: '/business/settings/users' },
+      { label: 'Roles & Permissions', icon: LockOutlined, path: '/business/permissions' },
+      { label: 'Add-ons', icon: WorkspacePremium, path: '/business/add-ons' },
+      { label: 'Audit Log', icon: AuditIcon, path: '/business/audit' },
+      // Billing and the subscription stay with the owner.
+      ...(owner ? [{ label: 'Subscription', icon: WorkspacePremium, path: '/business/subscription' }] : [])
+    ]
+  }
+];
+
 const navigationConfig: Record<NavRole, NavItem[]> = {
   SUPER_ADMIN: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/super-admin/dashboard' },
@@ -149,236 +270,110 @@ const navigationConfig: Record<NavRole, NavItem[]> = {
     { label: 'Audit Log', icon: AuditIcon, path: '/super-admin/audit' },
     { label: 'Settings', icon: Settings, path: '/super-admin/settings' }
   ],
-  /**
-   * The owner's menu, in six modules: Dashboard; Property & Guest; Food &
-   * Beverages; Workforce & Admin; Finance & Intelligence; System Management.
-   */
   BUSINESS_ADMIN: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/business/dashboard' },
-    {
-      label: 'Property & Guest',
-      icon: HotelIcon,
-      children: [
-        // Room types are the templates; rooms are the inventory set up against them.
-        { label: 'Room Types', icon: HotelIcon, path: '/business/room-types', module: 'pms' },
-        { label: 'All Rooms', icon: RoomIcon, path: '/business/rooms', module: 'pms' },
-        { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
-        { label: 'Room Inspection', icon: CleaningIcon, path: '/housekeeping/inspection', module: 'pms' },
-        { label: 'Minibar', icon: RestaurantRounded, path: '/business/minibar', module: 'pms' },
-        { label: 'Check-out Approvals', icon: ReceiptIcon, path: '/business/checkout-approvals', module: 'pms' },
-        { label: 'Guest Book', icon: PeopleIcon, path: '/business/guests', module: 'pms' },
-        { label: 'Guest Feedback', icon: StarRounded, path: '/business/feedback' },
-        { label: 'Guest Self-Registration', icon: PosIcon, path: '/business/guests/registration-links', module: 'pms' },
-        // Company and travel-agent records, plus merge and blacklist.
-        { label: 'Profile Management', icon: PeopleIcon, path: '/business/profiles', module: 'pms' },
-        { label: 'Birthday Wishes', icon: CalendarIcon, path: '/business/settings/birthdays' },
-        { label: 'Loyalty', icon: WorkspacePremium, path: '/business/loyalty' },
-        { label: 'Room Promotions', icon: WorkspacePremium, path: '/business/promotions', module: 'pms' }
-      ]
-    },
-    {
-      label: 'Food & Beverages',
-      icon: RestaurantRounded,
-      children: [
-        { label: 'Menu Configuration', icon: MenuBookIcon, path: '/business/menu', module: 'pos' },
-        { label: 'Menu Engineering', icon: AssessmentIcon, path: '/business/pos/menu-engineering', module: 'pos' },
-        { label: 'QR Ordering', icon: PosIcon, path: '/business/pos/qr-codes', module: 'pos' },
-        { label: 'Table Management', icon: RoomIcon, path: '/business/pos/tables', module: 'pos' },
-        { label: 'Kitchen Management', icon: KdsIcon, path: '/business/kitchen', module: 'pos' },
-        { label: 'Sales', icon: TrendingUpRounded, path: '/business/pos/sales', module: 'pos' },
-        { label: 'F&B Promotions', icon: WorkspacePremium, path: '/business/promotions?tab=FOOD_BEVERAGE', module: 'pos' }
-      ]
-    },
-    {
-      label: 'Workforce & Admin',
-      icon: UserIcon,
-      children: [
-        // The real path, not /business/users (which redirects into Settings
-        // and made the Settings item light up instead of this one).
-        { label: 'Staff', icon: UserIcon, path: '/business/settings/users' },
-        { label: 'Roles & Permissions', icon: LockOutlined, path: '/business/permissions' },
-        { label: 'Audit Trail', icon: AuditIcon, path: '/business/audit' }
-      ]
-    },
-    {
-      label: 'HR',
-      icon: BadgeRounded,
-      children: [
-        { label: 'HR Dashboard', icon: UserIcon, path: '/business/hr' },
-        { label: 'Payroll', icon: ReceiptIcon, path: '/business/hr/payroll' },
-        { label: 'Staff Rota', icon: CalendarIcon, path: '/business/hr/rota' },
-        { label: 'Attendance Approvals', icon: CalendarIcon, path: '/business/hr/attendance' }
-      ]
-    },
-    {
-      label: 'Finance & Intelligence',
-      icon: AssessmentIcon,
-      children: [
-        // The approval queue first: daily records reach reports only once approved.
-        { label: 'Approve Requests', icon: AuditIcon, path: '/business/finance/approvals' },
-        { label: 'Daily Records', icon: CalendarIcon, path: '/business/finance/daily-records' },
-        { label: 'Finance Reports', icon: AssessmentIcon, path: '/business/finance/reports' },
-        { label: 'Budgets', icon: AccountBalanceWalletRounded, path: '/business/finance/budgets' },
-        { label: 'Suppliers & Creditors', icon: ReceiptIcon, path: '/business/finance/suppliers' },
-        { label: 'Daily Expenditure', icon: AssessmentIcon, path: '/business/finance/expenses' },
-        { label: 'Transaction History', icon: AssessmentIcon, path: '/business/finance/transactions' },
-        { label: 'POS Payments', icon: PosIcon, path: '/business/pos/payments', module: 'pos' },
-        { label: 'Inventory', icon: ReceiptIcon, path: '/business/accounting/inventory', module: 'finance' },
-        { label: 'Reports', icon: AssessmentIcon, path: '/business/reports/revenue', module: 'finance' },
-        { label: 'Forecasting', icon: TrendingUpRounded, path: '/business/accounting/forecasting', module: 'finance' },
-        { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' }
-      ]
-    },
-    {
-      label: 'System Management',
-      icon: Settings,
-      children: [
-        { label: 'Subscription', icon: WorkspacePremium, path: '/business/subscription' },
-        { label: 'Settings', icon: Settings, path: '/business/settings' }
-      ]
-    }
+    staffHub({ shift: true }),
+    ...managementGroups(true)
+  ],
+  /** The GM sees what the owner sees, without billing and the subscription. */
+  MANAGER: [
+    { label: 'Dashboard', icon: DashboardIcon, path: '/business/dashboard' },
+    staffHub({ shift: true }),
+    ...managementGroups(false)
   ],
   /**
-   * Non-operational staff — security, laundry, grounds. They hold an account
-   * only to see their own payslips and request leave, so the sidebar shows
-   * exactly that. Everything else is refused by the server anyway; listing it
-   * produced a menu where every item failed with a 403.
+   * Non-operational staff (security, laundry, grounds) see their dashboard
+   * and Staff Hub only. An HR manager also holds SUPPORT_STAFF, and gets an
+   * HR group from its permissions below — nothing else.
    */
   SUPPORT_STAFF: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/staff/home' },
-    { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' }
+    staffHub()
   ],
   RECEPTION: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/reception/dashboard', module: 'pms' },
-    { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' },
-    { label: 'Shift', icon: HistoryIcon, path: '/shift' },
-    { label: 'Stay View', icon: CalendarIcon, path: '/reception/stay-view', module: 'pms' },
-    { label: 'Arrivals', icon: PeopleIcon, path: '/reception/arrivals', module: 'pms' },
-    { label: 'Departures', icon: PeopleIcon, path: '/reception/departures', module: 'pms' },
-    { label: 'In-House', icon: HotelIcon, path: '/reception/in-house', module: 'pms' },
-    { label: 'Waitlist', icon: ReceiptIcon, path: '/reception/waitlist', module: 'pms' },
-    { label: 'Minibar', icon: RestaurantRounded, path: '/business/minibar', module: 'pms' },
-    { label: 'Room Inspection', icon: CleaningIcon, path: '/housekeeping/inspection', module: 'pms' },
+    staffHub({ shift: true }),
     {
-      label: 'New Reservation',
-      icon: CalendarIcon,
-      path: '/reception/new-reservation',
-      module: 'pms'
+      label: 'Front Office',
+      icon: PeopleIcon,
+      children: [
+        { label: 'Stay View', icon: CalendarIcon, path: '/reception/stay-view', module: 'pms' },
+        { label: 'Arrivals', icon: PeopleIcon, path: '/reception/arrivals', module: 'pms' },
+        { label: 'Departures', icon: PeopleIcon, path: '/reception/departures', module: 'pms' },
+        { label: 'In-House', icon: HotelIcon, path: '/reception/in-house', module: 'pms' },
+        { label: 'Waitlist', icon: ReceiptIcon, path: '/reception/waitlist', module: 'pms' },
+        { label: 'New Reservation', icon: CalendarIcon, path: '/reception/new-reservation', module: 'pms' },
+        { label: 'Guest Profiles', icon: PeopleIcon, path: '/business/profiles', module: 'pms' }
+      ]
     },
-    { label: 'Guest Profiles', icon: PeopleIcon, path: '/business/profiles', module: 'pms' }
+    {
+      label: 'Rooms',
+      icon: HotelIcon,
+      children: [
+        { label: 'Room Inspection', icon: CleaningIcon, path: '/housekeeping/inspection', module: 'pms' },
+        { label: 'Minibar', icon: RestaurantRounded, path: '/business/minibar', module: 'pms' }
+      ]
+    }
   ],
   POS_STAFF: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/pos/dashboard', module: 'pos' },
-    { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' },
-    { label: 'Shift', icon: HistoryIcon, path: '/shift' },
-    { label: 'Take Orders', icon: PosIcon, path: '/business/pos/orders', module: 'pos' },
-    { label: 'Tables', icon: RoomIcon, path: '/business/pos/tables', module: 'pos' },
-    // Pointed at the orders page before; the kitchen display is its own screen.
-    { label: 'Kitchen Display', icon: KdsIcon, path: '/business/pos/kds', module: 'pos' },
-    { label: 'Payments', icon: ReceiptIcon, path: '/business/pos/payments', module: 'pos' }
+    staffHub({ shift: true }),
+    {
+      label: 'POS',
+      icon: RestaurantRounded,
+      children: [
+        { label: 'Take Orders', icon: PosIcon, path: '/business/pos/orders', module: 'pos' },
+        { label: 'Tables', icon: RoomIcon, path: '/business/pos/tables', module: 'pos' },
+        // The kitchen display is its own screen.
+        { label: 'Kitchen Display', icon: KdsIcon, path: '/business/pos/kds', module: 'pos' },
+        { label: 'Payments', icon: ReceiptIcon, path: '/business/pos/payments', module: 'pos' }
+      ]
+    }
   ],
   HOUSEKEEPING: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/housekeeping/dashboard', module: 'pms' },
-    { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' },
-    { label: 'Room Status', icon: CleaningIcon, path: '/housekeeping/rooms', module: 'pms' },
-    { label: 'Room Inspection', icon: ReceiptIcon, path: '/housekeeping/inspection', module: 'pms' },
-    { label: 'My Tasks', icon: AssessmentIcon, path: '/business/housekeeping/my-tasks', module: 'pms' }
+    staffHub({ tasks: '/business/housekeeping/my-tasks' }),
+    {
+      label: 'Rooms',
+      icon: HotelIcon,
+      children: [
+        { label: 'Room Status', icon: CleaningIcon, path: '/housekeeping/rooms', module: 'pms' },
+        { label: 'Room Inspection', icon: ReceiptIcon, path: '/housekeeping/inspection', module: 'pms' }
+      ]
+    }
   ],
   ACCOUNTANT: [
     { label: 'Dashboard', icon: DashboardIcon, path: '/accountant/dashboard', module: 'finance' },
-    { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' },
-    {
-      label: 'Night Audit Status',
-      icon: AssessmentIcon,
-      path: '/accountant/night-audit/status',
-      module: 'finance'
-    },
-    {
-      label: 'Validate Audit',
-      icon: ReceiptIcon,
-      path: '/accountant/night-audit/validate',
-      module: 'finance'
-    },
-    {
-      label: 'Run Night Audit',
-      icon: AuditIcon,
-      path: '/accountant/night-audit/run',
-      module: 'finance'
-    },
-    {
-      label: 'Audit History',
-      icon: HistoryIcon,
-      path: '/accountant/night-audit/history',
-      module: 'finance'
-    },
-    // { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
-    { label: 'Daily Records', icon: CalendarIcon, path: '/business/finance/daily-records', module: 'finance' },
-    { label: 'Finance Reports', icon: AssessmentIcon, path: '/business/finance/reports', module: 'finance' },
-    { label: 'Suppliers & Creditors', icon: ReceiptIcon, path: '/business/finance/suppliers', module: 'finance' },
-    { label: 'POS Payments', icon: PosIcon, path: '/business/pos/payments', module: 'pos' },
-    { label: 'Revenue', icon: AssessmentIcon, path: '/accountant/revenue', module: 'finance' },
-    {
-      label: 'Inventory',
-      icon: ReceiptIcon,
-      path: '/business/accounting/inventory',
-      module: 'finance'
-    },
-    {
-      label: 'Forecasting',
-      icon: TrendingUpRounded,
-      path: '/business/accounting/forecasting',
-      module: 'finance'
-    },
-    { label: 'Aging', icon: ReceiptIcon, path: '/accountant/aging', module: 'finance' },
-    { label: 'VAT', icon: ReceiptIcon, path: '/accountant/vat', module: 'finance' },
-    {
-      label: 'Trial Balance',
-      icon: AssessmentIcon,
-      path: '/accountant/trial-balance',
-      module: 'finance'
-    }
-  ],
-  MANAGER: [
-    { label: 'Dashboard', icon: DashboardIcon, path: '/business/dashboard' },
-    { label: 'Reservations', icon: CalendarIcon, path: '/business/reservations', module: 'pms' },
-    { label: 'Arrivals', icon: PeopleIcon, path: '/business/reservations/arrivals', module: 'pms' },
-    { label: 'Housekeeping', icon: CleaningIcon, path: '/business/housekeeping/manager', module: 'pms' },
-    { label: 'Check-out Approvals', icon: ReceiptIcon, path: '/business/checkout-approvals', module: 'pms' },
-    { label: 'Minibar', icon: RestaurantRounded, path: '/business/minibar', module: 'pms' },
-    { label: 'Guest Feedback', icon: StarRounded, path: '/business/feedback' },
-    { label: 'HR & Payroll', icon: UserIcon, path: '/business/hr' },
-    { label: 'Staff Hub', icon: UserIcon, path: '/my-hr' },
-    { label: 'Anomalies (AI)', icon: AutoAwesomeRounded, path: '/business/anomalies' },
-    { label: 'Tables', icon: RoomIcon, path: '/business/pos/tables', module: 'pos' },
-    { label: 'Kitchen', icon: KdsIcon, path: '/business/kitchen', module: 'pos' },
+    staffHub({ shift: true }),
     {
       label: 'Finance',
       icon: AssessmentIcon,
       children: [
-        { label: 'Daily Records', icon: CalendarIcon, path: '/business/finance/daily-records' },
-        // The GM records spend for the owner to approve, and approves the owner's.
-        { label: 'Daily Expenditure', icon: AssessmentIcon, path: '/business/finance/expenses' },
-        { label: 'Finance Reports', icon: AssessmentIcon, path: '/business/finance/reports' },
-        { label: 'Budgets', icon: AccountBalanceWalletRounded, path: '/business/finance/budgets' },
-        { label: 'Suppliers & Creditors', icon: ReceiptIcon, path: '/business/finance/suppliers' },
-        { label: 'Transaction History', icon: HistoryIcon, path: '/business/finance/transactions' },
-        { label: 'POS Payments', icon: PosIcon, path: '/business/pos/payments', module: 'pos' }
+        // Approved payments to pay, print and download.
+        { label: 'Payment Book', icon: AccountBalanceWalletRounded, path: '/business/finance/payments' },
+        { label: 'Daily Records', icon: CalendarIcon, path: '/business/finance/daily-records', module: 'finance' },
+        { label: 'Expenses', icon: AssessmentIcon, path: '/business/finance/expenses', module: 'finance' },
+        { label: 'Finance Reports', icon: AssessmentIcon, path: '/business/finance/reports', module: 'finance' },
+        { label: 'Revenue', icon: AssessmentIcon, path: '/accountant/revenue', module: 'finance' },
+        { label: 'Ledger (Trial Balance)', icon: AssessmentIcon, path: '/accountant/trial-balance', module: 'finance' },
+        { label: 'Aging', icon: ReceiptIcon, path: '/accountant/aging', module: 'finance' },
+        { label: 'VAT', icon: ReceiptIcon, path: '/accountant/vat', module: 'finance' },
+        { label: 'Suppliers & Creditors', icon: ReceiptIcon, path: '/business/finance/suppliers', module: 'finance' },
+        { label: 'POS Payments', icon: PosIcon, path: '/business/pos/payments', module: 'pos' },
+        { label: 'Inventory', icon: ReceiptIcon, path: '/business/accounting/inventory', module: 'finance' },
+        { label: 'Forecasting', icon: TrendingUpRounded, path: '/business/accounting/forecasting', module: 'finance' }
       ]
     },
     {
-      label: 'Revenue',
-      icon: AssessmentIcon,
-      path: '/business/accounting/reports/profit-loss',
-      module: 'finance'
-    },
-    {
-      label: 'Trial Balance',
-      icon: AssessmentIcon,
-      path: '/business/accounting/reports/trial-balance',
-      module: 'finance'
-    },
-    { label: 'Audit Trail', icon: AuditIcon, path: '/business/audit-trail' }
-    // Settings intentionally excluded — MANAGER has no settings pages
+      label: 'Night Audit',
+      icon: AuditIcon,
+      children: [
+        { label: 'Night Audit Status', icon: AssessmentIcon, path: '/accountant/night-audit/status', module: 'finance' },
+        { label: 'Validate Audit', icon: ReceiptIcon, path: '/accountant/night-audit/validate', module: 'finance' },
+        { label: 'Run Night Audit', icon: AuditIcon, path: '/accountant/night-audit/run', module: 'finance' },
+        { label: 'Audit History', icon: HistoryIcon, path: '/accountant/night-audit/history', module: 'finance' }
+      ]
+    }
   ]
 };
 
@@ -679,7 +674,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     can('APPROVE_ATTENDANCE') && { label: 'Attendance Approvals', icon: CalendarIcon, path: '/business/hr/attendance' },
     // The owner's Staff screen, for HR. The owner already has it at top level.
     role !== 'BUSINESS_ADMIN' && can('MANAGE_USERS')
-      && { label: 'Staff Accounts', icon: UserIcon, path: '/business/settings/users' }
+      && { label: 'Staff Accounts', icon: UserIcon, path: '/business/settings/users' },
+    // HR prepares payroll runs and other staff payments for approval.
+    can('CREATE_PAYMENT') && { label: 'Payments', icon: AccountBalanceWalletRounded, path: '/business/finance/payments' }
   ].filter(Boolean) as NavLink[];
 
   /**
@@ -704,8 +701,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     (can('MANAGE_PROMOTIONS') || role === 'BUSINESS_ADMIN') && { label: 'Event Promotions', icon: WorkspacePremium, path: '/business/promotions?tab=EVENT', module: 'pms' as const }
   ].filter(Boolean).filter((link) => inPlan((link as NavLink).path)) as NavLink[];
   if (role !== 'SUPER_ADMIN' && eventChildren.length > 0 && !menuItems.some((item) => item.label === 'Banquet / Event')) {
-    // Straight after Reservations / Property & Guest where a role has it.
-    const anchor = menuItems.findIndex((item) => item.label === 'Property & Guest' || item.label === 'Reservations' || item.label === 'Dashboard');
+    // After Front Office where the role has it; otherwise after the Staff Hub,
+    // so Dashboard and Staff Hub always stay first and second.
+    const indexOf = (label: string) => menuItems.findIndex((item) => item.label === label);
+    const anchor = [indexOf('Front Office'), indexOf('Staff Hub'), indexOf('Dashboard')].find((i) => i >= 0) ?? -1;
     menuItems.splice(anchor >= 0 ? anchor + 1 : menuItems.length, 0, { label: 'Banquet / Event', icon: CalendarIcon, children: eventChildren });
   }
 
@@ -716,7 +715,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const outletAddOns = planAddOns.filter((addOn) => addOn.behavior === 'OUTLET');
   if ((role === 'BUSINESS_ADMIN' || role === 'MANAGER') && outletAddOns.length > 0) {
     const group = { label: 'Add-ons', icon: WorkspacePremium, children: outletAddOns.map((addOn) => ({ label: addOn.name, icon: WorkspacePremium, path: `/business/add-ons/${addOn.code.toLowerCase()}` })) };
-    const anchor = menuItems.findIndex((item) => item.label === 'Food & Beverages');
+    const anchor = menuItems.findIndex((item) => item.label === 'POS');
     menuItems.splice(anchor >= 0 ? anchor + 1 : menuItems.length, 0, group);
   }
 

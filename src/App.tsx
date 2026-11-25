@@ -144,6 +144,9 @@ import AddOnsPage from './pages/super-admin/AddOnsPage';
 import PlatformSettingsPage from './pages/super-admin/PlatformSettingsPage';
 import { BillingDocumentPage, BillingListPage } from './pages/super-admin/BillingPages';
 import AddOnOutletPage from './pages/business/addons/AddOnOutletPage';
+import AddOnsSettingsPage from './pages/business/addons/AddOnsSettingsPage';
+import PaymentsPage from './pages/business/finance/PaymentsPage';
+import NotificationsPage from './pages/NotificationsPage';
 import ReceptionDashboard from './pages/roles/ReceptionDashboard';
 import PosDashboard from './pages/roles/PosDashboard';
 import FinanceDashboard from './pages/roles/FinanceDashboard';
@@ -451,6 +454,38 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
                     <AddOnOutletPage />
+                  </ProtectedRoute>
+                }
+              />
+              {/* Settings → Add-ons: property add-ons, guest extras, staff access. */}
+              <Route
+                path="/business/add-ons"
+                element={
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']} anyPermission={['MANAGE_ADD_ONS']}>
+                    <AddOnsSettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+              {/* Finance → Payments: HR prepares, Admin/GM approves, Accountant pays. */}
+              <Route
+                path="/business/finance/payments"
+                element={
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'ACCOUNTANT']}
+                    anyPermission={['CREATE_PAYMENT', 'APPROVE_PAYMENT', 'VIEW_PAYMENT_BOOK']}
+                  >
+                    <PaymentsPage />
+                  </ProtectedRoute>
+                }
+              />
+              {/* Staff Hub → Notifications, for every signed-in member of staff. */}
+              <Route
+                path="/notifications"
+                element={
+                  <ProtectedRoute
+                    allowedRoles={['BUSINESS_ADMIN', 'MANAGER', 'RECEPTIONIST', 'FRONT_OFFICE', 'POS_STAFF', 'HOUSEKEEPING', 'ACCOUNTANT', 'SUPPORT_STAFF']}
+                  >
+                    <NotificationsPage />
                   </ProtectedRoute>
                 }
               />
@@ -891,7 +926,7 @@ function App() {
               <Route
                 path="/business/reservations/arrivals"
                 element={
-                  <ProtectedRoute allowedRoles={['RECEPTIONIST',
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
                       'FRONT_OFFICE', 'MANAGER']}>
                     <ArrivalsPage />
                   </ProtectedRoute>
@@ -901,7 +936,7 @@ function App() {
               <Route
                 path="/business/reservations/departures"
                 element={
-                  <ProtectedRoute allowedRoles={['RECEPTIONIST',
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
                       'FRONT_OFFICE', 'MANAGER']}>
                     <DeparturesPage />
                   </ProtectedRoute>
@@ -911,7 +946,7 @@ function App() {
               <Route
                 path="/business/reservations/in-house"
                 element={
-                  <ProtectedRoute allowedRoles={['RECEPTIONIST',
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'RECEPTIONIST',
                       'FRONT_OFFICE', 'MANAGER']}>
                     <InHousePage />
                   </ProtectedRoute>
@@ -1075,7 +1110,7 @@ function App() {
               <Route
                 path="/business/subscription"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN']}>
                     <SubscriptionPage />
                   </ProtectedRoute>
                 }
@@ -1292,7 +1327,7 @@ function App() {
               <Route
                 path="/business/pos/outlets"
                 element={
-                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN']}>
+                  <ProtectedRoute allowedRoles={['BUSINESS_ADMIN', 'MANAGER']}>
                     <PosOutletsPage />
                   </ProtectedRoute>
                 }
