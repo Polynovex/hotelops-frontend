@@ -643,14 +643,15 @@ export const createAppTheme = (mode: PaletteMode, colors: BrandColors = {}) => {
           bar: { borderRadius: 8 }
         }
       },
-      MuiTableCell: {
-        styleOverrides: {
-          root: {
-            borderColor: palette?.divider,
-            color: palette?.text?.primary
-          }
-        }
-      },
+      /*
+       * Table headers: a solid primary background with light text, so a
+       * pinned header stays readable while rows scroll underneath (the old
+       * 2.5% tint let the rows show through). Sticky headers sit above cards
+       * and overlays inside the table (z-index 10) and below MUI dialogs and
+       * menus (1200+), with a line separating them from the rows.
+       * Dark mode uses a deeper shade of the business colour, not the light
+       * tint used for buttons, so the header does not glare.
+       */
       MuiTableHead: {
         styleOverrides: {
           root: {
@@ -659,9 +660,38 @@ export const createAppTheme = (mode: PaletteMode, colors: BrandColors = {}) => {
               fontSize: '0.78rem',
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
-              color: palette?.text?.secondary,
-              backgroundColor: isDark ? alpha('#F6F2EA', 0.025) : alpha(brand.ink, 0.025)
-            }
+              color: '#F8F4EC',
+              backgroundColor: isDark ? darken(navyTint, 0.25) : navy,
+              borderBottom: `2px solid ${gold}`
+            },
+            '& .MuiTableCell-head .MuiTableSortLabel-root, & .MuiTableCell-head .MuiTableSortLabel-root:hover, & .MuiTableCell-head .MuiTableSortLabel-root.Mui-active, & .MuiTableCell-head .MuiTableSortLabel-icon':
+              { color: 'inherit !important' },
+            '& .MuiTableCell-head .MuiCheckbox-root': { color: 'inherit' },
+            '& .MuiTableCell-head .MuiIconButton-root, & .MuiTableCell-head .MuiButton-text': { color: 'inherit' }
+          }
+        }
+      },
+      MuiTableCell: {
+        styleOverrides: {
+          root: {
+            borderColor: palette?.divider,
+            color: palette?.text?.primary
+          },
+          stickyHeader: {
+            zIndex: 10,
+            boxShadow: `0 2px 6px ${alpha('#000000', isDark ? 0.45 : 0.12)}`
+          }
+        }
+      },
+      MuiTable: {
+        defaultProps: { stickyHeader: true }
+      },
+      MuiTableContainer: {
+        styleOverrides: {
+          root: {
+            // The container scrolls, so its header can stick at the top of it.
+            maxHeight: 'calc(100vh - 160px)',
+            '@media print': { maxHeight: 'none', overflow: 'visible' }
           }
         }
       },

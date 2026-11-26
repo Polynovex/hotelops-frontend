@@ -1,4 +1,5 @@
 import { Box, Typography } from '@mui/material';
+import { useChartColors } from '../../hooks/useChartColors';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 interface RevenuePoint {
@@ -22,6 +23,7 @@ const defaultData: RevenuePoint[] = [
 ];
 
 const RevenueChart = ({ title = 'Revenue Trend', data = defaultData }: RevenueChartProps) => {
+  const chart = useChartColors();
   return (
     <Box sx={{ width: '100%', height: 320 }}>
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
@@ -29,11 +31,11 @@ const RevenueChart = ({ title = 'Revenue Trend', data = defaultData }: RevenueCh
       </Typography>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="label" />
-          <YAxis />
-          <Tooltip formatter={(value) => `₦${Number(value).toLocaleString()}`} />
-          <Bar dataKey="value" fill="#0B4F6C" />
+          <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+          <XAxis dataKey="label" stroke={chart.axis} tick={{ fill: chart.axis }} />
+          <YAxis stroke={chart.axis} tick={{ fill: chart.axis }} />
+          <Tooltip {...chart.tooltip} formatter={(value) => `₦${Number(value).toLocaleString()}`} />
+          <Bar dataKey="value" fill={chart.series[0]} />
         </BarChart>
       </ResponsiveContainer>
     </Box>

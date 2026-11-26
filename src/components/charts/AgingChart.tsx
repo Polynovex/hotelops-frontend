@@ -1,4 +1,5 @@
 import { Box, Typography } from '@mui/material';
+import { useChartColors } from '../../hooks/useChartColors';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 interface AgingBucket {
@@ -19,6 +20,7 @@ const defaultData: AgingBucket[] = [
 ];
 
 const AgingChart = ({ title = 'Aging Buckets', data = defaultData }: AgingChartProps) => {
+  const chart = useChartColors();
   return (
     <Box sx={{ width: '100%', height: 320 }}>
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
@@ -26,11 +28,11 @@ const AgingChart = ({ title = 'Aging Buckets', data = defaultData }: AgingChartP
       </Typography>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="bucket" />
-          <YAxis />
-          <Tooltip formatter={(value) => `₦${Number(value).toLocaleString()}`} />
-          <Bar dataKey="amount" fill="#f59e0b" />
+          <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+          <XAxis dataKey="bucket" stroke={chart.axis} tick={{ fill: chart.axis }} />
+          <YAxis stroke={chart.axis} tick={{ fill: chart.axis }} />
+          <Tooltip {...chart.tooltip} formatter={(value) => `₦${Number(value).toLocaleString()}`} />
+          <Bar dataKey="amount" fill={chart.series[1]} />
         </BarChart>
       </ResponsiveContainer>
     </Box>

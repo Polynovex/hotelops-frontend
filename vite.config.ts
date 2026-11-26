@@ -8,8 +8,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
 
-    // Electron loads the built HTML from the filesystem — must use relative paths
-    base: isDesktopBuild ? './' : '/',
+    // The desktop app serves the build from app://hotelopx/ (see the desktop
+    // repo's url-guard.js), so absolute paths work there too, and they keep
+    // assets loading when a deep route such as /business/pos is reloaded.
+    base: '/',
 
     define: {
       __DESKTOP__: JSON.stringify(isDesktopBuild)

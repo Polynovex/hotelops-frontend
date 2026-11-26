@@ -1,43 +1,77 @@
 import { useState } from 'react';
-import { IconButton, Tooltip } from '@mui/material';
+import { Box, Button, FormControlLabel, IconButton, Popover, Slider, Stack, Switch, Tooltip, Typography } from '@mui/material';
 import VolumeUpRounded from '@mui/icons-material/VolumeUpRounded';
 import VolumeOffRounded from '@mui/icons-material/VolumeOffRounded';
-import { isChimeEnabled, setChimeEnabled, playChime } from '../utils/alertChime';
+import { getChimeVolume, isChimeEnabled, playChime, setChimeEnabled, setChimeVolume } from '../utils/alertChime';
 
 /**
- * Turns alert sounds on and off.
+ * Alert sound settings: on/off, volume (0–100) and a test sound.
  *
- * A kitchen wants the chime; a manager sitting next to the kitchen does not
- * want it twice. The preference is per device rather than per account, because
- * it belongs to where the screen is — the same person moving from the pass to
- * the office wants a different answer in each place.
- *
- * Switching it on plays the tone once, so the setting confirms itself instead
- * of leaving someone to wonder whether it worked.
+ * Per device rather than per account, because the right answer belongs to
+ * where the screen is — the kitchen pass wants it loud, the office quiet.
+ * Changing anything plays the tone once, so the setting confirms itself, and
+ * that click is also the gesture browsers require before audio may play.
  */
 export function AlertSoundToggle() {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [enabled, setEnabled] = useState(isChimeEnabled);
+  const [volume, setVolume] = useState(getChimeVolume);
 
-  const toggle = () => {
-    const next = !enabled;
+  const toggle = (next: boolean) => {
     setChimeEnabled(next);
     setEnabled(next);
-
-    // Doubles as the user gesture browsers require before audio may play.
-    if (next) playChime('soft');
+    if (next) playChime('order');
   };
 
+  const muted = !enabled || volume === 0;
+
   return (
-    <Tooltip title={enabled ? 'Alert sounds on — click to mute' : 'Alert sounds muted — click to turn on'}>
-      <IconButton
-        onClick={toggle}
-        size="small"
-        aria-label={enabled ? 'Mute alert sounds' : 'Turn on alert sounds'}
-        aria-pressed={enabled}
-        color={enabled ? 'primary' : 'default'}
+    <>
+      <Tooltip title="Alert sound settings">
+        <IconButton
+          onClick={(e) => setAnchor(e.currentTarget)}
+          size="small"
+          aria-label="Alert sound settings"
+          color={muted ? 'default' : 'primary'}
+        >
+          {muted ? <VolumeOffRounded fontSize="small" /> : <VolumeUpRounded fontSize="small" />}
+        </IconButton>
+      </Tooltip>
+      <Popover
+        open={Boolean(anchor)}
+        anchorEl={anchor}
+        onClose={() => setAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        {enabled ? <VolumeUpRounded fontSize="small" /> : <VolumeOffRounded fontSize="small" />}
-      </IconButton>
-    </Tooltip>
+        <Box sx={{ p: 2, width: 280 }}>
+          <Typography fontWeight={700} sx={{ mb: 1 }}>Alert sounds</Typography>
+          <FormControlLabel control={<Switch checked={enabled} onChange={(e) => toggle(e.target.checked)} />} label={enabled ? 'On' : 'Muted'} />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Volume</Typography>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Slider
+              value={volume}
+              min={0}
+              max={100}
+              step={5}
+              disabled={!enabled}
+              aria-label="Notification volume"
+              onChange={(_e, value) => setVolume(value as number)}
+              onChangeCommitted={(_e, value) => {
+                setChimeVolume(value as number);
+                playChime('order');
+              }}
+            />
+            <Typography variant="body2" sx={{ minWidth: 32, textAlign: 'right' }}>{volume}</Typography>
+          </Stack>
+          <Button fullWidth variant="outlined" size="small" sx={{ mt: 1 }} onClick={() => playChime('urgent', { force: true })}>
+            Play test sound
+          </Button>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Saved on this device. Your device’s own volume still applies.
+          </Typography>
+        </Box>
+      </Popover>
+    </>
   );
 }

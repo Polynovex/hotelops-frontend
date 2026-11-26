@@ -1,4 +1,5 @@
 import { Box, Typography } from '@mui/material';
+import { useChartColors } from '../../hooks/useChartColors';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 interface OccupancyPoint {
@@ -22,6 +23,7 @@ const defaultData: OccupancyPoint[] = [
 ];
 
 const OccupancyChart = ({ title = 'Occupancy', data = defaultData }: OccupancyChartProps) => {
+  const chart = useChartColors();
   return (
     <Box sx={{ width: '100%', height: 320 }}>
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
@@ -29,11 +31,11 @@ const OccupancyChart = ({ title = 'Occupancy', data = defaultData }: OccupancyCh
       </Typography>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="label" />
-          <YAxis domain={[0, 100]} />
-          <Tooltip formatter={(value) => `${Number(value).toFixed(1)}%`} />
-          <Line dataKey="value" stroke="#1e8e5b" strokeWidth={2} />
+          <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+          <XAxis dataKey="label" stroke={chart.axis} tick={{ fill: chart.axis }} />
+          <YAxis domain={[0, 100]} stroke={chart.axis} tick={{ fill: chart.axis }} />
+          <Tooltip {...chart.tooltip} formatter={(value) => `${Number(value).toFixed(1)}%`} />
+          <Line dataKey="value" stroke={chart.series[2]} strokeWidth={2} />
         </LineChart>
       </ResponsiveContainer>
     </Box>

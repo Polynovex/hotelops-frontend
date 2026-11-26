@@ -3,6 +3,7 @@ import OvertimeMatrixDialog from '../../../components/hr/OvertimeMatrixDialog';
 import { useAuthStore } from '../../../store/authStore';
 import HrTabs from './HrTabs';
 import Layout from '../../../components/Layout';
+import { apiError, paymentsApi } from '../../../services/payments';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -63,7 +64,6 @@ const PayrollPage = () => {
 
   const businessLogo = useAuthStore((state) => state.user?.logoUrl ?? null);
   const [payslip, setPayslip] = useState<Payslip | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -112,22 +112,26 @@ const PayrollPage = () => {
     }
   };
 
-  const advance = async (record: PayrollRecord) => {
-    setBusyId(record.id);
+  /**
+   * Payroll is paid through payment approval: HR submits the period's draft
+   * payroll as one payment, the Admin or GM approves it (bank or cash) — which
+   * processes these lines — and the accountant marks it paid.
+   */
+  const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitPeriod, setSubmitPeriod] = useState(currentPeriod());
+  const [submitting, setSubmitting] = useState(false);
+  const submitForApproval = async () => {
+    setSubmitting(true);
     try {
-      if (record.status === 'DRAFT') {
-        await hrService.processPayroll(record.id);
-        setToast('Payroll processed');
-      } else if (record.status === 'PROCESSED') {
-        await hrService.markPaid(record.id);
-        setToast('Payroll marked paid');
-      }
+      const record = await paymentsApi.create({ type: 'PAYROLL', periodStart: submitPeriod.start, periodEnd: submitPeriod.end });
+      await paymentsApi.submit(record.id);
+      setToast(`${record.reference} (${formatNaira(record.amount)}) sent for approval. Track it in Finance → Payments.`);
+      setSubmitOpen(false);
       await load();
     } catch (err: unknown) {
-      const response = (err as { response?: { data?: { error?: string } } }).response;
-      setError(response?.data?.error || 'Failed to update payroll');
+      setError(apiError(err, 'Could not submit payroll for approval'));
     } finally {
-      setBusyId(null);
+      setSubmitting(false);
     }
   };
 
@@ -148,7 +152,7 @@ const PayrollPage = () => {
             Payroll
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Generate, process, and pay staff salaries. PAYE is calculated automatically.
+            Generate payroll, then submit it for approval. The Admin or GM approves it and the accountant pays it. PAYE is calculated automatically.
           </Typography>
         </Box>
         <Button variant="outlined" onClick={() => setMatrixOpen(true)} sx={{ mr: 1 }}>
@@ -156,6 +160,9 @@ const PayrollPage = () => {
         </Button>
         <Button variant="contained" startIcon={<PlayCircleIcon />} onClick={() => setGenOpen(true)}>
           Generate Payroll
+        </Button>
+        <Button variant="contained" color="secondary" onClick={() => setSubmitOpen(true)} sx={{ ml: 1 }}>
+          Submit for approval
         </Button>
       </Stack>
 
@@ -235,22 +242,16 @@ const PayrollPage = () => {
                   </TableCell>
                   <TableCell>
                     <Chip size="small" label={record.status} color={PAYROLL_STATUS_COLOR[record.status]} />
+                    {record.status === 'DRAFT' && record.paymentRecordId && (
+                      <Chip size="small" variant="outlined" color="warning" label="Awaiting approval" sx={{ ml: 0.5 }} />
+                    )}
                   </TableCell>
                   <TableCell align="right">
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                       <Button size="small" startIcon={<ReceiptLongIcon />} onClick={() => void openPayslip(record)}>
                         Payslip
                       </Button>
-                      {record.status !== 'PAID' && (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          disabled={busyId === record.id}
-                          onClick={() => void advance(record)}
-                        >
-                          {record.status === 'DRAFT' ? 'Process' : 'Mark paid'}
-                        </Button>
-                      )}
+
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -258,6 +259,25 @@ const PayrollPage = () => {
           </TableBody>
         </Table>
       </TableContainer>
+
+      <Dialog open={submitOpen} onClose={() => setSubmitOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Submit payroll for approval</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Every draft payroll line in this period goes to the Admin or GM as one payment. Lines in it are locked until it is approved or rejected.
+          </Typography>
+          <Stack spacing={2}>
+            <TextField label="Period start" type="date" InputLabelProps={{ shrink: true }} value={submitPeriod.start} onChange={(e) => setSubmitPeriod({ ...submitPeriod, start: e.target.value })} />
+            <TextField label="Period end" type="date" InputLabelProps={{ shrink: true }} value={submitPeriod.end} onChange={(e) => setSubmitPeriod({ ...submitPeriod, end: e.target.value })} />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSubmitOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={submitting} onClick={() => void submitForApproval()}>
+            {submitting ? 'Submitting…' : 'Submit'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={genOpen} onClose={() => setGenOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Generate payroll</DialogTitle>

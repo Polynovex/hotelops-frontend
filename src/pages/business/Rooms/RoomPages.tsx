@@ -24,6 +24,7 @@ import {
   TextField,
   Typography
 } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import {
   BuildOutlined,
   CheckCircleOutline,
@@ -154,71 +155,35 @@ export const RoomStatusBoardPage = () => {
     });
   }, [rooms, search, filter]);
 
+  /**
+   * Status badge colours from the theme, so they read correctly in light and
+   * dark mode: the status colour as text, a soft tint of it behind.
+   */
+  const muiTheme = useTheme();
+  const tone = (main: string) => ({
+    color: main,
+    background: alpha(main, muiTheme.palette.mode === 'dark' ? 0.2 : 0.1),
+    border: alpha(main, muiTheme.palette.mode === 'dark' ? 0.45 : 0.3)
+  });
+  const reservedTone = muiTheme.palette.mode === 'dark' ? '#C9A2E8' : '#7154a5';
+
   const getStatusConfig = (status: string) => {
     switch (status) {
       case 'AVAILABLE':
       case 'READY':
-        return {
-          label: status === 'READY' ? 'READY' : 'AVAILABLE',
-          color: '#16805c',
-          background: '#e8f7f1',
-          border: '#b8e5d4',
-          icon: <CheckCircleOutline sx={{ fontSize: 18 }} />
-        };
-
+        return { label: status === 'READY' ? 'READY' : 'AVAILABLE', ...tone(muiTheme.palette.success.main), icon: <CheckCircleOutline sx={{ fontSize: 18 }} /> };
       case 'OCCUPIED':
-        return {
-          label: 'OCCUPIED',
-          color: '#2457a6',
-          background: '#edf4ff',
-          border: '#c8dcff',
-          icon: <HotelOutlined sx={{ fontSize: 18 }} />
-        };
-
+        return { label: 'OCCUPIED', ...tone(muiTheme.palette.mode === 'dark' ? '#7FB8D6' : '#2457a6'), icon: <HotelOutlined sx={{ fontSize: 18 }} /> };
       case 'DIRTY':
-        return {
-          label: 'DIRTY',
-          color: '#b4472a',
-          background: '#fff1ec',
-          border: '#f5c9b8',
-          icon: <CleaningServicesOutlined sx={{ fontSize: 18 }} />
-        };
-
+        return { label: 'DIRTY', ...tone(muiTheme.palette.error.main), icon: <CleaningServicesOutlined sx={{ fontSize: 18 }} /> };
       case 'CLEANING':
-        return {
-          label: 'CLEANING',
-          color: '#a86600',
-          background: '#fff7e6',
-          border: '#f3d79e',
-          icon: <CleaningServicesOutlined sx={{ fontSize: 18 }} />
-        };
-
+        return { label: 'CLEANING', ...tone(muiTheme.palette.warning.main), icon: <CleaningServicesOutlined sx={{ fontSize: 18 }} /> };
       case 'MAINTENANCE':
-        return {
-          label: 'OUT OF ORDER',
-          color: '#c0392b',
-          background: '#fff0ef',
-          border: '#f0c5c1',
-          icon: <BuildOutlined sx={{ fontSize: 18 }} />
-        };
-
+        return { label: 'OUT OF ORDER', ...tone(muiTheme.palette.error.main), icon: <BuildOutlined sx={{ fontSize: 18 }} /> };
       case 'RESERVED':
-        return {
-          label: 'RESERVED',
-          color: '#7154a5',
-          background: '#f4effb',
-          border: '#d9ccef',
-          icon: <MeetingRoomOutlined sx={{ fontSize: 18 }} />
-        };
-
+        return { label: 'RESERVED', ...tone(reservedTone), icon: <MeetingRoomOutlined sx={{ fontSize: 18 }} /> };
       default:
-        return {
-          label: status,
-          color: 'card.body',
-          background: 'card.muted',
-          border: '#dce3ea',
-          icon: <ErrorOutline sx={{ fontSize: 18 }} />
-        };
+        return { label: status, color: 'card.body', background: 'card.muted', border: muiTheme.palette.divider, icon: <ErrorOutline sx={{ fontSize: 18 }} /> };
     }
   };
 
@@ -572,9 +537,9 @@ export const RoomStatusBoardPage = () => {
                     textTransform: 'none',
                     fontWeight: 700,
                     backgroundColor:
-                      filter === 'AVAILABLE' ? '#e8f7f1' : 'card.muted',
+                      filter === 'AVAILABLE' ? (theme) => alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.24 : 0.12) : 'card.muted',
                     color:
-                      filter === 'AVAILABLE' ? '#16805c' : 'card.body'
+                      filter === 'AVAILABLE' ? 'success.main' : 'card.body'
                   }}
                 >
                   Available ({counts.available})
@@ -588,9 +553,9 @@ export const RoomStatusBoardPage = () => {
                     textTransform: 'none',
                     fontWeight: 700,
                     backgroundColor:
-                      filter === 'OCCUPIED' ? '#edf4ff' : 'card.muted',
+                      filter === 'OCCUPIED' ? (theme) => alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.12) : 'card.muted',
                     color:
-                      filter === 'OCCUPIED' ? '#2457a6' : 'card.body'
+                      filter === 'OCCUPIED' ? 'info.main' : 'card.body'
                   }}
                 >
                   Occupied ({counts.occupied})
@@ -603,8 +568,8 @@ export const RoomStatusBoardPage = () => {
                     borderRadius: 1.8,
                     textTransform: 'none',
                     fontWeight: 700,
-                    backgroundColor: filter === 'DIRTY' ? '#fff1ec' : 'card.muted',
-                    color: filter === 'DIRTY' ? '#b4472a' : 'card.body'
+                    backgroundColor: filter === 'DIRTY' ? (theme) => alpha(theme.palette.error.main, theme.palette.mode === 'dark' ? 0.24 : 0.12) : 'card.muted',
+                    color: filter === 'DIRTY' ? 'error.main' : 'card.body'
                   }}
                 >
                   Dirty ({counts.dirty})
@@ -618,9 +583,9 @@ export const RoomStatusBoardPage = () => {
                     textTransform: 'none',
                     fontWeight: 700,
                     backgroundColor:
-                      filter === 'CLEANING' ? '#fff7e6' : 'card.muted',
+                      filter === 'CLEANING' ? (theme) => alpha(theme.palette.warning.main, theme.palette.mode === 'dark' ? 0.24 : 0.12) : 'card.muted',
                     color:
-                      filter === 'CLEANING' ? '#a86600' : 'card.body'
+                      filter === 'CLEANING' ? 'warning.main' : 'card.body'
                   }}
                 >
                   Cleaning ({counts.cleaning})
